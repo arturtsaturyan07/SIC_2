@@ -42,4 +42,7 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
+    implementation (libs.material.v140)
+    implementation (libs.appcompat.v131)
+    implementation (libs.drawerlayout)
 }
