@@ -12,6 +12,7 @@ constraintlayout = "2.2.0"
 googleGmsGoogleServices = "4.4.2"
 firebaseAuth = "23.1.0"
 materialVersion = "1.4.0"
+firebaseInappmessaging = "21.0.1"
 
 [libraries]
 appcompat-v131 = { module = "androidx.appcompat:appcompat", version.ref = "appcompatVersion" }
@@ -25,6 +26,7 @@ activity = { group = "androidx.activity", name = "activity", version.ref = "acti
 constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth", version.ref = "firebaseAuth" }
 material-v140 = { module = "com.google.android.material:material", version.ref = "materialVersion" }
+firebase-inappmessaging = { group = "com.google.firebase", name = "firebase-inappmessaging", version.ref = "firebaseInappmessaging" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

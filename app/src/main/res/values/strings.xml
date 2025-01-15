@@ -5,4 +5,8 @@
     <string name="settings_fragment">Settings Fragment</string>
     <string name="home_fragment">Home Fragment</string>
     <string name="already_registered">\n</string>
+    <string name="drawer_open">Open Drawer</string>
+    <string name="drawer_close">Close Drawer</string>
+    <string name="welcome">Welcome</string>
+
 </resources>
