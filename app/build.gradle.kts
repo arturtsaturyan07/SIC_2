@@ -45,4 +45,7 @@ dependencies {
     androidTestImplementation(libs.espresso.core)
     implementation (libs.material.v140)
     implementation (libs.appcompat.v131)
+    implementation (libs.retrofit)
+    implementation (libs.converter.gson)
+    implementation (libs.gson)
 }
