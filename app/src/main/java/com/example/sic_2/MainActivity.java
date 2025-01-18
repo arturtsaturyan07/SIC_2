@@ -36,10 +36,10 @@ public class MainActivity extends AppCompatActivity {
         btnOpenDrawer = findViewById(R.id.btnOpenDrawer);
         bottomNavigationView = findViewById(R.id.bottom_navigation);
 
+
         setupFragmentMap();
         setupDrawerNavigation(navigationView);
         setupBottomNavigationView();
-
         // Open Drawer Button Listener
         btnOpenDrawer.setOnClickListener(view -> {
             if (!drawerLayout.isDrawerOpen(GravityCompat.START)) {
@@ -50,6 +50,7 @@ public class MainActivity extends AppCompatActivity {
         // Load the default fragment
         loadFragment(new HomeFragment());
     }
+
 
     private void setupFragmentMap() {
         fragmentMap = new HashMap<>();
@@ -95,6 +96,7 @@ public class MainActivity extends AppCompatActivity {
         startActivity(new Intent(MainActivity.this, LoginActivity.class));
         finish(); // Close MainActivity
     }
+
 
     private void showInputDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
