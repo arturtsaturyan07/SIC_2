@@ -10,17 +10,11 @@
     tools:context=".HomeFragment">
 
     <!-- Title TextView -->
-    <TextView
-        android:id="@+id/textView2"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Home Fragment"
-        android:textSize="25sp"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
 
     <!-- Messages TextView -->
+
+
+
     <TextView
         android:id="@+id/messageTextView"
         android:layout_width="0dp"
@@ -28,9 +22,9 @@
         android:padding="16dp"
         android:textColor="@android:color/black"
         android:textSize="18sp"
-        app:layout_constraintTop_toBottomOf="@id/textView2"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintTop_toBottomOf="@id/textView2" />
 
     <!-- EditText for message input -->
     <EditText
@@ -66,8 +60,8 @@
         android:id="@+id/imageContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
         android:layout_marginTop="16dp"
+        android:orientation="vertical"
         app:layout_constraintTop_toBottomOf="@id/buttonAddPhoto">
 
         <!-- Placeholder ImageView for the first image -->
