@@ -2,6 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -10,30 +15,32 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/camp_app_logo"
         android:supportsRtl="true"
-        android:theme="@style/Theme.SIC_2"
+        android:theme="@style/Base.Theme.SIC_2"
         tools:targetApi="31">
-
-        <!-- SplashActivity: Launcher Activity -->
+        <activity
+            android:name=".MyAdapter"
+            android:exported="false" />
+        <activity
+            android:name=".DataClass"
+            android:exported="false" />
+        <activity
+            android:name=".UploadActivity"
+            android:exported="false" /> <!-- SplashActivity: Launcher Activity -->
         <activity
             android:name=".SplashActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
-
-        <!-- LoginActivity -->
+        </activity> <!-- LoginActivity -->
         <activity
             android:name=".LoginActivity"
-            android:exported="true" />
-
-        <!-- RegisterActivity -->
+            android:exported="true" /> <!-- RegisterActivity -->
         <activity
             android:name=".RegisterActivity"
-            android:exported="false" />
-
-        <!-- MainActivity -->
+            android:exported="false" /> <!-- MainActivity -->
         <activity
             android:name=".MainActivity"
             android:exported="false" />
