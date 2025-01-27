@@ -132,6 +132,12 @@ public class MainActivity extends AppCompatActivity {
         cardMessage.setText(message);
         // Add the CardView to the container
         cardContainer.addView(cardView);
+        cardView.setOnClickListener(v -> {
+            Log.d("CardView Click", "CardView was clicked");
+            startActivity(new Intent(MainActivity.this, BlankActivity.class));
+            finish();
+        });
+
     }
 
     private void loadFragment(Fragment fragment) {
