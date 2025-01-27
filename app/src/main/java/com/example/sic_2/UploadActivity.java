@@ -30,6 +30,7 @@ import com.google.firebase.storage.UploadTask;
 
 import java.text.DateFormat;
 import java.util.Calendar;
+import java.util.Objects;
 
 public class UploadActivity extends AppCompatActivity {
 
@@ -57,6 +58,7 @@ public class UploadActivity extends AppCompatActivity {
                     public void onActivityResult(ActivityResult result) {
                         if (result.getResultCode() == Activity.RESULT_OK){
                             Intent data = result.getData();
+                            assert data != null;
                             uri = data.getData();
                             uploadImage.setImageURI(uri);
                         } else {
@@ -86,7 +88,7 @@ public class UploadActivity extends AppCompatActivity {
     public void saveData(){
 
         StorageReference storageReference = FirebaseStorage.getInstance().getReference().child("Android Images")
-                .child(uri.getLastPathSegment());
+                .child(Objects.requireNonNull(uri.getLastPathSegment()));
 
         AlertDialog.Builder builder = new AlertDialog.Builder(UploadActivity.this);
         builder.setCancelable(false);
@@ -121,9 +123,6 @@ public class UploadActivity extends AppCompatActivity {
 
         DataClass dataClass;
         dataClass = new DataClass(title, desc, lang, imageURL);
-
-        //We are changing the child from title to currentDate,
-        // because we will be updating title as well and it may affect child value.
 
         String currentDate = DateFormat.getDateTimeInstance().format(Calendar.getInstance().getTime());
 

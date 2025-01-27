@@ -19,6 +19,7 @@ firebaseInappmessaging = "21.0.1"
 retrofit = "2.9.0"
 firebaseDatabase = "21.0.0"
 firebaseStorage = "21.0.1"
+firebaseFirestore = "25.1.1"
 
 [libraries]
 appcompat-v131 = { module = "androidx.appcompat:appcompat", version.ref = "appcompatVersion" }
@@ -41,6 +42,7 @@ firebase-inappmessaging = { group = "com.google.firebase", name = "firebase-inap
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
 firebase-database = { group = "com.google.firebase", name = "firebase-database", version.ref = "firebaseDatabase" }
 firebase-storage = { group = "com.google.firebase", name = "firebase-storage", version.ref = "firebaseStorage" }
+firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore", version.ref = "firebaseFirestore" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
