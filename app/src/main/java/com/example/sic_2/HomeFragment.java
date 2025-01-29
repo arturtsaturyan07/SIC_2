@@ -95,4 +95,7 @@ public class HomeFragment extends Fragment {
         Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
         getContentLauncher.launch(intent);
     }
+
+
+
 }

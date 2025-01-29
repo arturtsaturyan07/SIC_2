@@ -1,26 +1,31 @@
-<RelativeLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/card_container"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:id="@+id/card_layout">
+    android:orientation="vertical"
+    android:padding="16dp">
 
-    <ImageButton
-        android:id="@+id/backbutton"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:contentDescription="@string/go_back"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:src="@drawable/baseline_arrow_back_ios_new_24"
-        android:layout_margin="16dp"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentTop="true" />
-
+    <!-- Example: Card message TextView -->
     <TextView
         android:id="@+id/card_message"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/backbutton"
-        android:layout_marginTop="8dp"
-        android:padding="16dp"
-        android:textSize="16sp" />
-</RelativeLayout>
+        android:text="Card message"
+        android:textSize="16sp"
+        android:padding="8dp" />
+
+    <!-- Your delete button -->
+    <Button
+        android:id="@+id/delete_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Delete" />
+
+    <!-- Back button for card navigation -->
+    <ImageButton
+        android:id="@+id/backbutton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/baseline_arrow_back_ios_new_24" />
+</LinearLayout>

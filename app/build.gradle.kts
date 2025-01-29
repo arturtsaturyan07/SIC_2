@@ -33,27 +33,33 @@ android {
 }
 
 dependencies {
-
+    // App dependencies
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.activity)
     implementation(libs.constraintlayout)
+
+    // Firebase dependencies
     implementation(libs.firebase.auth)
     implementation(libs.firebase.inappmessaging)
     implementation(libs.firebase.database)
     implementation(libs.firebase.storage)
     implementation(libs.firebase.firestore)
+
+    // Retrofit & Gson for API calls
+    implementation(libs.retrofit)
+    implementation(libs.converter.gson)
+    implementation(libs.gson)
+
+    // Image loading with Glide
+    implementation(libs.glide)
+    annotationProcessor(libs.compiler)
+
+    // Floating Action Button
+    implementation(libs.fab)
+
+    // Test dependencies
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
-    implementation (libs.material.v140)
-    implementation (libs.appcompat.v131)
-    implementation (libs.retrofit)
-    implementation (libs.converter.gson)
-    implementation (libs.gson)
-    implementation (libs.glide)
-    annotationProcessor (libs.compiler)
-    implementation (libs.fab)
-    //implementation ("com.google.android.gms:play-services-location:latest_version")
-
 }

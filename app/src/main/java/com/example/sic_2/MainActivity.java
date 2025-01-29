@@ -1,6 +1,5 @@
 package com.example.sic_2;
 
-import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
@@ -24,6 +23,12 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.badge.BadgeDrawable;
 import com.google.android.material.navigation.NavigationView;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -33,8 +38,11 @@ public class MainActivity extends AppCompatActivity {
     private DrawerLayout drawerLayout;
     private NavigationView navigationView;
     private BottomNavigationView bottomNavigationView;
-    private Map<Integer, Fragment> fragmentMap;
     private LinearLayout cardContainer; // Container for CardViews
+
+    // Firebase
+    private DatabaseReference database;
+    private String userId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,13 +54,14 @@ public class MainActivity extends AppCompatActivity {
         setupBottomNavigationView();
         setupFloatingActionButton();
 
-//        TextView cardMessage = findViewById(R.id.card_message);
-//        cardMessage.setText("Your dynamic message here!");
+        // Firebase setup
+        database = FirebaseDatabase.getInstance().getReference("cards");
+        userId = FirebaseAuth.getInstance().getCurrentUser().getUid(); // Get user ID
 
+        // Load saved cards
+        loadCards();
 
         ImageView btnOpenDrawer = findViewById(R.id.btnOpenDrawer);
-
-        // Open Drawer Button Listener
         btnOpenDrawer.setOnClickListener(view -> {
             if (!drawerLayout.isDrawerOpen(GravityCompat.START)) {
                 drawerLayout.openDrawer(GravityCompat.START);
@@ -73,7 +82,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void setupDrawerNavigation() {
         navigationView.setNavigationItemSelectedListener(item -> {
-            Fragment selectedFragment = fragmentMap.get(item.getItemId());
+            Fragment selectedFragment = getFragmentById(item.getItemId());
             if (selectedFragment != null) {
                 loadFragment(selectedFragment);
             } else if (item.getItemId() == R.id.nav_logout) {
@@ -84,18 +93,21 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void setupBottomNavigationView() {
-        fragmentMap = new HashMap<>();
+    private Fragment getFragmentById(int id) {
+        Map<Integer, Fragment> fragmentMap = new HashMap<>();
         fragmentMap.put(R.id.home, new HomeFragment());
         fragmentMap.put(R.id.notification, new NotificationFragment());
         fragmentMap.put(R.id.settings, new SettingsFragment());
+        return fragmentMap.get(id);
+    }
 
+    private void setupBottomNavigationView() {
         BadgeDrawable badgeDrawable = bottomNavigationView.getOrCreateBadge(R.id.notification);
         badgeDrawable.setVisible(true);
         badgeDrawable.setNumber(8);
 
         bottomNavigationView.setOnItemSelectedListener(item -> {
-            Fragment selectedFragment = fragmentMap.get(item.getItemId());
+            Fragment selectedFragment = getFragmentById(item.getItemId());
             if (selectedFragment != null) {
                 loadFragment(selectedFragment);
                 return true;
@@ -119,9 +131,9 @@ public class MainActivity extends AppCompatActivity {
         builder.setView(input);
 
         builder.setPositiveButton("OK", (dialog, which) -> {
-            String message = input.getText().toString();
+            String message = input.getText().toString().trim();
             if (!message.isEmpty()) {
-                createCardView(message);
+                saveCardToFirebase(message);
             } else {
                 Toast.makeText(this, "Message cannot be empty", Toast.LENGTH_SHORT).show();
             }
@@ -131,25 +143,79 @@ public class MainActivity extends AppCompatActivity {
         builder.show();
     }
 
-    private void createCardView(String message) {
-        // Inflate the LinearLayout layout
-        View cardView = LayoutInflater.from(this).inflate(R.layout.card_view_layout, cardContainer, false);
+    private void saveCardToFirebase(String message) {
+        String cardId = database.child(userId).push().getKey(); // Generate unique card ID
+        if (cardId != null) {
+            Map<String, Object> cardData = new HashMap<>();
+            cardData.put("cardId", cardId);
+            cardData.put("message", message);
 
-        // Set the message to a TextView in LinearLayout (assume there's a TextView with id 'card_message')
-        TextView cardMessage = cardView.findViewById(R.id.card_message);
-        cardMessage.setText(message);
+            database.child(userId).child(cardId).setValue(cardData).addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    createCardView(cardId, message);
+                } else {
+                    Toast.makeText(this, "Failed to save card", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+    }
 
-        // Add the LinearLayout to the container
-        cardContainer.addView(cardView);
+    private void loadCards() {
+        database.child(userId).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                for (DataSnapshot data : snapshot.getChildren()) {
+                    String cardId = data.child("cardId").getValue(String.class);
+                    String message = data.child("message").getValue(String.class);
 
-        // Set an OnClickListener for the LinearLayout
-        cardView.setOnClickListener(v -> {
-            Log.d("LinearLayout Click", "LinearLayout was clicked");
-            startActivity(new Intent(MainActivity.this, BlankActivity.class));
-            finish();
+                    if (cardId != null && message != null) {
+                        createCardView(cardId, message);
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                Log.e("Firebase", "Error loading cards", error.toException());
+            }
         });
     }
 
+    private void createCardView(String cardId, String message) {
+        View cardView = LayoutInflater.from(this).inflate(R.layout.card_view_layout, cardContainer, false);
+
+        TextView cardMessage = cardView.findViewById(R.id.card_message);
+        ImageButton backButton = cardView.findViewById(R.id.backbutton);
+        Button deleteButton = new Button(this);
+
+        cardMessage.setText(message);
+        cardContainer.addView(cardView);
+
+        cardView.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, Card.class);
+            intent.putExtra("cardId", cardId); // Pass cardId to CardActivity
+            startActivity(intent);
+        });
+
+        deleteButton.setText("Delete");
+        deleteButton.setOnClickListener(v -> deleteCard(cardId, cardView));
+        ((LinearLayout) cardView).addView(deleteButton);
+
+        backButton.setOnClickListener(v -> getSupportFragmentManager()
+                .beginTransaction()
+                .replace(R.id.container, new HomeFragment())
+                .commit());
+    }
+
+    private void deleteCard(String cardId, View cardView) {
+        database.child(userId).child(cardId).removeValue().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                cardContainer.removeView(cardView);
+            } else {
+                Toast.makeText(this, "Failed to delete card", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
 
     private void loadFragment(Fragment fragment) {
         if (fragment != null) {
@@ -160,6 +226,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void handleLogout() {
+        FirebaseAuth.getInstance().signOut();
         startActivity(new Intent(MainActivity.this, LoginActivity.class));
         finish();
     }
