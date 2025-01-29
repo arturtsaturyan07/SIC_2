@@ -1,11 +1,14 @@
 package com.example.sic_2;
 
+import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -42,6 +45,10 @@ public class MainActivity extends AppCompatActivity {
         setupDrawerNavigation();
         setupBottomNavigationView();
         setupFloatingActionButton();
+
+//        TextView cardMessage = findViewById(R.id.card_message);
+//        cardMessage.setText("Your dynamic message here!");
+
 
         ImageView btnOpenDrawer = findViewById(R.id.btnOpenDrawer);
 
@@ -125,20 +132,24 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void createCardView(String message) {
-        // Inflate the CardView layout
+        // Inflate the LinearLayout layout
         View cardView = LayoutInflater.from(this).inflate(R.layout.card_view_layout, cardContainer, false);
-        // Set the message to a TextView in CardView (assume there's a TextView with id 'card_message')
+
+        // Set the message to a TextView in LinearLayout (assume there's a TextView with id 'card_message')
         TextView cardMessage = cardView.findViewById(R.id.card_message);
         cardMessage.setText(message);
-        // Add the CardView to the container
+
+        // Add the LinearLayout to the container
         cardContainer.addView(cardView);
+
+        // Set an OnClickListener for the LinearLayout
         cardView.setOnClickListener(v -> {
-            Log.d("CardView Click", "CardView was clicked");
+            Log.d("LinearLayout Click", "LinearLayout was clicked");
             startActivity(new Intent(MainActivity.this, BlankActivity.class));
             finish();
         });
-
     }
+
 
     private void loadFragment(Fragment fragment) {
         if (fragment != null) {

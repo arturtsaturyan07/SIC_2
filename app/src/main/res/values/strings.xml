@@ -9,6 +9,7 @@
     <string name="drawer_close">Close Drawer</string>
     <string name="welcome">Welcome</string>
     <string name="todo">TODO</string>
+    <string name="go_back">Go Back</string>
 
 
 </resources>
