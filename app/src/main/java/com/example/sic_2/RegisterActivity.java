@@ -4,18 +4,12 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
 import com.google.android.material.textfield.TextInputEditText;
-import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
 
@@ -52,6 +46,7 @@ public class RegisterActivity extends AppCompatActivity {
         String email = Objects.requireNonNull(etRegEmail.getText()).toString();
         String password = Objects.requireNonNull(etRegPassword.getText()).toString();
 
+        // Input validation
         if (TextUtils.isEmpty(email)) {
             etRegEmail.setError("Email cannot be empty");
             etRegEmail.requestFocus();
@@ -59,8 +54,10 @@ public class RegisterActivity extends AppCompatActivity {
             etRegPassword.setError("Password cannot be empty");
             etRegPassword.requestFocus();
         } else {
+            // Create user with email and password
             mAuth.createUserWithEmailAndPassword(email, password).addOnCompleteListener(task -> {
                 if (task.isSuccessful()) {
+                    // User registered successfully
                     String userId = Objects.requireNonNull(mAuth.getCurrentUser()).getUid();
                     String generatedUsername = "user_" + userId; // Generate username
 
@@ -78,6 +75,7 @@ public class RegisterActivity extends AppCompatActivity {
                                 Toast.makeText(RegisterActivity.this, "Error saving user: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                             });
                 } else {
+                    // Handle registration error
                     Toast.makeText(RegisterActivity.this, "Registration Error: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
                 }
             });

@@ -1,10 +1,12 @@
 package com.example.sic_2;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -139,12 +141,78 @@ public class HomeFragment extends Fragment {
             View cardView = LayoutInflater.from(requireContext()).inflate(R.layout.card_view_layout, cardContainer, false);
             TextView cardMessage = cardView.findViewById(R.id.card_message);
             cardMessage.setText(message);
+
+            // Set click listener to open CardActivity
+            cardView.setOnClickListener(v -> {
+                Intent intent = new Intent(requireContext(), Card.class);
+                intent.putExtra("card_message", message); // Pass the message to the new activity
+                startActivity(intent);
+            });
+
+            // Find the delete button
+            Button deleteButton = cardView.findViewById(R.id.delete_button);
+            deleteButton.setOnClickListener(v -> deleteCard(cardId, cardView));
+
             cardContainer.addView(cardView);
         }
     }
+
+
 
     // Placeholder method for filtering cards based on the search query
     private void filterCards(String query) {
         // Implement filtering logic here (if needed)
     }
+
+
+    private void filterUsers(String query) {
+        DatabaseReference usersDatabase = FirebaseDatabase.getInstance().getReference("users");
+        usersDatabase.orderByKey().startAt(query).endAt(query + "\uf8ff").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                cardContainer.removeAllViews(); // Clear previous results
+                for (DataSnapshot userSnapshot : snapshot.getChildren()) {
+                    String userId = userSnapshot.getKey();
+                    String username = userSnapshot.child("username").getValue(String.class);
+                    if (username != null) {
+                        createUserCardView(userId, username);
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                Log.e("Firebase", "Error searching users", error.toException());
+            }
+        });
+    }
+
+    private void deleteCard(String cardId, View cardView) {
+        // Remove from Firebase
+        database.child(cardId).removeValue().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                // Remove from UI
+                cardContainer.removeView(cardView);
+                Toast.makeText(requireContext(), "Card deleted", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(requireContext(), "Failed to delete card", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+
+    private void createUserCardView(String userId, String username) {
+        View userCardView = LayoutInflater.from(requireContext()).inflate(R.layout.card_view_layout, cardContainer, false);
+        TextView userNameTextView = userCardView.findViewById(R.id.card_message);
+        userNameTextView.setText(username);
+        userCardView.setOnClickListener(v -> {
+            // Handle user click, e.g., navigate to user profile
+            Toast.makeText(requireContext(), "Clicked on: " + username, Toast.LENGTH_SHORT).show();
+        });
+        cardContainer.addView(userCardView);
+    }
+
+
+
+
 }
