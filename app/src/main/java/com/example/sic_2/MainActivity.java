@@ -66,8 +66,14 @@ public class MainActivity extends AppCompatActivity {
         if (id == R.id.home) return new HomeFragment();
         if (id == R.id.notification) return new NotificationFragment();
         if (id == R.id.settings) return new SettingsFragment();
+        if (id == R.id.add_button) {
+            Intent intent = new Intent(MainActivity.this, UserSearchActivity.class);
+            startActivity(intent);
+            return null; // Return null since we're starting a new activity
+        }
         return null;
     }
+
 
     private void setupBottomNavigationView() {
         bottomNavigationView.setOnItemSelectedListener(item -> {
