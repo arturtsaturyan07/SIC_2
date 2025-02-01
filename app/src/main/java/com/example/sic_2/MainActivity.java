@@ -2,8 +2,10 @@ package com.example.sic_2;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.ImageView;
 import android.widget.Toast;
+import com.example.sic_2.LoginActivity;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.GravityCompat;
@@ -12,17 +14,42 @@ import androidx.fragment.app.Fragment;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationView;
+import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 
 public class MainActivity extends AppCompatActivity {
     private DrawerLayout drawerLayout;
     private NavigationView navigationView;
     private BottomNavigationView bottomNavigationView;
+    String email_ = LoginActivity.email_;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        FirebaseApp.initializeApp(this);
+
+
+        FirebaseDatabase database = FirebaseDatabase.getInstance();
+        DatabaseReference usersRef = database.getReference("users");
+
+// Create a new user
+        String userId = usersRef.push().getKey(); // Generate a unique ID
+        User newUser = new User(userId, "John Doe", email_);
+
+// Add the user to the database
+        usersRef.child(userId).setValue(newUser)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        Log.d("Firebase", "User added successfully");
+                    } else {
+                        Log.e("Firebase", "User addition failed", task.getException());
+                    }
+                });
+
 
         initializeViews();
         setupDrawerNavigation();
@@ -101,4 +128,6 @@ public class MainActivity extends AppCompatActivity {
         startActivity(intent);
         finish();  // Finish the current activity to prevent going back to it
     }
+
+
 }

@@ -2,6 +2,7 @@ package com.example.sic_2;
 
 import android.annotation.SuppressLint;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -35,9 +36,10 @@ public class UserSearchActivity extends AppCompatActivity {
     }
 
     private void searchUserById(String userId) {
-        // Assuming you have a Firebase database reference
-        DatabaseReference databaseReference = FirebaseDatabase.getInstance().getReference("users");
+        // Log the userId to verify it's correct
+        Log.d("UserSearchActivity", "Searching for user ID: " + userId);
 
+        DatabaseReference databaseReference = FirebaseDatabase.getInstance().getReference("users");
         databaseReference.child(userId).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
@@ -55,4 +57,5 @@ public class UserSearchActivity extends AppCompatActivity {
             }
         });
     }
+
 }

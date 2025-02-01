@@ -45,10 +45,13 @@ dependencies {
 
     // Firebase dependencies
     implementation(libs.firebase.auth)
+    implementation (libs.firebase.database.v2000)
     implementation(libs.firebase.inappmessaging)
     implementation(libs.firebase.database)
     implementation(libs.firebase.storage)
     implementation(libs.firebase.firestore)
+    implementation (libs.firebase.database.vlatestversion)
+    implementation (libs.play.services.auth)
 
     // Retrofit & Gson for API calls
     implementation(libs.retrofit)

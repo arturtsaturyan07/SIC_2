@@ -17,6 +17,8 @@ import java.util.Objects;
 public class LoginActivity extends AppCompatActivity {
 
     TextInputEditText etLoginEmail;
+
+    public static String email_;
     TextInputEditText etLoginPassword;
     TextView tvRegisterHere;
     Button btnLogin;
@@ -42,11 +44,16 @@ public class LoginActivity extends AppCompatActivity {
         btnLogin.setOnClickListener(view -> loginUser());
         tvRegisterHere.setOnClickListener(view -> startActivity(new Intent(LoginActivity.this, RegisterActivity.class)));
         btnGuestMode.setOnClickListener(view -> enterGuestMode());
+
+
+
+
     }
 
     private void loginUser() {
         String email = Objects.requireNonNull(etLoginEmail.getText()).toString();
         String password = Objects.requireNonNull(etLoginPassword.getText()).toString();
+        email_ = email;
 
         if (TextUtils.isEmpty(email)) {
             etLoginEmail.setError("Email cannot be empty");
@@ -80,6 +87,8 @@ public class LoginActivity extends AppCompatActivity {
                 }
             });
         }
+
+
     }
 
     private boolean isEmailValid(String email) {
