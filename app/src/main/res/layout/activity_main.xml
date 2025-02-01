@@ -19,32 +19,35 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
+            <!--            <androidx.appcompat.widget.SearchView-->
+<!--                android:id="@+id/search"-->
+<!--                android:layout_width="match_parent"-->
+<!--                android:layout_height="56dp"-->
+<!--                android:background="@drawable/lavender_border"-->
+<!--                android:focusable="true"-->
+<!--                app:closeIcon="@drawable/baseline_clear_24"-->
+<!--                app:iconifiedByDefault="false"-->
+<!--                app:queryHint="Search..."-->
+<!--                app:searchHintIcon="@null"-->
+<!--                app:searchIcon="@drawable/baseline_clear_24"-->
+<!--                app:layout_constraintTop_toBottomOf="@id/btnOpenDrawer"-->
+<!--                android:layout_marginTop="16dp" />-->
+
+            <!-- CardView Container -->
+
             <ImageView
                 android:id="@+id/btnOpenDrawer"
-                android:layout_width="90dp"
+                android:layout_width="50dp"
                 android:layout_height="59dp"
+                android:layout_margin="16dp"
+                android:layout_marginStart="68dp"
+                android:layout_marginTop="228dp"
                 android:contentDescription="Open Drawer"
                 android:src="@drawable/baseline_calendar_view_day_24"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
-                android:layout_margin="16dp"
                 tools:ignore="HardcodedText" />
 
-            <androidx.appcompat.widget.SearchView
-                android:id="@+id/search"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:background="@drawable/lavender_border"
-                android:focusable="true"
-                app:closeIcon="@drawable/baseline_clear_24"
-                app:iconifiedByDefault="false"
-                app:queryHint="Search..."
-                app:searchHintIcon="@null"
-                app:searchIcon="@drawable/baseline_clear_24"
-                app:layout_constraintTop_toBottomOf="@id/btnOpenDrawer"
-                android:layout_marginTop="16dp" />
-
-            <!-- CardView Container -->
             <LinearLayout
                 android:id="@+id/card_container"
                 android:layout_width="match_parent"
