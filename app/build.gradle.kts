@@ -33,6 +33,10 @@ android {
 }
 
 dependencies {
+    implementation (libs.navigation.fragment.ktx)
+    implementation (libs.navigation.ui.ktx)
+
+
     // App dependencies
     implementation(libs.appcompat)
     implementation(libs.material)

@@ -1,101 +1,150 @@
 package com.example.sic_2;
 
-import android.annotation.SuppressLint;
-import android.app.Activity;
-import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
-import android.provider.MediaStore;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.EditText;
-import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
-
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
+import android.widget.Toast;
+import androidx.appcompat.widget.SearchView;
 import androidx.fragment.app.Fragment;
-
-import java.util.ArrayList;
+import androidx.appcompat.app.AlertDialog;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+import java.util.HashMap;
+import java.util.Map;
 
 public class HomeFragment extends Fragment {
+    private FloatingActionButton fab;
+    private LinearLayout cardContainer;
+    private SearchView searchView;
+    private DatabaseReference database;
+    private String userId;
 
-    private ArrayList<String> messages = new ArrayList<>();
-    private TextView messageTextView; // TextView to display messages
-    private EditText editTextMessage; // EditText for inputting messages
-    private Button buttonSend; // Button to send messages
-    private Button buttonAddPhoto; // Button to add photos
-    private ImageView imageViewPhoto1; // ImageView for the first image
-    private ImageView imageViewPhoto2; // ImageView for the second image
-
-    private ActivityResultLauncher<Intent> getContentLauncher;
-
-    @SuppressLint("MissingInflatedId")
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_home, container, false);
 
-        // Initialize views
-        messageTextView = view.findViewById(R.id.messageTextView);
-        editTextMessage = view.findViewById(R.id.editTextMessage);
-        buttonSend = view.findViewById(R.id.buttonSend);
-        buttonAddPhoto = view.findViewById(R.id.buttonAddPhoto);
-        imageViewPhoto1 = view.findViewById(R.id.imageViewPhoto1);
-        imageViewPhoto2 = view.findViewById(R.id.imageViewPhoto2);
+        // Ensure fragment is attached before accessing views and context-dependent methods
+        if (isAdded()) {
+            fab = view.findViewById(R.id.fab);
+            cardContainer = view.findViewById(R.id.card_container);
+            searchView = view.findViewById(R.id.search);
 
-        // Set up button listeners
-        buttonSend.setOnClickListener(v -> {
-            String message = editTextMessage.getText().toString();
-            if (!message.isEmpty()) {
-                addMessage(message);
-                editTextMessage.setText(""); // Clear the input field
+            // Firebase setup
+            FirebaseAuth auth = FirebaseAuth.getInstance();
+            if (auth.getCurrentUser() != null) {
+                userId = auth.getCurrentUser().getUid();
+                database = FirebaseDatabase.getInstance().getReference("cards").child(userId);
+                loadCards();
             }
-        });
 
-        buttonAddPhoto.setOnClickListener(v -> openGallery());
+            // Floating Action Button onClick
+            fab.setOnClickListener(v -> showInputDialog());
 
-        // Initialize the ActivityResultLauncher
-        getContentLauncher = registerForActivityResult(
-                new ActivityResultContracts.StartActivityForResult(),
-                result -> {
-                    if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
-                        Uri imageUri = result.getData().getData();
-                        if (imageUri != null) {
-                            if (imageViewPhoto1.getVisibility() == View.GONE) {
-                                imageViewPhoto1.setImageURI(imageUri);
-                                imageViewPhoto1.setVisibility(View.VISIBLE);
-                            } else if (imageViewPhoto2.getVisibility() == View.GONE) {
-                                imageViewPhoto2.setImageURI(imageUri);
-                                imageViewPhoto2.setVisibility(View.VISIBLE);
-                            }
-                        }
-                    }
-                });
+            // Search functionality
+            searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+                @Override
+                public boolean onQueryTextSubmit(String query) {
+                    filterCards(query);
+                    return true;
+                }
+
+                @Override
+                public boolean onQueryTextChange(String newText) {
+                    filterCards(newText);
+                    return true;
+                }
+            });
+        }
 
         return view;
     }
 
-    public void addMessage(String message) {
-        messages.add(message);
-        updateMessageDisplay();
-    }
+    // Display input dialog to create a new card
+    private void showInputDialog() {
+        if (isAdded()) {
+            AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
+            builder.setTitle("Create a Card");
 
-    private void updateMessageDisplay() {
-        StringBuilder displayText = new StringBuilder();
-        for (String msg : messages) {
-            displayText.append(msg).append("\n");
+            final EditText input = new EditText(requireContext());
+            builder.setView(input);
+
+            builder.setPositiveButton("OK", (dialog, which) -> {
+                String message = input.getText().toString().trim();
+                if (!message.isEmpty()) {
+                    saveCardToFirebase(message);
+                } else {
+                    Toast.makeText(requireContext(), "Message cannot be empty", Toast.LENGTH_SHORT).show();
+                }
+            });
+            builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+            builder.show();
         }
-        messageTextView.setText(displayText.toString());
     }
 
-    private void openGallery() {
-        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-        getContentLauncher.launch(intent);
+    // Save the new card to Firebase
+    private void saveCardToFirebase(String message) {
+        String cardId = database.push().getKey();
+        if (cardId != null) {
+            Map<String, Object> cardData = new HashMap<>();
+            cardData.put("cardId", cardId);
+            cardData.put("message", message);
+
+            database.child(cardId).setValue(cardData).addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    createCardView(cardId, message);
+                } else {
+                    Toast.makeText(requireContext(), "Failed to save card", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
     }
 
+    // Load the saved cards from Firebase
+    private void loadCards() {
+        if (isAdded()) {
+            database.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot snapshot) {
+                    for (DataSnapshot data : snapshot.getChildren()) {
+                        String cardId = data.child("cardId").getValue(String.class);
+                        String message = data.child("message").getValue(String.class);
+                        if (cardId != null && message != null) {
+                            createCardView(cardId, message);
+                        }
+                    }
+                }
 
+                @Override
+                public void onCancelled(DatabaseError error) {
+                    Log.e("Firebase", "Error loading cards", error.toException());
+                }
+            });
+        }
+    }
 
+    // Create a new view for the card and add it to the container
+    private void createCardView(String cardId, String message) {
+        if (isAdded()) {
+            View cardView = LayoutInflater.from(requireContext()).inflate(R.layout.card_view_layout, cardContainer, false);
+            TextView cardMessage = cardView.findViewById(R.id.card_message);
+            cardMessage.setText(message);
+            cardContainer.addView(cardView);
+        }
+    }
+
+    // Placeholder method for filtering cards based on the search query
+    private void filterCards(String query) {
+        // Implement filtering logic here (if needed)
+    }
 }
