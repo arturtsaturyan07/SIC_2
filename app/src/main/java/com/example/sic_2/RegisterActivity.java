@@ -19,8 +19,12 @@ public class RegisterActivity extends AppCompatActivity {
 
     TextInputEditText etRegEmail;
     TextInputEditText etRegPassword;
+    TextInputEditText etRegName; // Added for Name
+    TextInputEditText etRegSurname; // Added for Surname
     TextView tvLoginHere;
     Button btnRegister;
+    public static String name_;
+    public static String surname_;
 
     FirebaseAuth mAuth;
     FirebaseFirestore db;
@@ -32,6 +36,8 @@ public class RegisterActivity extends AppCompatActivity {
 
         etRegEmail = findViewById(R.id.etRegEmail);
         etRegPassword = findViewById(R.id.etRegPass);
+        etRegName = findViewById(R.id.etRegName); // Initialize Name EditText
+        etRegSurname = findViewById(R.id.etRegSurname); // Initialize Surname EditText
         tvLoginHere = findViewById(R.id.tvLoginHere);
         btnRegister = findViewById(R.id.btnRegister);
 
@@ -45,9 +51,17 @@ public class RegisterActivity extends AppCompatActivity {
     private void createUser() {
         String email = Objects.requireNonNull(etRegEmail.getText()).toString();
         String password = Objects.requireNonNull(etRegPassword.getText()).toString();
+        String name = Objects.requireNonNull(etRegName.getText()).toString(); // Get Name
+        String surname = Objects.requireNonNull(etRegSurname.getText()).toString(); // Get Surname
 
         // Input validation
-        if (TextUtils.isEmpty(email)) {
+        if (TextUtils.isEmpty(name)) {
+            etRegName.setError("Name cannot be empty");
+            etRegName.requestFocus();
+        } else if (TextUtils.isEmpty(surname)) {
+            etRegSurname.setError("Surname cannot be empty");
+            etRegSurname.requestFocus();
+        } else if (TextUtils.isEmpty(email)) {
             etRegEmail.setError("Email cannot be empty");
             etRegEmail.requestFocus();
         } else if (TextUtils.isEmpty(password)) {
@@ -62,7 +76,7 @@ public class RegisterActivity extends AppCompatActivity {
                     String generatedUsername = "user_" + userId; // Generate username
 
                     // Create user object
-                    User user = new User(generatedUsername, email);
+                    User user = new User(generatedUsername, name, surname, email);
 
                     // Save user to Firestore
                     db.collection("users").document(userId).set(user)
@@ -85,11 +99,18 @@ public class RegisterActivity extends AppCompatActivity {
     // User model class
     public static class User {
         private String username;
+        private String name; // Added Name
+        private String surname; // Added Surname
         private String email;
 
-        public User(String username, String email) {
+        public User(String username, String name, String surname, String email) {
             this.username = username;
+            this.name = name; // Initialize Name
+            this.surname = surname; // Initialize Surname
             this.email = email;
+
+            name_ = this.name;
+            surname_ = this.surname;
         }
     }
 }
