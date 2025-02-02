@@ -10,5 +10,13 @@
     <color name="lavender">#8692f7</color>
     <color name="red">#c70000</color>
     <color name="green">#00ff00</color>
+    <color name="colorPrimary">#6200EE</color>
+    <color name="colorPrimaryDark">#3700B3</color>
+    <color name="colorAccent">#03DAC5</color>
+
+    <color name="primary_dark">#121212</color>
+    <color name="primary_light">#FFFFFF</color>
+    <color name="accent_dark">#BB86FC</color>
+    <color name="accent_light">#03DAC5</color>
 
 </resources>

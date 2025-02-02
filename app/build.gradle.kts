@@ -42,6 +42,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.activity)
     implementation(libs.constraintlayout)
+    implementation (libs.preference)
 
     // Firebase dependencies
     implementation(libs.firebase.auth)
