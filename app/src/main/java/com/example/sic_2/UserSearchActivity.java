@@ -36,16 +36,21 @@ public class UserSearchActivity extends AppCompatActivity {
     }
 
     private void searchUserById(String userId) {
-        // Log the userId to verify it's correct
         Log.d("UserSearchActivity", "Searching for user ID: " + userId);
 
         DatabaseReference databaseReference = FirebaseDatabase.getInstance().getReference("users");
         databaseReference.child(userId).addListenerForSingleValueEvent(new ValueEventListener() {
+            @SuppressLint("SetTextI18n")
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                 if (dataSnapshot.exists()) {
-                    String userInfo = dataSnapshot.getValue(String.class); // Adjust based on your user model
-                    resultTextView.setText("User found: " + userInfo);
+                    // Use a User model class instead of String
+                    User user = dataSnapshot.getValue(User.class);
+                    if (user != null) {
+                        resultTextView.setText("User found: " + user.getName()); // Adjust field accordingly
+                    } else {
+                        resultTextView.setText("User data is null.");
+                    }
                 } else {
                     resultTextView.setText("User not found.");
                 }
@@ -57,5 +62,6 @@ public class UserSearchActivity extends AppCompatActivity {
             }
         });
     }
+
 
 }
