@@ -96,10 +96,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void createUser(DatabaseReference usersRef) {
-        String userId = usersRef.push().getKey(); // Generate a unique ID
+        String userId = usersRef.push().getKey();// Generate a unique ID
         User newUser = new User(userId, name_, email_); // Assuming User constructor is updated
 
         // Add the user to the database
+        assert userId != null;
         usersRef.child(userId).setValue(newUser)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {

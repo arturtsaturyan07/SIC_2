@@ -37,11 +37,11 @@
 
             <ImageView
                 android:id="@+id/btnOpenDrawer"
-                android:layout_width="50dp"
-                android:layout_height="59dp"
+                android:layout_width="30dp"
+                android:layout_height="29dp"
                 android:layout_margin="16dp"
-                android:layout_marginStart="68dp"
-                android:layout_marginTop="228dp"
+                android:layout_marginStart="@dimen/material_emphasis_medium"
+                android:layout_marginTop="2dp"
                 android:contentDescription="Open Drawer"
                 android:src="@drawable/baseline_calendar_view_day_24"
                 app:layout_constraintStart_toStartOf="parent"
