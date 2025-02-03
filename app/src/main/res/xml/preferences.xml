@@ -5,6 +5,11 @@
         app:key="dark_mode"
         app:title="Enable Dark Mode"
         app:defaultValue="false"/>
+    <Preference
+        android:key="user_id"
+        android:title="User ID"
+        android:summary="Fetching user ID..."
+        app:selectable="true"/>
 
     <!-- Add other preferences here -->
 

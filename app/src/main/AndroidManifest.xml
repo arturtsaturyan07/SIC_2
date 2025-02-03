@@ -16,6 +16,9 @@
         android:theme="@style/Theme.MyApp"
         tools:targetApi="31">
         <activity
+            android:name=".CopyablePreference"
+            android:exported="false" />
+        <activity
             android:name=".User"
             android:exported="false" />
         <activity
