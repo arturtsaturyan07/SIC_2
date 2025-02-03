@@ -1,5 +1,7 @@
 package com.example.sic_2;
 
+import static com.example.sic_2.LoginActivity.email_;
+
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -84,6 +86,11 @@ public class RegisterActivity extends AppCompatActivity {
                                 Toast.makeText(RegisterActivity.this, "User registered successfully", Toast.LENGTH_SHORT).show();
                                 startActivity(new Intent(RegisterActivity.this, LoginActivity.class));
                                 finish();
+                                // In RegisterActivity when starting MainActivity
+                                Intent intent = new Intent(RegisterActivity.this, MainActivity.class);
+                                intent.putExtra("name", name_);
+                                intent.putExtra("email", email_);
+                                startActivity(intent);
                             })
                             .addOnFailureListener(e -> {
                                 Toast.makeText(RegisterActivity.this, "Error saving user: " + e.getMessage(), Toast.LENGTH_SHORT).show();

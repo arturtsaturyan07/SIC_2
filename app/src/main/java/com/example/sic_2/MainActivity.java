@@ -38,6 +38,11 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+
+        Intent intent = getIntent();
+        String email_ = intent.getStringExtra("email");
+        String name_ = intent.getStringExtra("name");
+
         // Dark mode setup
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         boolean isDarkModeEnabled = sharedPreferences.getBoolean("dark_mode", false);
