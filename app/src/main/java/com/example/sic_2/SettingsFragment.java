@@ -1,5 +1,6 @@
 package com.example.sic_2;
 
+
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.os.Bundle;
@@ -32,8 +33,8 @@ public class SettingsFragment extends PreferenceFragmentCompat {
         }
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         if (user != null) {
-            String userId = user.getUid();
             Preference userIdPref = findPreference("user_id");
+            String userId = user.getUid();
 
             if (userIdPref != null) {
                 userIdPref.setSummary(userId);

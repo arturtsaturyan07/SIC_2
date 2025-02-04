@@ -23,9 +23,11 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.database.DataSnapshot;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
     private DrawerLayout drawerLayout;
@@ -53,8 +55,10 @@ public class MainActivity extends AppCompatActivity {
 
         Intent intent = getIntent();
         String email_ = intent.getStringExtra("email");
-        String name_ = intent.getStringExtra("name");
+        String name_ = RegisterActivity.name_;
         String surname_ = intent.getStringExtra("surname");
+
+        if (email_ == null) email_ = user.getEmail(); // Если email не передан, берём из Firebase
 
         // Initialize Firebase
         FirebaseApp.initializeApp(this);
@@ -98,7 +102,10 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                 if (!dataSnapshot.exists()) {
+                    Log.d("Firebase", "User does not exist, creating...");
                     createUser(email, name, surname);
+                } else {
+                    Log.d("Firebase", "User already exists in database.");
                 }
             }
 
@@ -110,11 +117,19 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void createUser(String email, String name, String surname) {
+        if (name == null || name.isEmpty()) name = user.getDisplayName();
+        if (name == null || name.isEmpty()) name = "Unknown"; // Если в профиле нет имени
+        if (surname == null || surname.isEmpty()) surname = "Unknown";
+        if (email == null || email.isEmpty()) email = "no-email@example.com";
+
         User newUser = new User(userId, name, surname, email);
+        String finalName = name;
+        String finalSurname = surname;
+        String finalEmail = email;
         usersRef.child(userId).setValue(newUser)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
-                        Log.d("Firebase", "User created successfully");
+                        Log.d("Firebase", "User created successfully"+ finalName + finalSurname + finalEmail);
                     } else {
                         Log.e("Firebase", "User creation failed", task.getException());
                     }
@@ -129,18 +144,25 @@ public class MainActivity extends AppCompatActivity {
 
     private void setupDrawerNavigation() {
         navigationView.setNavigationItemSelectedListener(item -> {
-            if (item.getItemId() == R.id.nav_logout) {
+            int itemId = item.getItemId();
+            Map<Integer, Fragment> fragmentMap = new HashMap<>();
+            fragmentMap.put(R.id.home, new HomeFragment());
+            fragmentMap.put(R.id.notification, new NotificationFragment());
+            fragmentMap.put(R.id.settings, new SettingsFragment());
+
+            if (itemId == R.id.add_button) {
+                startActivity(new Intent(MainActivity.this, UserSearchActivity.class));
+            } else if (itemId == R.id.nav_logout) {
                 logout();
-            } else {
-                Fragment selectedFragment = getFragmentById(item.getItemId());
-                if (selectedFragment != null) {
-                    loadFragment(selectedFragment);
-                }
+            } else if (fragmentMap.containsKey(itemId)) {
+                loadFragment(fragmentMap.get(itemId));
             }
+
             drawerLayout.closeDrawer(GravityCompat.START);
             return true;
         });
     }
+
 
     private Fragment getFragmentById(int id) {
         if (id == R.id.home) return new HomeFragment();

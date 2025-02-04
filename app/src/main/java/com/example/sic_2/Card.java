@@ -3,6 +3,7 @@ package com.example.sic_2;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
@@ -33,6 +34,7 @@ public class Card extends AppCompatActivity {
         // Initialize UI components
         cardMessage = findViewById(R.id.card_message);
         ImageButton backButton = findViewById(R.id.backbutton);
+        Button addUserButton = findViewById(R.id.addUserButton);  // New button
 
         // Load card data if ID is available
         if (cardId != null) {
@@ -44,6 +46,13 @@ public class Card extends AppCompatActivity {
             Intent intent = new Intent(Card.this, MainActivity.class);
             startActivity(intent);
             finish();
+        });
+
+        // Open AddUserActivity when "Add User" button is clicked
+        addUserButton.setOnClickListener(view -> {
+            Intent intent = new Intent(Card.this, UserAddActivity.class);
+            intent.putExtra("cardId", cardId);
+            startActivity(intent);
         });
     }
 
