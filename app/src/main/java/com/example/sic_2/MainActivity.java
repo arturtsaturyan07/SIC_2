@@ -5,6 +5,8 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -38,6 +40,8 @@ public class MainActivity extends AppCompatActivity {
     private FirebaseUser user;
     private String userId;
 
+    private LinearLayout cardContainer;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -46,30 +50,24 @@ public class MainActivity extends AppCompatActivity {
         auth = FirebaseAuth.getInstance();
         user = auth.getCurrentUser();
 
-        if (user == null) {
+        // Check if this is guest mode
+        Intent intent = getIntent();
+        boolean isGuest = intent.getBooleanExtra("guest_mode", false);
+
+        if (user == null && !isGuest) {
             redirectToLogin();
             return;
         }
 
-        userId = user.getUid();
+        if (!isGuest) {
+            userId = user.getUid();
+            initializeFirebase(isGuest, intent);
+            loadUserCards(); // 🔹 Ensure cards load after Firebase check
+        }
 
-        Intent intent = getIntent();
-        String email_ = intent.getStringExtra("email");
-        String name_ = RegisterActivity.name_;
-        String surname_ = intent.getStringExtra("surname");
 
-        if (email_ == null) email_ = user.getEmail(); // Если email не передан, берём из Firebase
-
-        // Initialize Firebase
-        FirebaseApp.initializeApp(this);
-        usersRef = FirebaseDatabase.getInstance().getReference("users");
-
-        // Check if user exists in database, create only if not exists
-        checkIfUserExists(email_, name_, surname_);
-
-        // Apply dark mode settings
+        initializeFirebase(isGuest, intent);
         applyDarkMode();
-
         initializeViews();
         setupDrawerNavigation();
         setupBottomNavigationView();
@@ -81,9 +79,26 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Load the default fragment
         loadFragment(new HomeFragment());
     }
+
+    private void initializeFirebase(boolean isGuest, Intent intent) {
+        if (isGuest) {
+            Log.d("GuestMode", "Skipping Firebase user check for guest mode.");
+            return;
+        }
+
+        String email_ = intent.getStringExtra("email");
+        String name_ = RegisterActivity.name_;
+        String surname_ = intent.getStringExtra("surname");
+
+        if (email_ == null) email_ = user.getEmail();
+
+        usersRef = FirebaseDatabase.getInstance().getReference("users");
+        checkIfUserExists(email_, name_, surname_);
+    }
+
+
 
     private void redirectToLogin() {
         startActivity(new Intent(MainActivity.this, LoginActivity.class));
@@ -191,6 +206,52 @@ public class MainActivity extends AppCompatActivity {
                 .replace(R.id.container, fragment)
                 .commit();
     }
+
+    private void loadUserCards() {
+        String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        DatabaseReference cardsRef = FirebaseDatabase.getInstance().getReference("cards");
+
+        cardsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                for (DataSnapshot cardSnapshot : snapshot.getChildren()) {
+                    DataSnapshot usersSnapshot = cardSnapshot.child("users");
+
+                    // 🔹 Check if user is in "users" section
+                    if (usersSnapshot.hasChild(userId) && usersSnapshot.child(userId).getValue(Boolean.class)) {
+                        String cardId = cardSnapshot.getKey();
+                        String message = cardSnapshot.child("message").getValue(String.class);
+
+                        if (message != null) {
+                            addCardToUI(cardId, message);
+                        }
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("Firebase", "Failed to load user cards", error.toException());
+            }
+        });
+    }
+
+    private void addCardToUI(String cardId, String message) {
+        TextView cardView = new TextView(this);
+        cardView.setText(message);
+        cardView.setPadding(16, 16, 16, 16);
+        cardView.setTextSize(18);
+
+        cardView.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, Card.class);
+            intent.putExtra("cardId", cardId);
+            startActivity(intent);
+        });
+
+        cardContainer.addView(cardView);
+    }
+
+
 
     private void logout() {
         FirebaseAuth.getInstance().signOut();

@@ -101,10 +101,13 @@ public class LoginActivity extends AppCompatActivity {
                 .setMessage("You are entering guest mode. Some features may be limited.")
                 .setPositiveButton("OK", (dialog, which) -> {
                     Toast.makeText(LoginActivity.this, "Entered Guest Mode", Toast.LENGTH_SHORT).show();
-                    startActivity(new Intent(LoginActivity.this, MainActivity.class));
+                    Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+                    intent.putExtra("guest_mode", true);
+                    startActivity(intent);
                     finish();
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
     }
+
 }
