@@ -7,6 +7,7 @@ import android.util.Log;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.view.GravityCompat;
@@ -18,6 +19,7 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationView;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
@@ -29,35 +31,40 @@ public class MainActivity extends AppCompatActivity {
     private DrawerLayout drawerLayout;
     private NavigationView navigationView;
     private BottomNavigationView bottomNavigationView;
-    String email_ = LoginActivity.email_;
-    String name_ = RegisterActivity.name_;
-    String surname_ = RegisterActivity.surname_;
+    private FirebaseAuth auth;
+    private DatabaseReference usersRef;
+    private FirebaseUser user;
+    private String userId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        auth = FirebaseAuth.getInstance();
+        user = auth.getCurrentUser();
+
+        if (user == null) {
+            redirectToLogin();
+            return;
+        }
+
+        userId = user.getUid();
 
         Intent intent = getIntent();
         String email_ = intent.getStringExtra("email");
         String name_ = intent.getStringExtra("name");
+        String surname_ = intent.getStringExtra("surname");
 
-        // Dark mode setup
-        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
-        boolean isDarkModeEnabled = sharedPreferences.getBoolean("dark_mode", false);
-        if (isDarkModeEnabled) {
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
-        } else {
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
-        }
-
+        // Initialize Firebase
         FirebaseApp.initializeApp(this);
-        FirebaseDatabase database = FirebaseDatabase.getInstance();
-        DatabaseReference usersRef = database.getReference("users");
+        usersRef = FirebaseDatabase.getInstance().getReference("users");
 
-        // Check if the user already exists
-        checkIfUserExists(usersRef, email_);
+        // Check if user exists in database, create only if not exists
+        checkIfUserExists(email_, name_, surname_);
+
+        // Apply dark mode settings
+        applyDarkMode();
 
         initializeViews();
         setupDrawerNavigation();
@@ -74,39 +81,42 @@ public class MainActivity extends AppCompatActivity {
         loadFragment(new HomeFragment());
     }
 
-    private void checkIfUserExists(DatabaseReference usersRef, String email) {
-        Query query = usersRef.orderByChild("email").equalTo(email);
-        query.addListenerForSingleValueEvent(new ValueEventListener() {
+    private void redirectToLogin() {
+        startActivity(new Intent(MainActivity.this, LoginActivity.class));
+        finish();
+    }
+
+    private void applyDarkMode() {
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        boolean isDarkModeEnabled = sharedPreferences.getBoolean("dark_mode", false);
+        AppCompatDelegate.setDefaultNightMode(isDarkModeEnabled ?
+                AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
+    }
+
+    private void checkIfUserExists(String email, String name, String surname) {
+        usersRef.child(userId).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                if (dataSnapshot.exists()) {
-                    // User already exists
-                    Log.d("Firebase", "User already exists. Skipping creation.");
-                } else {
-                    // User does not exist, create a new user
-                    createUser(usersRef);
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                if (!dataSnapshot.exists()) {
+                    createUser(email, name, surname);
                 }
             }
 
             @Override
-            public void onCancelled(DatabaseError databaseError) {
+            public void onCancelled(@NonNull DatabaseError databaseError) {
                 Log.e("Firebase", "Database error: " + databaseError.getMessage());
             }
         });
     }
 
-    private void createUser(DatabaseReference usersRef) {
-        String userId = usersRef.push().getKey();// Generate a unique ID
-        User newUser = new User(userId, name_, email_); // Assuming User constructor is updated
-
-        // Add the user to the database
-        assert userId != null;
+    private void createUser(String email, String name, String surname) {
+        User newUser = new User(userId, name, surname, email);
         usersRef.child(userId).setValue(newUser)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
-                        Log.d("Firebase", "User added successfully");
+                        Log.d("Firebase", "User created successfully");
                     } else {
-                        Log.e("Firebase", "User addition failed", task.getException());
+                        Log.e("Firebase", "User creation failed", task.getException());
                     }
                 });
     }
@@ -137,9 +147,8 @@ public class MainActivity extends AppCompatActivity {
         if (id == R.id.notification) return new NotificationFragment();
         if (id == R.id.settings) return new SettingsFragment();
         if (id == R.id.add_button) {
-            Intent intent = new Intent(MainActivity.this, UserSearchActivity.class);
-            startActivity(intent);
-            return null; // Return null since we're starting a new activity
+            startActivity(new Intent(MainActivity.this, UserSearchActivity.class));
+            return null;
         }
         return null;
     }
@@ -162,12 +171,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void logout() {
-        FirebaseAuth.getInstance().signOut();  // Sign out from Firebase
+        FirebaseAuth.getInstance().signOut();
         Toast.makeText(MainActivity.this, "Logged out successfully", Toast.LENGTH_SHORT).show();
-
-        // Redirect to login screen
-        Intent intent = new Intent(MainActivity.this, LoginActivity.class);
-        startActivity(intent);
-        finish();  // Finish the current activity to prevent going back to it
+        redirectToLogin();
     }
 }

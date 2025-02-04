@@ -8,7 +8,7 @@ public class User {
     private String name = name_;
     private String email = email_;
 
-    public User(String userId, String name_, String email_) {} // Empty constructor needed for Firebase
+    public User(String userId, String name_, String email_, String email) {} // Empty constructor needed for Firebase
 
     public String getName() { return name; }
     public String getEmail() { return email; }

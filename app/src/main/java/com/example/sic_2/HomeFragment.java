@@ -35,6 +35,8 @@ public class HomeFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_home, container, false);
 
+
+
         // Ensure fragment is attached before accessing views and context-dependent methods
         if (isAdded()) {
             fab = view.findViewById(R.id.fab);
