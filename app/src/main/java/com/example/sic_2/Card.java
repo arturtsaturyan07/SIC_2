@@ -3,26 +3,28 @@ package com.example.sic_2;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
-
+import com.prolificinteractive.materialcalendarview.CalendarDay;
+import com.prolificinteractive.materialcalendarview.MaterialCalendarView;
 import java.util.Objects;
 
 public class Card extends AppCompatActivity {
+
     private DatabaseReference database;
     private TextView cardMessage;
+    private MaterialCalendarView calendarView;
     private String cardId;
     private String currentUserId;
 
@@ -42,6 +44,8 @@ public class Card extends AppCompatActivity {
         cardMessage = findViewById(R.id.card_message);
         ImageButton backButton = findViewById(R.id.backbutton);
         Button addUserButton = findViewById(R.id.addUserButton);
+        Button createEventButton = findViewById(R.id.create_event_button);
+        calendarView = findViewById(R.id.calendar_view);
 
         // Load card data only if the user has access
         if (cardId != null) {
@@ -61,6 +65,9 @@ public class Card extends AppCompatActivity {
             intent.putExtra("cardId", cardId);
             startActivity(intent);
         });
+
+        // Handle "Create Event" button
+        createEventButton.setOnClickListener(view -> showCreateEventDialog());
     }
 
     private void checkUserAccess() {
@@ -82,7 +89,6 @@ public class Card extends AppCompatActivity {
         });
     }
 
-
     private void loadCardData() {
         database.child(cardId).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
@@ -102,5 +108,60 @@ public class Card extends AppCompatActivity {
                 Log.e("Firebase", "Failed to load card", error.toException());
             }
         });
+    }
+
+    private void showCreateEventDialog() {
+        // Create a simple dialog for event creation
+        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
+        builder.setTitle("Create Event");
+
+        // Input fields for event details
+        final androidx.appcompat.widget.AppCompatEditText eventNameInput = new androidx.appcompat.widget.AppCompatEditText(this);
+        eventNameInput.setHint("Event Name");
+        builder.setView(eventNameInput);
+
+        // Add buttons to the dialog
+        builder.setPositiveButton("Save", (dialog, which) -> {
+            String eventName = eventNameInput.getText().toString();
+            if (!eventName.isEmpty()) {
+                saveEvent(eventName);
+            }
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+        // Show the dialog
+        builder.show();
+    }
+
+    private void saveEvent(String eventName) {
+        // Save the event (e.g., to a database or memory)
+        Toast.makeText(this, "Event Saved: " + eventName, Toast.LENGTH_SHORT).show();
+
+        // Optionally, mark the selected date on the calendar
+        CalendarDay selectedDate = calendarView.getSelectedDate();
+        if (selectedDate != null) {
+            calendarView.addDecorator(new EventDecorator(selectedDate));
+        }
+    }
+
+    // Custom decorator to mark dates with events
+    private static class EventDecorator implements com.prolificinteractive.materialcalendarview.DayViewDecorator {
+
+        private final CalendarDay date;
+
+        public EventDecorator(CalendarDay date) {
+            this.date = date;
+        }
+
+        @Override
+        public boolean shouldDecorate(CalendarDay day) {
+            return day.equals(date);
+        }
+
+        @Override
+        public void decorate(com.prolificinteractive.materialcalendarview.DayViewFacade view) {
+            view.addSpan(new com.prolificinteractive.materialcalendarview.spans.DotSpan(5, android.graphics.Color.RED)); // Red dot for events
+        }
     }
 }
