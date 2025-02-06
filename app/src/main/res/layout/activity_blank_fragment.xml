@@ -1,26 +1,22 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- fragment_blank.xml -->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:gravity="center"
-    android:padding="20dp">
+    android:padding="16dp">
 
-    <ImageView
-        android:id="@+id/userImage"
-        android:layout_width="150dp"
-        android:layout_height="150dp"
-        android:src="@drawable/camp_app_logo"
-        android:layout_gravity="center"/>
-
-    <EditText
-        android:id="@+id/userIdInput"
+    <!-- Weekly Calendar -->
+    <com.prolificinteractive.materialcalendarview.MaterialCalendarView
+        android:id="@+id/calendar_view"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Enter User ID"/>
+        android:layout_marginBottom="16dp" />
 
+    <!-- Button to Create Events -->
     <Button
-        android:id="@+id/addUserButton"
+        android:id="@+id/create_event_button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Add User"/>
+        android:text="Create Event" />
 </LinearLayout>

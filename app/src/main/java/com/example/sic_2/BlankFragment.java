@@ -1,64 +1,107 @@
 package com.example.sic_2;
 
+import android.annotation.SuppressLint;
 import android.os.Bundle;
-
-import androidx.fragment.app.Fragment;
-
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.Toast;
 
-/**
- * A simple {@link Fragment} subclass.
- * Use the {@link BlankFragment#newInstance} factory method to
- * create an instance of this fragment.
- */
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+
+import com.prolificinteractive.materialcalendarview.CalendarDay;
+import com.prolificinteractive.materialcalendarview.MaterialCalendarView;
+
+import java.util.Collection;
+import java.util.Collections;
+
 public class BlankFragment extends Fragment {
 
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
-
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
+    private MaterialCalendarView calendarView;
 
     public BlankFragment() {
         // Required empty public constructor
     }
 
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment BlankFragment.
-     */
-    // TODO: Rename and change types and number of parameters
-    public static BlankFragment newInstance(String param1, String param2) {
-        BlankFragment fragment = new BlankFragment();
-        Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
-        fragment.setArguments(args);
-        return fragment;
+    @SuppressLint("MissingInflatedId")
+    @Nullable
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
+                             @Nullable Bundle savedInstanceState) {
+        // Inflate the layout for this fragment
+        View view = inflater.inflate(R.layout.fragment_blank, container, false);
+
+        // Initialize the calendar view
+        calendarView = view.findViewById(R.id.calendar_view);
+
+        // Handle date selection
+        calendarView.setOnDateChangedListener((widget, date, selected) -> {
+            String selectedDate = date.getYear() + "-" + (date.getMonth() + 1) + "-" + date.getDay();
+            Toast.makeText(getContext(), "Selected Date: " + selectedDate, Toast.LENGTH_SHORT).show();
+        });
+
+        // Initialize the "Create Event" button
+        Button createEventButton = view.findViewById(R.id.create_event_button);
+        createEventButton.setOnClickListener(v -> showCreateEventDialog());
+
+        return view;
     }
 
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
+    private void showCreateEventDialog() {
+        // Create a simple dialog for event creation
+        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(requireContext());
+        builder.setTitle("Create Event");
+
+        // Input fields for event details
+        final androidx.appcompat.widget.AppCompatEditText eventNameInput = new androidx.appcompat.widget.AppCompatEditText(requireContext());
+        eventNameInput.setHint("Event Name");
+        builder.setView(eventNameInput);
+
+        // Add buttons to the dialog
+        builder.setPositiveButton("Save", (dialog, which) -> {
+            String eventName = eventNameInput.getText().toString();
+            if (!eventName.isEmpty()) {
+                saveEvent(eventName);
+            }
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+        // Show the dialog
+        builder.show();
+    }
+
+    private void saveEvent(String eventName) {
+        // Save the event (e.g., to a database or memory)
+        Toast.makeText(requireContext(), "Event Saved: " + eventName, Toast.LENGTH_SHORT).show();
+
+        // Optionally, mark the selected date on the calendar
+        CalendarDay selectedDate = calendarView.getSelectedDate();
+        if (selectedDate != null) {
+            calendarView.addDecorator(new EventDecorator(selectedDate));
         }
     }
 
-    @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_blank, container, false);
+    // Custom decorator to mark dates with events
+    private static class EventDecorator implements com.prolificinteractive.materialcalendarview.DayViewDecorator {
+
+        private final CalendarDay date;
+
+        public EventDecorator(CalendarDay date) {
+            this.date = date;
+        }
+
+        @Override
+        public boolean shouldDecorate(CalendarDay day) {
+            return day.equals(date);
+        }
+
+        @Override
+        public void decorate(com.prolificinteractive.materialcalendarview.DayViewFacade view) {
+            view.addSpan(new com.prolificinteractive.materialcalendarview.spans.DotSpan(5, android.graphics.Color.RED)); // Red dot for events
+        }
     }
 }
