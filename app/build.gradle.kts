@@ -26,6 +26,7 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -33,26 +34,49 @@ android {
 }
 
 dependencies {
-    implementation (libs.navigation.fragment.ktx)
-    implementation (libs.navigation.ui.ktx)
+    // Navigation Components
+    implementation(libs.navigation.fragment.ktx)
+    implementation(libs.navigation.ui.ktx)
+    implementation(libs.firebase.bom)
 
+    // Firebase Authentication
+    implementation(libs.google.firebase.auth)
+
+    // Firebase Realtime Database
+    implementation(libs.google.firebase.database)
+
+    // Firebase Firestore
+    implementation(libs.google.firebase.firestore)
+
+    // Firebase Storage
+    implementation(libs.google.firebase.storage)
+
+    // Firebase In-App Messaging
+    implementation(libs.google.firebase.inappmessaging)
+
+    // Firebase App Check
+    implementation(libs.firebase.appcheck.playintegrity)
+    implementation(platform(libs.firebase.bom.v3231)) // Use the latest version
+    implementation(libs.com.google.firebase.firebase.auth)
+    implementation(libs.com.google.firebase.firebase.database)
+
+    // Material CalendarView (corrected exclusion syntax)
+    implementation(libs.material.calendarview)
 
     // App dependencies
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.activity)
     implementation(libs.constraintlayout)
-    implementation (libs.preference)
+    implementation(libs.preference)
 
     // Firebase dependencies
     implementation(libs.firebase.auth)
-    implementation (libs.firebase.database.v2000)
+    implementation(libs.firebase.database.v2000) // Use only one version of Firebase Database
     implementation(libs.firebase.inappmessaging)
-    implementation(libs.firebase.database)
     implementation(libs.firebase.storage)
     implementation(libs.firebase.firestore)
-    implementation (libs.firebase.database.vlatestversion)
-    implementation (libs.play.services.auth)
+    implementation(libs.play.services.auth)
 
     // Retrofit & Gson for API calls
     implementation(libs.retrofit)
