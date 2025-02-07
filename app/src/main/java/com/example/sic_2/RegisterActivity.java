@@ -8,13 +8,11 @@ import android.text.TextUtils;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.appcompat.app.AppCompatActivity;
-
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
-
 import java.util.Objects;
 
 public class RegisterActivity extends AppCompatActivity {
@@ -27,7 +25,6 @@ public class RegisterActivity extends AppCompatActivity {
     Button btnRegister;
     public static String name_;
     public static String surname_;
-
     FirebaseAuth mAuth;
     FirebaseFirestore db;
 
@@ -73,28 +70,22 @@ public class RegisterActivity extends AppCompatActivity {
             // Create user with email and password
             mAuth.createUserWithEmailAndPassword(email, password).addOnCompleteListener(task -> {
                 if (task.isSuccessful()) {
-                    // User registered successfully
-                    String userId = Objects.requireNonNull(mAuth.getCurrentUser()).getUid();
-                    String generatedUsername = "user_" + userId; // Generate username
-
-                    // Create user object
-                    User user = new User(generatedUsername, name, surname, email);
-
-                    // Save user to Firestore
-                    db.collection("users").document(userId).set(user)
-                            .addOnSuccessListener(aVoid -> {
-                                Toast.makeText(RegisterActivity.this, "User registered successfully", Toast.LENGTH_SHORT).show();
-                                startActivity(new Intent(RegisterActivity.this, LoginActivity.class));
-                                finish();
-                                // In RegisterActivity when starting MainActivity
-                                Intent intent = new Intent(RegisterActivity.this, MainActivity.class);
-                                intent.putExtra("name", name_);
-                                intent.putExtra("email", email_);
+                    FirebaseUser firebaseUser = mAuth.getCurrentUser();
+                    if (firebaseUser != null) {
+                        // Send verification email
+                        firebaseUser.sendEmailVerification().addOnCompleteListener(verificationTask -> {
+                            if (verificationTask.isSuccessful()) {
+                                Toast.makeText(RegisterActivity.this, "Verification email sent. Please check your inbox.", Toast.LENGTH_LONG).show();
+                                // Redirect to VerifyEmailActivity
+                                Intent intent = new Intent(RegisterActivity.this, VerifyEmailActivity.class);
+                                intent.putExtra("email", email);
                                 startActivity(intent);
-                            })
-                            .addOnFailureListener(e -> {
-                                Toast.makeText(RegisterActivity.this, "Error saving user: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                            });
+                                finish();
+                            } else {
+                                Toast.makeText(RegisterActivity.this, "Failed to send verification email: " + verificationTask.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    }
                 } else {
                     // Handle registration error
                     Toast.makeText(RegisterActivity.this, "Registration Error: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
@@ -115,7 +106,6 @@ public class RegisterActivity extends AppCompatActivity {
             this.name = name; // Initialize Name
             this.surname = surname; // Initialize Surname
             this.email = email;
-
             name_ = this.name;
             surname_ = this.surname;
         }

@@ -16,8 +16,12 @@
         android:theme="@style/Theme.MyApp"
         tools:targetApi="31">
         <activity
-            android:name=".EventDecorator"
+            android:name=".VerifyEmailActivity"
             android:exported="false" />
+        <activity
+            android:name=".EventDecorator"
+            android:exported="false"
+            tools:ignore="Instantiatable" />
         <activity
             android:name=".CampConfigActivity"
             android:exported="false" />
@@ -25,11 +29,9 @@
             android:name=".UserAddActivity"
             android:exported="false" />
         <activity
-            android:name=".CopyablePreference"
-            android:exported="false" />
-        <activity
             android:name=".User"
-            android:exported="false" />
+            android:exported="false"
+            tools:ignore="Instantiatable" />
         <activity
             android:name=".SplashActivity"
             android:exported="true">

@@ -10,6 +10,7 @@
     <string name="welcome">Welcome</string>
     <string name="todo">TODO</string>
     <string name="go_back">Go Back</string>
+    <string name="a_verification_email_has_been_sent_to_your_email_address_please_verify_your_email_and_click_the_button_below">A verification email has been sent to your email address. Please verify your email and click the button below.</string>
 
 
 </resources>

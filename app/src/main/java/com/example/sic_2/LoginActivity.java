@@ -11,19 +11,18 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 import java.util.Objects;
 
 public class LoginActivity extends AppCompatActivity {
 
     TextInputEditText etLoginEmail;
-
     public static String email_;
     TextInputEditText etLoginPassword;
     TextView tvRegisterHere;
     Button btnLogin;
     Button btnGuestMode;
-
     FirebaseAuth mAuth;
     FirebaseFirestore db;
 
@@ -44,10 +43,6 @@ public class LoginActivity extends AppCompatActivity {
         btnLogin.setOnClickListener(view -> loginUser());
         tvRegisterHere.setOnClickListener(view -> startActivity(new Intent(LoginActivity.this, RegisterActivity.class)));
         btnGuestMode.setOnClickListener(view -> enterGuestMode());
-
-
-
-
     }
 
     private void loginUser() {
@@ -73,9 +68,23 @@ public class LoginActivity extends AppCompatActivity {
             mAuth.signInWithEmailAndPassword(email, password).addOnCompleteListener(task -> {
                 progressDialog.dismiss();
                 if (task.isSuccessful()) {
-                    Toast.makeText(LoginActivity.this, "User logged in successfully", Toast.LENGTH_SHORT).show();
-                    startActivity(new Intent(LoginActivity.this, MainActivity.class));
-                    finish();
+                    FirebaseUser user = mAuth.getCurrentUser();
+                    if (user != null) {
+                        if (user.isEmailVerified()) {
+                            // Email is verified, proceed to MainActivity
+                            Toast.makeText(LoginActivity.this, "User logged in successfully", Toast.LENGTH_SHORT).show();
+                            startActivity(new Intent(LoginActivity.this, MainActivity.class));
+                            finish();
+                        } else {
+                            // Email is not verified, log the user out and redirect to VerifyEmailActivity
+                            mAuth.signOut();
+                            Toast.makeText(LoginActivity.this, "Please verify your email first.", Toast.LENGTH_SHORT).show();
+                            Intent intent = new Intent(LoginActivity.this, VerifyEmailActivity.class);
+                            intent.putExtra("email", email);
+                            startActivity(intent);
+                            finish();
+                        }
+                    }
                 } else {
                     String errorMessage = "Log in Error: " + task.getException().getMessage();
                     if (errorMessage.contains("no user record")) {
@@ -87,8 +96,6 @@ public class LoginActivity extends AppCompatActivity {
                 }
             });
         }
-
-
     }
 
     private boolean isEmailValid(String email) {
@@ -109,5 +116,4 @@ public class LoginActivity extends AppCompatActivity {
                 .setNegativeButton("Cancel", null)
                 .show();
     }
-
 }
