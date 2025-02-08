@@ -33,11 +33,9 @@ public class UserAddActivity extends AppCompatActivity {
         userIdInput = findViewById(R.id.userIdInput);
         Button addUserButton = findViewById(R.id.addUserButton);
 
-        // Get Firebase references
         currentUserId = Objects.requireNonNull(FirebaseAuth.getInstance().getCurrentUser()).getUid();
         usersRef = FirebaseDatabase.getInstance().getReference("users");
 
-        // Get card ID from Intent
         cardId = getIntent().getStringExtra("cardId");
 
         addUserButton.setOnClickListener(view -> checkUserExists());
@@ -83,7 +81,6 @@ public class UserAddActivity extends AppCompatActivity {
                 if (snapshot.exists()) {
                     DatabaseReference cardRef = FirebaseDatabase.getInstance().getReference("cards").child(cardId).child("users");
 
-                    // 🔹 Add both users to the card
                     Map<String, Object> updates = new HashMap<>();
                     updates.put(finalNewUserId, true);
                     updates.put(currentUserId, true);

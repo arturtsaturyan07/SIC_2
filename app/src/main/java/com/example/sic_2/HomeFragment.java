@@ -37,13 +37,11 @@ public class HomeFragment extends Fragment {
 
 
 
-        // Ensure fragment is attached before accessing views and context-dependent methods
         if (isAdded()) {
             fab = view.findViewById(R.id.fab);
             cardContainer = view.findViewById(R.id.card_container);
             searchView = view.findViewById(R.id.search);
 
-            // Firebase setup
             FirebaseAuth auth = FirebaseAuth.getInstance();
             if (auth.getCurrentUser() != null) {
                 userId = auth.getCurrentUser().getUid();
@@ -51,10 +49,8 @@ public class HomeFragment extends Fragment {
                 loadCards();
             }
 
-            // Floating Action Button onClick
             fab.setOnClickListener(v -> showInputDialog());
 
-            // Search functionality
             searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
                 @Override
                 public boolean onQueryTextSubmit(String query) {
@@ -73,7 +69,6 @@ public class HomeFragment extends Fragment {
         return view;
     }
 
-    // Display input dialog to create a new card
     private void showInputDialog() {
         if (isAdded()) {
             AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
@@ -96,7 +91,6 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    // Save the new card to Firebase
     private void saveCardToFirebase(String message) {
         String cardId = database.push().getKey();
         if (cardId != null) {
@@ -114,7 +108,6 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    // Load the saved cards from Firebase
     private void loadCards() {
         if (isAdded()) {
             database.addListenerForSingleValueEvent(new ValueEventListener() {
@@ -137,21 +130,18 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    // Create a new view for the card and add it to the container
     private void createCardView(String cardId, String message) {
         if (isAdded()) {
             View cardView = LayoutInflater.from(requireContext()).inflate(R.layout.card_view_layout, cardContainer, false);
             TextView cardMessage = cardView.findViewById(R.id.card_message);
             cardMessage.setText(message);
 
-            // Set click listener to open CardActivity
             cardView.setOnClickListener(v -> {
                 Intent intent = new Intent(requireContext(), Card.class);
-                intent.putExtra("card_message", message); // Pass the message to the new activity
+                intent.putExtra("card_message", message);
                 startActivity(intent);
             });
 
-            // Find the delete button
             Button deleteButton = cardView.findViewById(R.id.delete_button);
             deleteButton.setOnClickListener(v -> deleteCard(cardId, cardView));
 
@@ -161,7 +151,6 @@ public class HomeFragment extends Fragment {
 
 
 
-    // Placeholder method for filtering cards based on the search query
     private void filterCards(String query) {
         // Implement filtering logic here (if needed)
     }
@@ -190,10 +179,8 @@ public class HomeFragment extends Fragment {
     }
 
     private void deleteCard(String cardId, View cardView) {
-        // Remove from Firebase
         database.child(cardId).removeValue().addOnCompleteListener(task -> {
             if (task.isSuccessful()) {
-                // Remove from UI
                 cardContainer.removeView(cardView);
                 Toast.makeText(requireContext(), "Card deleted", Toast.LENGTH_SHORT).show();
             } else {
@@ -208,7 +195,6 @@ public class HomeFragment extends Fragment {
         TextView userNameTextView = userCardView.findViewById(R.id.card_message);
         userNameTextView.setText(username);
         userCardView.setOnClickListener(v -> {
-            // Handle user click, e.g., navigate to user profile
             Toast.makeText(requireContext(), "Clicked on: " + username, Toast.LENGTH_SHORT).show();
         });
         cardContainer.addView(userCardView);

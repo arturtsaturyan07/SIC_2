@@ -44,10 +44,9 @@ public class UserSearchActivity extends AppCompatActivity {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                 if (dataSnapshot.exists()) {
-                    // Use a User model class instead of String
                     User user = dataSnapshot.getValue(User.class);
                     if (user != null) {
-                        resultTextView.setText("User found: " + user.getName()); // Adjust field accordingly
+                        resultTextView.setText("User found: " + user.getName());
                     } else {
                         resultTextView.setText("User data is null.");
                     }

@@ -33,40 +33,33 @@ public class Card extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.card_view_layout);
 
-        // Initialize Firebase
         database = FirebaseDatabase.getInstance().getReference("cards");
         currentUserId = Objects.requireNonNull(FirebaseAuth.getInstance().getCurrentUser()).getUid();
 
-        // Get cardId from Intent
         cardId = getIntent().getStringExtra("cardId");
 
-        // Initialize UI components
         cardMessage = findViewById(R.id.card_message);
         ImageButton backButton = findViewById(R.id.backbutton);
         Button addUserButton = findViewById(R.id.addUserButton);
         Button createEventButton = findViewById(R.id.create_event_button);
         calendarView = findViewById(R.id.calendar_view);
 
-        // Load card data only if the user has access
         if (cardId != null) {
             checkUserAccess();
         }
 
-        // Handle back button
         backButton.setOnClickListener(view -> {
             Intent intent = new Intent(Card.this, MainActivity.class);
             startActivity(intent);
             finish();
         });
 
-        // Open AddUserActivity when "Add User" button is clicked
         addUserButton.setOnClickListener(view -> {
             Intent intent = new Intent(Card.this, UserAddActivity.class);
             intent.putExtra("cardId", cardId);
             startActivity(intent);
         });
 
-        // Handle "Create Event" button
         createEventButton.setOnClickListener(view -> showCreateEventDialog());
     }
 
@@ -75,7 +68,7 @@ public class Card extends AppCompatActivity {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (snapshot.exists() && Boolean.TRUE.equals(snapshot.getValue(Boolean.class))) {
-                    loadCardData();  // User has access, load card
+                    loadCardData();
                 } else {
                     Toast.makeText(Card.this, "Access denied", Toast.LENGTH_SHORT).show();
                     finish();
@@ -111,16 +104,13 @@ public class Card extends AppCompatActivity {
     }
 
     private void showCreateEventDialog() {
-        // Create a simple dialog for event creation
         androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
         builder.setTitle("Create Event");
 
-        // Input fields for event details
         final androidx.appcompat.widget.AppCompatEditText eventNameInput = new androidx.appcompat.widget.AppCompatEditText(this);
         eventNameInput.setHint("Event Name");
         builder.setView(eventNameInput);
 
-        // Add buttons to the dialog
         builder.setPositiveButton("Save", (dialog, which) -> {
             String eventName = eventNameInput.getText().toString();
             if (!eventName.isEmpty()) {
@@ -130,22 +120,18 @@ public class Card extends AppCompatActivity {
 
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
 
-        // Show the dialog
         builder.show();
     }
 
     private void saveEvent(String eventName) {
-        // Save the event (e.g., to a database or memory)
         Toast.makeText(this, "Event Saved: " + eventName, Toast.LENGTH_SHORT).show();
 
-        // Optionally, mark the selected date on the calendar
         CalendarDay selectedDate = calendarView.getSelectedDate();
         if (selectedDate != null) {
             calendarView.addDecorator(new EventDecorator(selectedDate));
         }
     }
 
-    // Custom decorator to mark dates with events
     private static class EventDecorator implements com.prolificinteractive.materialcalendarview.DayViewDecorator {
 
         private final CalendarDay date;

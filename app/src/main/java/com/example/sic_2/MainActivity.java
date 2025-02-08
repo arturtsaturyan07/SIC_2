@@ -62,7 +62,7 @@ public class MainActivity extends AppCompatActivity {
         if (!isGuest) {
             userId = user.getUid();
             initializeFirebase(isGuest, intent);
-            loadUserCards(); // 🔹 Ensure cards load after Firebase check
+            loadUserCards();
         }
 
 

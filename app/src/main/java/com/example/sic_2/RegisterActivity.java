@@ -19,8 +19,8 @@ public class RegisterActivity extends AppCompatActivity {
 
     TextInputEditText etRegEmail;
     TextInputEditText etRegPassword;
-    TextInputEditText etRegName; // Added for Name
-    TextInputEditText etRegSurname; // Added for Surname
+    TextInputEditText etRegName;
+    TextInputEditText etRegSurname;
     TextView tvLoginHere;
     Button btnRegister;
     public static String name_;
@@ -35,8 +35,8 @@ public class RegisterActivity extends AppCompatActivity {
 
         etRegEmail = findViewById(R.id.etRegEmail);
         etRegPassword = findViewById(R.id.etRegPass);
-        etRegName = findViewById(R.id.etRegName); // Initialize Name EditText
-        etRegSurname = findViewById(R.id.etRegSurname); // Initialize Surname EditText
+        etRegName = findViewById(R.id.etRegName);
+        etRegSurname = findViewById(R.id.etRegSurname);
         tvLoginHere = findViewById(R.id.tvLoginHere);
         btnRegister = findViewById(R.id.btnRegister);
 
@@ -50,8 +50,8 @@ public class RegisterActivity extends AppCompatActivity {
     private void createUser() {
         String email = Objects.requireNonNull(etRegEmail.getText()).toString();
         String password = Objects.requireNonNull(etRegPassword.getText()).toString();
-        String name = Objects.requireNonNull(etRegName.getText()).toString(); // Get Name
-        String surname = Objects.requireNonNull(etRegSurname.getText()).toString(); // Get Surname
+        String name = Objects.requireNonNull(etRegName.getText()).toString();
+        String surname = Objects.requireNonNull(etRegSurname.getText()).toString();
 
         // Input validation
         if (TextUtils.isEmpty(name)) {
@@ -67,16 +67,13 @@ public class RegisterActivity extends AppCompatActivity {
             etRegPassword.setError("Password cannot be empty");
             etRegPassword.requestFocus();
         } else {
-            // Create user with email and password
             mAuth.createUserWithEmailAndPassword(email, password).addOnCompleteListener(task -> {
                 if (task.isSuccessful()) {
                     FirebaseUser firebaseUser = mAuth.getCurrentUser();
                     if (firebaseUser != null) {
-                        // Send verification email
                         firebaseUser.sendEmailVerification().addOnCompleteListener(verificationTask -> {
                             if (verificationTask.isSuccessful()) {
                                 Toast.makeText(RegisterActivity.this, "Verification email sent. Please check your inbox.", Toast.LENGTH_LONG).show();
-                                // Redirect to VerifyEmailActivity
                                 Intent intent = new Intent(RegisterActivity.this, VerifyEmailActivity.class);
                                 intent.putExtra("email", email);
                                 startActivity(intent);
@@ -87,14 +84,12 @@ public class RegisterActivity extends AppCompatActivity {
                         });
                     }
                 } else {
-                    // Handle registration error
                     Toast.makeText(RegisterActivity.this, "Registration Error: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
                 }
             });
         }
     }
 
-    // User model class
     public static class User {
         private String username;
         private String name; // Added Name

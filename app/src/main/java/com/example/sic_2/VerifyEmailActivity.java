@@ -28,16 +28,13 @@ public class VerifyEmailActivity extends AppCompatActivity {
         btnVerifyEmail.setOnClickListener(view -> {
             FirebaseUser user = mAuth.getCurrentUser();
             if (user != null) {
-                // Reload the user's profile to get the latest email verification status
                 user.reload().addOnCompleteListener(reloadTask -> {
                     if (reloadTask.isSuccessful()) {
                         if (user.isEmailVerified()) {
-                            // Email is verified, proceed to MainActivity
                             Toast.makeText(this, "Email verified successfully!", Toast.LENGTH_SHORT).show();
                             startActivity(new Intent(this, MainActivity.class));
                             finish();
                         } else {
-                            // Email not verified yet
                             Toast.makeText(this, "Please verify your email first.", Toast.LENGTH_SHORT).show();
                         }
                     } else {
@@ -45,7 +42,6 @@ public class VerifyEmailActivity extends AppCompatActivity {
                     }
                 });
             } else {
-                // User not logged in
                 Toast.makeText(this, "User not found. Please register again.", Toast.LENGTH_SHORT).show();
                 startActivity(new Intent(this, RegisterActivity.class));
                 finish();

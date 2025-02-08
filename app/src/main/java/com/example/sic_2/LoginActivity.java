@@ -71,12 +71,10 @@ public class LoginActivity extends AppCompatActivity {
                     FirebaseUser user = mAuth.getCurrentUser();
                     if (user != null) {
                         if (user.isEmailVerified()) {
-                            // Email is verified, proceed to MainActivity
                             Toast.makeText(LoginActivity.this, "User logged in successfully", Toast.LENGTH_SHORT).show();
                             startActivity(new Intent(LoginActivity.this, MainActivity.class));
                             finish();
                         } else {
-                            // Email is not verified, log the user out and redirect to VerifyEmailActivity
                             mAuth.signOut();
                             Toast.makeText(LoginActivity.this, "Please verify your email first.", Toast.LENGTH_SHORT).show();
                             Intent intent = new Intent(LoginActivity.this, VerifyEmailActivity.class);
