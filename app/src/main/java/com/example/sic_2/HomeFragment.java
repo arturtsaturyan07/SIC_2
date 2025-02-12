@@ -134,7 +134,7 @@ public class HomeFragment extends Fragment {
     private void createCardView(String cardId, String message) {
         if (isAdded()) {
             View cardView = LayoutInflater.from(requireContext()).inflate(R.layout.activity_blank_fragment, cardContainer, false);
-            @SuppressLint({"MissingInflatedId", "LocalSuppress"}) TextView cardMessage = cardView.findViewById(R.id.card_message);
+            TextView cardMessage = cardView.findViewById(R.id.card_message);
             cardMessage.setText(message);
 
             cardView.setOnClickListener(v -> {
@@ -143,7 +143,7 @@ public class HomeFragment extends Fragment {
                 startActivity(intent);
             });
 
-            @SuppressLint({"MissingInflatedId", "LocalSuppress"}) Button deleteButton = cardView.findViewById(R.id.delete_button);
+             Button deleteButton = cardView.findViewById(R.id.delete_button);
             deleteButton.setOnClickListener(v -> deleteCard(cardId, cardView));
 
             cardContainer.addView(cardView);
