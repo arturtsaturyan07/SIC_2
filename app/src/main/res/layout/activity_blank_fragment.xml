@@ -7,16 +7,24 @@
     android:padding="16dp">
 
     <!-- Weekly Calendar -->
-    <com.prolificinteractive.materialcalendarview.MaterialCalendarView
-        android:id="@+id/calendar_view"
+<!--    <com.prolificinteractive.materialcalendarview.MaterialCalendarView-->
+<!--        android:id="@+id/calendar_view"-->
+<!--        android:layout_width="match_parent"-->
+<!--        android:layout_height="wrap_content"-->
+<!--        android:layout_marginBottom="16dp" />-->
+    <TextView
+        android:id="@+id/card_message"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp" />
+        android:text="Card message"
+        android:textSize="16sp"
+        android:padding="8dp" />
 
-    <!-- Button to Create Events -->
+
     <Button
-        android:id="@+id/create_event_button"
+        android:id="@+id/delete_button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Create Event" />
+        android:text="Delete"
+        android:layout_marginTop="16dp" />
 </LinearLayout>
