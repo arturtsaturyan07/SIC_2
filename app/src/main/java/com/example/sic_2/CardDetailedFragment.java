@@ -3,14 +3,15 @@ package com.example.sic_2;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
@@ -25,7 +26,7 @@ import com.prolificinteractive.materialcalendarview.CalendarDay;
 import com.prolificinteractive.materialcalendarview.MaterialCalendarView;
 import java.util.Objects;
 
-public class Card extends AppCompatActivity {
+public class CardDetailedFragment extends Fragment {
 
     private DatabaseReference database;
     private TextView cardMessage;
@@ -34,52 +35,49 @@ public class Card extends AppCompatActivity {
     private String currentUserId;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.card_view_layout);
+    public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        // Inflate the layout for this fragment
+        View view = inflater.inflate(R.layout.card_view_layout, container, false);
 
         // Initialize Firebase Database
         database = FirebaseDatabase.getInstance().getReference("cards");
         currentUserId = Objects.requireNonNull(FirebaseAuth.getInstance().getCurrentUser()).getUid();
 
-        // Get card ID from intent
-        cardId = getIntent().getStringExtra("cardId");
+        // Get card ID from arguments
+        if (getArguments() != null) {
+            cardId = getArguments().getString("cardId");
+        }
 
         // Initialize views
-        cardMessage = findViewById(R.id.card_message);
-        ImageButton backButton = findViewById(R.id.backbutton);
-        Button addUserButton = findViewById(R.id.addUserButton);
-        Button createEventButton = findViewById(R.id.create_event_button);
-        calendarView = findViewById(R.id.calendar_view);
+        cardMessage = view.findViewById(R.id.card_message);
+        ImageButton backButton = view.findViewById(R.id.backbutton);
+        Button addUserButton = view.findViewById(R.id.addUserButton);
+        Button createEventButton = view.findViewById(R.id.create_event_button);
+        calendarView = view.findViewById(R.id.calendar_view);
 
         // Check user access
         if (cardId != null) {
             checkUserAccess();
         }
 
-        // Back button: Navigate back to MainActivity
-        backButton.setOnClickListener(view -> {
-            Intent intent = new Intent(Card.this, MainActivity.class);
-            startActivity(intent);
-            finish();
-        });
+        // Back button: Navigate back
+        backButton.setOnClickListener(v -> requireActivity().onBackPressed());
 
         // Add User button: Open UserAddActivity
-        addUserButton.setOnClickListener(view -> {
-            Intent intent = new Intent(Card.this, UserAddActivity.class);
+        addUserButton.setOnClickListener(v -> {
+            Intent intent = new Intent(requireContext(), UserAddActivity.class);
             intent.putExtra("cardId", cardId);
             startActivity(intent);
         });
 
         // Create Event button: Show dialog to create an event
-        createEventButton.setOnClickListener(view -> showCreateEventDialog());
+        createEventButton.setOnClickListener(v -> showCreateEventDialog());
 
         // Bottom Navigation Menu
-        BottomNavigationView bottomNavigationView = findViewById(R.id.bottom_navigation);
+        BottomNavigationView bottomNavigationView = view.findViewById(R.id.bottom_navigation);
         bottomNavigationView.setOnNavigationItemSelectedListener(item -> {
             Fragment selectedFragment = null;
 
-            // Replace switch-case with if-else
             if (item.getItemId() == R.id.nav_main) {
                 selectedFragment = new MainFragment();
             } else if (item.getItemId() == R.id.nav_chat) {
@@ -89,7 +87,7 @@ public class Card extends AppCompatActivity {
             }
 
             if (selectedFragment != null) {
-                getSupportFragmentManager().beginTransaction()
+                getParentFragmentManager().beginTransaction()
                         .replace(R.id.content_frame, selectedFragment)
                         .commit();
             }
@@ -101,6 +99,8 @@ public class Card extends AppCompatActivity {
         if (savedInstanceState == null) {
             bottomNavigationView.setSelectedItemId(R.id.nav_main);
         }
+
+        return view;
     }
 
     /**
@@ -113,8 +113,8 @@ public class Card extends AppCompatActivity {
                 if (snapshot.exists() && Boolean.TRUE.equals(snapshot.getValue(Boolean.class))) {
                     loadCardData();
                 } else {
-                    Toast.makeText(Card.this, "Access denied", Toast.LENGTH_SHORT).show();
-                    finish();
+                    Toast.makeText(requireContext(), "Access denied", Toast.LENGTH_SHORT).show();
+                    requireActivity().onBackPressed(); // Go back if access is denied
                 }
             }
 
@@ -153,10 +153,10 @@ public class Card extends AppCompatActivity {
      * Show a dialog to create an event.
      */
     private void showCreateEventDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
         builder.setTitle("Create Event");
 
-        final androidx.appcompat.widget.AppCompatEditText eventNameInput = new androidx.appcompat.widget.AppCompatEditText(this);
+        final androidx.appcompat.widget.AppCompatEditText eventNameInput = new androidx.appcompat.widget.AppCompatEditText(requireContext());
         eventNameInput.setHint("Event Name");
         builder.setView(eventNameInput);
 
@@ -165,7 +165,7 @@ public class Card extends AppCompatActivity {
             if (!eventName.isEmpty()) {
                 saveEvent(eventName);
             } else {
-                Toast.makeText(this, "Event name cannot be empty", Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), "Event name cannot be empty", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -178,13 +178,13 @@ public class Card extends AppCompatActivity {
      * Save the event and mark it on the calendar.
      */
     private void saveEvent(String eventName) {
-        Toast.makeText(this, "Event Saved: " + eventName, Toast.LENGTH_SHORT).show();
+        Toast.makeText(requireContext(), "Event Saved: " + eventName, Toast.LENGTH_SHORT).show();
 
         CalendarDay selectedDate = calendarView.getSelectedDate();
         if (selectedDate != null) {
             calendarView.addDecorator(new EventDecorator(selectedDate));
         } else {
-            Toast.makeText(this, "Please select a date first", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), "Please select a date first", Toast.LENGTH_SHORT).show();
         }
     }
 

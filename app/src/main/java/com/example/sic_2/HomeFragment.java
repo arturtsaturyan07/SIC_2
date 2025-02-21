@@ -13,6 +13,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.widget.SearchView;
+import androidx.core.view.ViewCompat;
 import androidx.fragment.app.Fragment;
 import androidx.appcompat.app.AlertDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -66,6 +67,20 @@ public class HomeFragment extends Fragment {
                 }
             });
         }
+
+        // Handle system insets to avoid overlapping with navigation bar
+        ViewCompat.setOnApplyWindowInsetsListener(view, (v, insets) -> {
+            // Get the bottom inset (navigation bar height)
+            int bottomInset = insets.getSystemWindowInsetBottom();
+
+            // Apply additional margin to the FAB
+            FloatingActionButton fab = view.findViewById(R.id.fab);
+            ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) fab.getLayoutParams();
+            params.bottomMargin += bottomInset; // Add navigation bar height to the bottom margin
+            fab.setLayoutParams(params);
+
+            return insets.consumeSystemWindowInsets();
+        });
 
         return view;
     }
@@ -137,15 +152,28 @@ public class HomeFragment extends Fragment {
             TextView cardMessage = cardView.findViewById(R.id.card_message);
             cardMessage.setText(message);
 
+            // Set click listener on the card
             cardView.setOnClickListener(v -> {
-                Intent intent = new Intent(requireContext(), Card.class);
-                intent.putExtra("card_message", message);
-                startActivity(intent);
+                // Create and display the CardDetailsFragment
+                CardDetailedFragment cardDetailsFragment = new CardDetailedFragment();
+
+                // Pass data to the fragment
+                Bundle args = new Bundle();
+                args.putString("cardId", cardId); // Pass the card ID
+                cardDetailsFragment.setArguments(args);
+
+                // Replace the fragment container with the new fragment
+                getParentFragmentManager().beginTransaction()
+                        .replace(R.id.fragment_container, cardDetailsFragment)
+                        .addToBackStack(null) // Add to back stack for navigation
+                        .commit();
             });
 
-             Button deleteButton = cardView.findViewById(R.id.delete_button);
+            // Delete button logic
+            Button deleteButton = cardView.findViewById(R.id.delete_button);
             deleteButton.setOnClickListener(v -> deleteCard(cardId, cardView));
 
+            // Add the card view to the container
             cardContainer.addView(cardView);
         }
     }

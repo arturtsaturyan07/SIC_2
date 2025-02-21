@@ -1,0 +1,14 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_main"
+        android:icon="@drawable/baseline_add_home_24"
+        android:title="Main" />
+    <item
+        android:id="@+id/nav_chat"
+        android:icon="@drawable/baseline_chat_24"
+        android:title="Chat" />
+    <item
+        android:id="@+id/nav_team_leader"
+        android:icon="@drawable/baseline_face_24"
+        android:title="Team Leader" />
+</menu>
