@@ -107,23 +107,30 @@ public class Card extends AppCompatActivity {
      * Check if the current user has access to this card.
      */
     private void checkUserAccess() {
-        database.child(cardId).child("users").child(currentUserId).addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (snapshot.exists() && Boolean.TRUE.equals(snapshot.getValue(Boolean.class))) {
-                    loadCardData();
-                } else {
-                    Toast.makeText(Card.this, "Access denied", Toast.LENGTH_SHORT).show();
-                    finish();
-                }
-            }
+        database.child(currentUserId).child(cardId)
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        if (snapshot.exists()) {
+                            String message = snapshot.child("message").getValue(String.class);
+                            if (message != null) {
+                                cardMessage.setText(message);
+                            }
+                        } else {
+                            Log.e("Firebase", "Card not found");
+                            Toast.makeText(Card.this, "Access denied", Toast.LENGTH_SHORT).show();
+                            finish();
+                        }
+                    }
 
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                Log.e("Firebase", "Failed to check access", error.toException());
-            }
-        });
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+                        Log.e("Firebase", "Failed to load card", error.toException());
+                    }
+                });
+
     }
+
 
     /**
      * Load card data from Firebase.
