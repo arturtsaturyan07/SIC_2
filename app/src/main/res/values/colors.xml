@@ -18,5 +18,9 @@
     <color name="primary_light">#FFFFFF</color>
     <color name="accent_dark">#BB86FC</color>
     <color name="accent_light">#03DAC5</color>
+    <color name="primaryColor">#6200EE</color>
+    <color name="secondaryColor">#03DAC5</color>
+    <color name="errorColor">#B00020</color>
+    <color name="bottom_nav_colors">#FFFFFF</color>
 
 </resources>
