@@ -1,25 +1,22 @@
+<!-- fragment_blank.xml -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="horizontal"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
     android:padding="16dp">
 
-    <!-- Card Message -->
-    <TextView
-        android:id="@+id/card_message"
-        android:layout_width="0dp"
-        android:layout_weight="1"
+    <!-- Weekly Calendar -->
+    <com.prolificinteractive.materialcalendarview.MaterialCalendarView
+        android:id="@+id/calendar_view"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Card Message"
-        android:textSize="16sp"
-        android:clickable="true"
-        android:focusable="true" />
+        android:layout_marginBottom="16dp" />
 
-    <!-- Delete Button -->
+    <!-- Button to Create Events -->
     <Button
-        android:id="@+id/delete_button"
-        android:layout_width="wrap_content"
+        android:id="@+id/create_event_button"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Delete" />
+        android:text="Create Event" />
 </LinearLayout>

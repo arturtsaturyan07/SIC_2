@@ -16,9 +16,6 @@
         android:theme="@style/Theme.MyApp"
         tools:targetApi="31">
         <activity
-            android:name=".CampDetailsActivity"
-            android:exported="false" />
-        <activity
             android:name=".VerifyEmailActivity"
             android:exported="false" />
         <activity

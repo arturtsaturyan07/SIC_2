@@ -4,7 +4,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -97,19 +96,6 @@ public class MainActivity extends AppCompatActivity {
 
         usersRef = FirebaseDatabase.getInstance().getReference("users");
         checkIfUserExists(email_, name_, surname_);
-    }
-
-
-    @Override
-    public void onBackPressed() {
-        View fragmentContainer = findViewById(R.id.fragment_container);
-        if (fragmentContainer != null && fragmentContainer.getVisibility() == View.VISIBLE) {
-            // Hide the fragment container and return to the card view layout
-            fragmentContainer.setVisibility(View.GONE);
-        } else {
-            // Default back behavior
-            super.onBackPressed();
-        }
     }
 
 
