@@ -1,0 +1,38 @@
+* [33m5a4279e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m 24.02.2025 1 very unstable
+* [33m040358c[m 21.02.2025 1 unstable
+* [33m437e523[m 12.02.2025 3 unstable
+* [33m0084111[m 12.02.2025 2
+* [33m38904c6[m 12.02.2025 1
+* [33m06b0fd7[m 08.02.2025 2
+* [33m74b296b[m 08.02.2025 1
+* [33m9a19705[m 07.02.2025 1
+* [33m5b8f617[m 06.02.2025 3
+* [33m825fe5c[m 06.02.2025 2
+* [33m5dad21d[m 06.02.2025 1
+* [33mcb963ea[m 04.02.2025 4
+* [33mdcd010b[m 04.02.2025 3
+* [33m980e975[m 04.02.2025 2
+* [33mbb6232d[m 04.02.2025 1
+* [33m9f11c44[m 03.02.2025 2 + i can copy user id
+* [33m26d755a[m 03.02.2025 1
+* [33mf13db7e[m 02.02.2025 1
+* [33m6263bb9[m 02.02.2025 2
+* [33m6fb46d3[m 02.02.2025 2
+* [33m99a29c3[m 02.02.2025 1
+* [33mcd17d78[m 01.02.2025 5
+* [33m61c935c[m 01.02.2025 4
+* [33m7fea60a[m 01.02.2025 3
+* [33m90e7ff5[m 01.02.2025 2
+* [33maa5953d[m 01.02.2025
+* [33m10367f6[m added cardview, work quiet normal but some issues were with gradle, also guest mode + button which works correctly + delete card button
+* [33mfccfb26[m added cardview, work quiet normal but some issues were with gradle, also guest mode + button whick works correctly
+* [33me6e214b[m added cardview, work quiet normal but some issues were with gradle, also guest mode
+* [33m708a38b[m added cardview, work quiet normal but some issues were with gradle
+* [33mbf5e86b[m added cardview, work quiet normal
+* [33md20b9d3[m Upload feature add, but not works correctly
+* [33mca4114f[m half past working with add button
+* [33m7472160[m half past working with add button
+* [33m2ff991b[m half past working with add button
+* [33m01fb795[m adding normal working drawer menu
+* [33md0f7aef[m working version without changes
+* [33mfcff4ce[m Initial commit

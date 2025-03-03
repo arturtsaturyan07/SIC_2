@@ -44,7 +44,7 @@ public class Card extends AppCompatActivity {
         ImageButton backButton = findViewById(R.id.back_button);
         Button addUserButton = findViewById(R.id.addUserButton);
         Button createEventButton = findViewById(R.id.create_event_button);
-        Button deleteButton = findViewById(R.id.delete_button);
+        //Button deleteButton = findViewById(R.id.delete_button);
 
         if (cardId == null) {
             Toast.makeText(this, "Card ID is missing", Toast.LENGTH_SHORT).show();
@@ -61,7 +61,7 @@ public class Card extends AppCompatActivity {
             startActivity(intent);
         });
         createEventButton.setOnClickListener(v -> showCreateEventDialog());
-        deleteButton.setOnClickListener(v -> deleteCard());
+        //deleteButton.setOnClickListener(v -> deleteCard());
 
         BottomNavigationView bottomNavigationView = findViewById(R.id.bottom_navigation);
         if (bottomNavigationView != null) {
