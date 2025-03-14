@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -13,7 +14,6 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.AppCompatEditText;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -24,7 +24,6 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
-import com.prolificinteractive.materialcalendarview.CalendarDay;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,6 +36,8 @@ public class CardActivity extends AppCompatActivity {
     private TextView cardMessage;
     private String cardId;
     private String currentUserId;
+
+    // Shared Cards RecyclerView
     private RecyclerView sharedCardsRecyclerView;
     private SharedCardsAdapter sharedCardsAdapter;
     private List<SharedCard> sharedCardList;
@@ -46,31 +47,18 @@ public class CardActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.card_view_layout);
 
-        sharedCardList = new ArrayList<>();
-        sharedCardsAdapter = new SharedCardsAdapter(sharedCardList);
-        sharedCardsRecyclerView = findViewById(R.id.shared_cards_recycler_view);
-        sharedCardsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
-        sharedCardsRecyclerView.setAdapter(sharedCardsAdapter);
-
         // Initialize Firebase database and UI components
         database = FirebaseDatabase.getInstance().getReference("cards");
         currentUserId = FirebaseAuth.getInstance().getCurrentUser() != null
                 ? FirebaseAuth.getInstance().getCurrentUser().getUid()
                 : null;
         cardId = getIntent().getStringExtra("cardId");
-
         cardMessage = findViewById(R.id.card_message);
+
         ImageButton backButton = findViewById(R.id.back_button);
         Button addUserButton = findViewById(R.id.addUserButton);
         Button createEventButton = findViewById(R.id.create_event_button);
         Button shareCardButton = findViewById(R.id.shareCardButton);
-        sharedCardsRecyclerView = findViewById(R.id.shared_cards_recycler_view);
-
-        // Initialize RecyclerView
-        sharedCardList = new ArrayList<>();
-        sharedCardsAdapter = new SharedCardsAdapter(sharedCardList);
-        sharedCardsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
-        sharedCardsRecyclerView.setAdapter(sharedCardsAdapter);
 
         // Validate card ID and user authentication
         if (cardId == null || cardId.isEmpty()) {
@@ -83,6 +71,13 @@ public class CardActivity extends AppCompatActivity {
             finish();
             return;
         }
+
+        // Initialize Shared Cards RecyclerView
+        sharedCardList = new ArrayList<>();
+        sharedCardsAdapter = new SharedCardsAdapter(sharedCardList);
+        sharedCardsRecyclerView = findViewById(R.id.shared_cards_recycler_view);
+        sharedCardsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        sharedCardsRecyclerView.setAdapter(sharedCardsAdapter);
 
         // Check user access to the card
         checkUserAccess();
@@ -100,9 +95,6 @@ public class CardActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
-        // Create event button functionality
-        //createEventButton.setOnClickListener(v -> showCreateEventDialog());
-
         // Share card button functionality
         shareCardButton.setOnClickListener(v -> showShareDialog(cardId));
 
@@ -114,7 +106,9 @@ public class CardActivity extends AppCompatActivity {
                     navigateTo(MainActivity.class);
                     return true;
                 } else if (item.getItemId() == R.id.nav_chat) {
-                    navigateTo(ChatActivity.class);
+                    Intent intent = new Intent(CardActivity.this, ChatActivity.class);
+                    intent.putExtra("cardId", cardId); // Pass the card ID to ChatActivity
+                    startActivity(intent);
                     return true;
                 }
                 return false;
@@ -129,7 +123,6 @@ public class CardActivity extends AppCompatActivity {
      */
     private void checkUserAccess() {
         if (currentUserId == null || cardId == null) {
-            Log.e("FirebaseError", "Invalid user or card ID");
             showToast("Invalid user or card ID");
             finish();
             return;
@@ -148,7 +141,6 @@ public class CardActivity extends AppCompatActivity {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (snapshot.exists()) {
-                    // Card exists in the user's own cards
                     loadCardData();
                 } else {
                     // Check if the card exists in shared cards
@@ -156,10 +148,8 @@ public class CardActivity extends AppCompatActivity {
                         @Override
                         public void onDataChange(@NonNull DataSnapshot sharedSnapshot) {
                             if (sharedSnapshot.exists()) {
-                                // Card exists in shared cards
                                 loadSharedCardData(sharedSnapshot);
                             } else {
-                                // Card not found in either location
                                 showToast("Access denied: Card not found");
                                 finish();
                             }
@@ -182,19 +172,6 @@ public class CardActivity extends AppCompatActivity {
                 finish();
             }
         });
-    }
-
-
-    private void loadSharedCardData(DataSnapshot sharedSnapshot) {
-        String message = sharedSnapshot.child("message").getValue(String.class);
-        String sharedBy = sharedSnapshot.child("sharedBy").getValue(String.class);
-
-        if (message != null && !message.isEmpty()) {
-            cardMessage.setText("[Shared] " + message); // Indicate shared card
-        } else {
-            showToast("Shared card data is incomplete");
-            finish();
-        }
     }
 
     /**
@@ -224,6 +201,20 @@ public class CardActivity extends AppCompatActivity {
     }
 
     /**
+     * Loads shared card data.
+     */
+    private void loadSharedCardData(DataSnapshot sharedSnapshot) {
+        String message = sharedSnapshot.child("message").getValue(String.class);
+        String sharedBy = sharedSnapshot.child("sharedBy").getValue(String.class);
+        if (message != null && !message.isEmpty()) {
+            cardMessage.setText("[Shared] " + message); // Indicate shared card
+        } else {
+            showToast("Shared card data is incomplete");
+            finish();
+        }
+    }
+
+    /**
      * Loads shared cards for the current user.
      */
     private void loadSharedCards() {
@@ -245,7 +236,6 @@ public class CardActivity extends AppCompatActivity {
                         String cardId = cardSnapshot.getKey();
                         String message = cardSnapshot.child("message").getValue(String.class);
                         String sharedBy = cardSnapshot.child("sharedBy").getValue(String.class);
-
                         if (message != null && sharedBy != null) {
                             SharedCard sharedCard = new SharedCard(cardId, message, sharedBy);
                             sharedCardList.add(sharedCard);
@@ -273,7 +263,7 @@ public class CardActivity extends AppCompatActivity {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Share Card");
 
-        final AppCompatEditText userIdInput = new AppCompatEditText(this);
+        final EditText userIdInput = new EditText(this);
         userIdInput.setHint("Recipient User ID");
         builder.setView(userIdInput);
 
@@ -293,7 +283,7 @@ public class CardActivity extends AppCompatActivity {
     /**
      * Shares the card with another user by updating the sharedCards node in Firebase.
      */
-    public void shareCardWithUser(String userId, String cardId) {
+    private void shareCardWithUser(String userId, String cardId) {
         if (userId == null || userId.isEmpty() || cardId == null || cardId.isEmpty()) {
             Log.e("ShareCard", "Invalid user ID or card ID");
             return;

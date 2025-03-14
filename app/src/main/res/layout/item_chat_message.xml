@@ -5,21 +5,18 @@
     android:orientation="vertical"
     android:padding="8dp">
 
-    <!-- Card Message -->
+    <!-- Sender ID -->
     <TextView
-        android:id="@+id/card_message"
+        android:id="@+id/sender_text_view"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Card Message"
-        android:textSize="16sp"
+        android:text="Sender ID"
         android:textStyle="bold" />
 
-    <!-- Shared By -->
+    <!-- Message -->
     <TextView
-        android:id="@+id/shared_by"
+        android:id="@+id/message_text_view"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Shared by: User ID"
-        android:textSize="14sp"
-        android:textColor="#666666" />
+        android:text="Message" />
 </LinearLayout>
