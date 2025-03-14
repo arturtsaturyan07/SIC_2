@@ -73,6 +73,8 @@ dependencies {
     // Floating Action Button
     implementation(libs.fab)
 
+    //implementation (libs.recyclerview)
+
     // Test Dependencies
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)

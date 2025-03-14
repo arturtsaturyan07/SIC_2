@@ -16,8 +16,18 @@
         android:theme="@style/Theme.MyApp"
         tools:targetApi="31">
         <activity
+            android:name=".SharedCardsAdapter"
+            android:exported="false" />
+        <activity
+            android:name=".SharedCard"
+            android:exported="false" />
+        <activity
             android:name=".ChatActivity"
             android:exported="false" />
+        <activity
+            android:name=".ChatActivity"
+            android:exported="false"
+            tools:ignore="DuplicateActivity" />
         <activity
             android:name=".VerifyEmailActivity"
             android:exported="false" />
@@ -57,12 +67,8 @@
             android:name=".UserSearchActivity"
             android:exported="true" />
         <activity
-            android:name=".Card"
+            android:name=".CardActivity"
             android:exported="false" />
-        <activity
-            android:name=".ChatActivity"
-            android:exported="false"
-            tools:ignore="DuplicateActivity" />
     </application>
 
 </manifest>

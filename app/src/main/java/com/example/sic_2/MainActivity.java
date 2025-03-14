@@ -243,7 +243,7 @@ public class MainActivity extends AppCompatActivity {
         cardView.setTextSize(18);
 
         cardView.setOnClickListener(v -> {
-            Intent intent = new Intent(MainActivity.this, Card.class);
+            Intent intent = new Intent(MainActivity.this, CardActivity.class);
             intent.putExtra("cardId", cardId);
             startActivity(intent);
         });

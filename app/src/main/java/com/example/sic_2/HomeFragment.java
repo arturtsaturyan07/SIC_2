@@ -44,7 +44,8 @@ public class HomeFragment extends Fragment {
             if (auth.getCurrentUser() != null) {
                 userId = auth.getCurrentUser().getUid();
                 database = FirebaseDatabase.getInstance().getReference("cards").child(userId);
-                loadCards();
+                loadCards(); // Load regular cards
+                loadSharedCards(); // Load shared cards
             }
 
             fab.setOnClickListener(v -> showInputDialog());
@@ -97,7 +98,7 @@ public class HomeFragment extends Fragment {
 
             database.child(cardId).setValue(cardData).addOnCompleteListener(task -> {
                 if (task.isSuccessful() && isAdded()) {
-                    createCardView(cardId, message);
+                    createCardView(cardId, message, false); // Regular card
                 } else if (isAdded()) {
                     Toast.makeText(requireContext(), "Failed to save card", Toast.LENGTH_SHORT).show();
                 }
@@ -112,12 +113,11 @@ public class HomeFragment extends Fragment {
             @Override
             public void onDataChange(DataSnapshot snapshot) {
                 if (!isAdded()) return;
-                cardContainer.removeAllViews();
                 for (DataSnapshot data : snapshot.getChildren()) {
                     String cardId = data.child("cardId").getValue(String.class);
                     String message = data.child("message").getValue(String.class);
                     if (cardId != null && message != null) {
-                        createCardView(cardId, message);
+                        createCardView(cardId, message, false); // Regular card
                     }
                 }
             }
@@ -131,56 +131,85 @@ public class HomeFragment extends Fragment {
         });
     }
 
-    private void createCardView(String cardId, String message) {
-        if (!isAdded()) return;
-
-        // Inflate the fragment-specific card layout (only message and delete button)
-        View cardView = LayoutInflater.from(requireContext()).inflate(R.layout.home_card_item, cardContainer, false);
-        TextView cardMessage = cardView.findViewById(R.id.card_message);
-        Button deleteButton = cardView.findViewById(R.id.delete_button);
-
-        cardMessage.setText(message);
-
-        // Open Card activity on card click
-        cardView.setOnClickListener(v -> {
-            Intent intent = new Intent(requireContext(), Card.class);
-            intent.putExtra("cardId", cardId);
-            startActivity(intent);
-        });
-
-        // Delete button logic
-        deleteButton.setOnClickListener(v -> deleteCard(cardId, cardView));
-
-        cardContainer.addView(cardView);
-    }
-
-    private void filterCards(String query) {
-        // Implement filtering logic for cards (if needed)
-    }
-
-    private void filterUsers(String query) {
+    private void loadSharedCards() {
         if (!isAdded() || getContext() == null) return;
 
-        DatabaseReference usersDatabase = FirebaseDatabase.getInstance().getReference("users");
-        usersDatabase.orderByKey().startAt(query).endAt(query + "\uf8ff").addListenerForSingleValueEvent(new ValueEventListener() {
+        DatabaseReference sharedCardsRef = FirebaseDatabase.getInstance()
+                .getReference("sharedCards")
+                .child(userId);
+
+        sharedCardsRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot snapshot) {
-                if (!isAdded() || getContext() == null) return;
+                if (!isAdded()) return;
+                for (DataSnapshot cardSnapshot : snapshot.getChildren()) {
+                    String cardId = cardSnapshot.getKey();
+                    String message = cardSnapshot.child("message").getValue(String.class);
+                    String sharedBy = cardSnapshot.child("sharedBy").getValue(String.class);
 
-                cardContainer.removeAllViews();
-                for (DataSnapshot userSnapshot : snapshot.getChildren()) {
-                    String userId = userSnapshot.getKey();
-                    String username = userSnapshot.child("username").getValue(String.class);
-                    if (username != null) {
-                        createUserCardView(userId, username);
+                    if (cardId != null && message != null && sharedBy != null) {
+                        createCardView(cardId, message, true); // Shared card
                     }
                 }
             }
 
             @Override
             public void onCancelled(DatabaseError error) {
-                if (isAdded() && getContext() != null) {
-                    Log.e("Firebase", "Error searching users", error.toException());
+                if (isAdded()) {
+                    Log.e("Firebase", "Error loading shared cards", error.toException());
+                }
+            }
+        });
+    }
+
+    private void createCardView(String cardId, String message, boolean isShared) {
+        if (!isAdded()) return;
+
+        View cardView = LayoutInflater.from(requireContext()).inflate(R.layout.home_card_item, cardContainer, false);
+        TextView cardMessage = cardView.findViewById(R.id.card_message);
+        Button deleteButton = cardView.findViewById(R.id.delete_button);
+
+        cardMessage.setText(message);
+
+        if (isShared) {
+            cardMessage.setText("[Shared] " + message); // Indicate shared cards
+            deleteButton.setVisibility(View.GONE); // Disable delete for shared cards
+        }
+
+        // Open Card activity on card click
+        cardView.setOnClickListener(v -> {
+            Intent intent = new Intent(requireContext(), CardActivity.class);
+            intent.putExtra("cardId", cardId);
+            startActivity(intent);
+        });
+
+        // Delete button logic (only for regular cards)
+        deleteButton.setOnClickListener(v -> deleteCard(cardId, cardView));
+
+        cardContainer.addView(cardView);
+    }
+
+    private void filterCards(String query) {
+        if (!isAdded()) return;
+
+        cardContainer.removeAllViews();
+        database.orderByChild("message").startAt(query).endAt(query + "\uf8ff").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                if (!isAdded()) return;
+                for (DataSnapshot data : snapshot.getChildren()) {
+                    String cardId = data.child("cardId").getValue(String.class);
+                    String message = data.child("message").getValue(String.class);
+                    if (cardId != null && message != null) {
+                        createCardView(cardId, message, false); // Regular card
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                if (isAdded()) {
+                    Log.e("Firebase", "Error filtering cards", error.toException());
                 }
             }
         });
@@ -197,20 +226,5 @@ public class HomeFragment extends Fragment {
                 Toast.makeText(requireContext(), "Failed to delete card", Toast.LENGTH_SHORT).show();
             }
         });
-    }
-
-    private void createUserCardView(String userId, String username) {
-        if (!isAdded() || getContext() == null) return;
-
-        // Inflate a user-specific card layout (different from the activity's layout)
-        View userCardView = LayoutInflater.from(requireContext()).inflate(R.layout.home_card_item, cardContainer, false);
-        TextView userNameTextView = userCardView.findViewById(R.id.card_message);
-        userNameTextView.setText(username);
-
-        userCardView.setOnClickListener(v -> {
-            Toast.makeText(requireContext(), "Clicked on: " + username, Toast.LENGTH_SHORT).show();
-        });
-
-        cardContainer.addView(userCardView);
     }
 }

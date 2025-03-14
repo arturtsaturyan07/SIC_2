@@ -13,6 +13,9 @@
     <string name="a_verification_email_has_been_sent_to_your_email_address_please_verify_your_email_and_click_the_button_below">A verification email has been sent to your email address. Please verify your email and click the button below.</string>
     <string name="back_button_description">Navigate back</string>
     <string name="delete">Delete</string>
+    <string name="assignment_title">Assignment Title</string>
+    <string name="assignment_description">Assignment Description</string>
+    <string name="share_card">Share Card</string>
 
 
 </resources>
