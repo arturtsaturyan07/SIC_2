@@ -5,18 +5,18 @@
     android:orientation="vertical"
     android:padding="8dp">
 
-    <!-- Author -->
-    <TextView
-        android:id="@+id/author_text_view"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Author ID"
-        android:textStyle="bold" />
-
     <!-- Content -->
     <TextView
         android:id="@+id/content_text_view"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Content" />
+
+    <!-- Photo -->
+    <ImageView
+        android:id="@+id/publication_image"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:scaleType="centerCrop"
+        android:visibility="gone" />
 </LinearLayout>
