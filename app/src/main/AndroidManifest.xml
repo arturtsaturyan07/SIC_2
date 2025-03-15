@@ -16,6 +16,12 @@
         android:theme="@style/Theme.MyApp"
         tools:targetApi="31">
         <activity
+            android:name=".PublicationsAdapter"
+            android:exported="false" />
+        <activity
+            android:name=".Publication"
+            android:exported="false" />
+        <activity
             android:name=".ChatAdapter"
             android:exported="false" />
         <activity

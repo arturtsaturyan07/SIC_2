@@ -10,13 +10,11 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
@@ -24,7 +22,6 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -42,6 +39,11 @@ public class CardActivity extends AppCompatActivity {
     private SharedCardsAdapter sharedCardsAdapter;
     private List<SharedCard> sharedCardList;
 
+    // Publications RecyclerView
+    private RecyclerView publicationsRecyclerView;
+    private PublicationsAdapter publicationsAdapter;
+    private List<Publication> publicationsList;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -53,12 +55,6 @@ public class CardActivity extends AppCompatActivity {
                 ? FirebaseAuth.getInstance().getCurrentUser().getUid()
                 : null;
         cardId = getIntent().getStringExtra("cardId");
-        cardMessage = findViewById(R.id.card_message);
-
-        ImageButton backButton = findViewById(R.id.back_button);
-        Button addUserButton = findViewById(R.id.addUserButton);
-        Button createEventButton = findViewById(R.id.create_event_button);
-        Button shareCardButton = findViewById(R.id.shareCardButton);
 
         // Validate card ID and user authentication
         if (cardId == null || cardId.isEmpty()) {
@@ -72,6 +68,14 @@ public class CardActivity extends AppCompatActivity {
             return;
         }
 
+        // Initialize UI components
+        cardMessage = findViewById(R.id.card_message);
+        ImageButton backButton = findViewById(R.id.back_button);
+        Button addUserButton = findViewById(R.id.addUserButton);
+        Button createEventButton = findViewById(R.id.create_event_button);
+        Button shareCardButton = findViewById(R.id.shareCardButton);
+        Button addPublicationButton = findViewById(R.id.add_publication_button);
+
         // Initialize Shared Cards RecyclerView
         sharedCardList = new ArrayList<>();
         sharedCardsAdapter = new SharedCardsAdapter(sharedCardList);
@@ -79,24 +83,23 @@ public class CardActivity extends AppCompatActivity {
         sharedCardsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         sharedCardsRecyclerView.setAdapter(sharedCardsAdapter);
 
-        // Check user access to the card
+        // Initialize Publications RecyclerView
+        publicationsList = new ArrayList<>();
+        publicationsAdapter = new PublicationsAdapter(publicationsList);
+        publicationsRecyclerView = findViewById(R.id.publications_recycler_view);
+        publicationsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        publicationsRecyclerView.setAdapter(publicationsAdapter);
+
+        // Load data
         checkUserAccess();
-
-        // Load shared cards for the current user
         loadSharedCards();
+        loadPublications();
 
-        // Back button functionality
+        // Button functionalities
         backButton.setOnClickListener(v -> finish());
-
-        // Add user button functionality
-        addUserButton.setOnClickListener(v -> {
-            Intent intent = new Intent(CardActivity.this, UserAddActivity.class);
-            intent.putExtra("cardId", cardId);
-            startActivity(intent);
-        });
-
-        // Share card button functionality
+        addUserButton.setOnClickListener(v -> navigateTo(UserAddActivity.class));
         shareCardButton.setOnClickListener(v -> showShareDialog(cardId));
+        addPublicationButton.setOnClickListener(v -> showAddPublicationDialog());
 
         // Bottom navigation setup
         BottomNavigationView bottomNavigationView = findViewById(R.id.bottom_navigation);
@@ -254,6 +257,102 @@ public class CardActivity extends AppCompatActivity {
                 showToast("Database error: " + error.getMessage());
             }
         });
+    }
+
+    /**
+     * Loads publications for the current card.
+     */
+    private void loadPublications() {
+        if (cardId == null || cardId.isEmpty()) {
+            showToast("Card ID is missing");
+            return;
+        }
+
+        DatabaseReference publicationsRef = FirebaseDatabase.getInstance()
+                .getReference("publications")
+                .child(cardId);
+
+        publicationsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                publicationsList.clear(); // Clear existing data
+                if (snapshot.exists()) {
+                    for (DataSnapshot publicationSnapshot : snapshot.getChildren()) {
+                        String publicationId = publicationSnapshot.getKey();
+                        String authorId = publicationSnapshot.child("authorId").getValue(String.class);
+                        String content = publicationSnapshot.child("content").getValue(String.class);
+                        Long timestamp = publicationSnapshot.child("timestamp").getValue(Long.class);
+                        if (publicationId != null && authorId != null && content != null && timestamp != null) {
+                            Publication publication = new Publication(publicationId, authorId, content, timestamp);
+                            publicationsList.add(publication);
+                        }
+                    }
+                    publicationsAdapter.notifyDataSetChanged(); // Refresh RecyclerView
+                } else {
+                    Log.d("Publications", "No publications found");
+                    showToast("No publications found");
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("FirebaseError", "Error loading publications: " + error.getMessage());
+                showToast("Database error: " + error.getMessage());
+            }
+        });
+    }
+
+    /**
+     * Shows a dialog to add a new publication.
+     */
+    private void showAddPublicationDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Add Publication");
+
+        final EditText contentInput = new EditText(this);
+        contentInput.setHint("Enter publication content");
+        builder.setView(contentInput);
+
+        builder.setPositiveButton("Post", (dialog, which) -> {
+            String content = contentInput.getText().toString().trim();
+            if (!content.isEmpty()) {
+                createPublication(content);
+            } else {
+                showToast("Publication content cannot be empty");
+            }
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+        builder.show();
+    }
+
+    /**
+     * Creates a new publication in Firebase.
+     */
+    private void createPublication(String content) {
+        if (cardId == null || cardId.isEmpty()) {
+            showToast("Card ID is missing");
+            return;
+        }
+
+        DatabaseReference publicationsRef = FirebaseDatabase.getInstance()
+                .getReference("publications")
+                .child(cardId)
+                .push();
+
+        String publicationId = publicationsRef.getKey();
+        if (publicationId != null) {
+            Publication publication = new Publication(publicationId, currentUserId, content, System.currentTimeMillis());
+            publicationsRef.setValue(publication)
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            showToast("Publication added successfully");
+                            loadPublications(); // Reload publications
+                        } else {
+                            showToast("Failed to add publication");
+                        }
+                    });
+        }
     }
 
     /**
