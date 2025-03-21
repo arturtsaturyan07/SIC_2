@@ -9,6 +9,8 @@ firebaseDatabaseVersion = "20.0.0"
 glide = "4.14.2"
 googleFirebaseDatabase = "latest_version"
 gson = "2.10.1"
+imagekitAndroid = "1.0.0"
+imagekitAndroidVersion = "<VERSION>"
 junit = "4.13.2"
 junitVersion = "1.2.1"
 espressoCore = "3.6.1"
@@ -30,11 +32,16 @@ retrofit = "2.9.0"
 firebaseDatabase = "21.0.0"
 firebaseStorage = "21.0.1"
 firebaseFirestore = "25.1.1"
+sdk = "1.0.0"
+supabaseStorageAndroid = "0.1.0"
 
 [libraries]
 appcompat-v131 = { module = "androidx.appcompat:appcompat", version.ref = "appcompatVersion" }
 com-google-firebase-firebase-auth = { module = "com.google.firebase:firebase-auth" }
 com-google-firebase-firebase-database = { module = "com.google.firebase:firebase-database" }
+com-google-firebase-firebase-database2 = { module = "com.google.firebase:firebase-database" }
+com-google-firebase-firebase-firestore2 = { module = "com.google.firebase:firebase-firestore" }
+com-google-firebase-firebase-storage = { module = "com.google.firebase:firebase-storage" }
 compiler = { module = "com.github.bumptech.glide:compiler", version.ref = "glide" }
 converter-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "retrofit" }
 drawerlayout = { module = "androidx.drawerlayout:drawerlayout", version.ref = "drawerlayout" }
@@ -44,6 +51,7 @@ firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "fir
 firebase-bom-v3231 = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBomVersion" }
 firebase-database-v2000 = { module = "com.google.firebase:firebase-database", version.ref = "firebaseDatabaseVersion" }
 firebase-database-vlatestversion = { module = "com.google.firebase:firebase-database", version.ref = "googleFirebaseDatabase" }
+github-imagekit-android = { module = "com.github.imagekit-developer.imagekit-android:imagekit-android", version.ref = "imagekitAndroidVersion" }
 glide = { module = "com.github.bumptech.glide:glide", version.ref = "glide" }
 google-firebase-auth = { module = "com.google.firebase:firebase-auth" }
 google-firebase-database = { module = "com.google.firebase:firebase-database" }
@@ -51,6 +59,7 @@ google-firebase-firestore = { module = "com.google.firebase:firebase-firestore" 
 google-firebase-inappmessaging = { module = "com.google.firebase:firebase-inappmessaging" }
 google-firebase-storage = { module = "com.google.firebase:firebase-storage" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+imagekit-android = { module = "io.imagekit:imagekit-android", version.ref = "imagekitAndroid" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
@@ -72,6 +81,8 @@ retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit
 firebase-database = { group = "com.google.firebase", name = "firebase-database", version.ref = "firebaseDatabase" }
 firebase-storage = { group = "com.google.firebase", name = "firebase-storage", version.ref = "firebaseStorage" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore", version.ref = "firebaseFirestore" }
+sdk = { module = "io.imagekit:sdk", version.ref = "sdk" }
+supabase-storage-android = { module = "io.github.jan-supabase:supabase-storage-android", version.ref = "supabaseStorageAndroid" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

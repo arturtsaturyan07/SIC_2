@@ -51,6 +51,23 @@ dependencies {
     implementation(libs.navigation.fragment.ktx)
     implementation(libs.navigation.ui.ktx)
 
+
+    implementation (libs.com.google.firebase.firebase.storage)
+    implementation (libs.com.google.firebase.firebase.database2)
+
+    // ImageKit
+    //implementation (libs.github.imagekit.android)
+
+
+    //implementation ("io.appwrite:sdk-for-android:2.0.0")
+
+    implementation("com.squareup.okhttp3:okhttp:4.11.0") // or latest version
+    implementation("com.google.code.gson:gson:2.10.1")
+    implementation ('com.squareup.retrofit2:retrofit:2.9.0')
+    implementation ('com.squareup.retrofit2:converter-gson:2.9.0')
+    implementation ('com.squareup.okhttp3:okhttp:4.9.3')
+    implementation ('com.squareup.okhttp3:logging-interceptor:4.9.3')
+
     // Material CalendarView
     implementation(libs.material.calendarview)
 
@@ -72,8 +89,6 @@ dependencies {
 
     // Floating Action Button
     implementation(libs.fab)
-
-    //implementation (libs.recyclerview)
 
     // Test Dependencies
     testImplementation(libs.junit)
