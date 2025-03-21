@@ -7,7 +7,7 @@ public class Publication {
     private String imageUrl; // Field for the image URL
     private long timestamp;
 
-    public Publication() {}
+    public Publication(String publicationId, String authorId, String content, Long timestamp) {}
 
     public Publication(String publicationId, String authorId, String content, String imageUrl, long timestamp) {
         this.publicationId = publicationId;

@@ -2,7 +2,6 @@ package com.example.sic_2;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Button;
@@ -24,8 +23,6 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.StorageReference;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,9 +36,6 @@ public class CardActivity extends AppCompatActivity {
     private String cardId;
     private String currentUserId;
 
-    private String selectedImageUrl; // Global variable to store the image URL
-    private StorageReference storageRef;
-
     // Shared Cards RecyclerView
     private RecyclerView sharedCardsRecyclerView;
     private SharedCardsAdapter sharedCardsAdapter;
@@ -54,7 +48,6 @@ public class CardActivity extends AppCompatActivity {
 
     private FirebaseFirestore firestore;
     private CollectionReference publicationsRef;
-    private CollectionReference photosRef;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,7 +64,6 @@ public class CardActivity extends AppCompatActivity {
         // Initialize Firestore
         firestore = FirebaseFirestore.getInstance();
         publicationsRef = firestore.collection("publications");
-        photosRef = firestore.collection("photos");
 
         // Validate card ID and user authentication
         if (cardId == null || cardId.isEmpty()) {
@@ -92,7 +84,6 @@ public class CardActivity extends AppCompatActivity {
         Button createEventButton = findViewById(R.id.create_event_button);
         Button shareCardButton = findViewById(R.id.shareCardButton);
         Button addPublicationButton = findViewById(R.id.add_publication_button);
-        Button addPhotoButton = findViewById(R.id.add_photo_button);
 
         // Initialize Shared Cards RecyclerView
         sharedCardList = new ArrayList<>();
@@ -118,7 +109,6 @@ public class CardActivity extends AppCompatActivity {
         addUserButton.setOnClickListener(v -> navigateTo(UserAddActivity.class));
         shareCardButton.setOnClickListener(v -> showShareDialog(cardId));
         addPublicationButton.setOnClickListener(v -> showAddPublicationDialog());
-        addPhotoButton.setOnClickListener(v -> openImagePicker());
 
         // Bottom navigation setup
         BottomNavigationView bottomNavigationView = findViewById(R.id.bottom_navigation);
@@ -151,7 +141,7 @@ public class CardActivity extends AppCompatActivity {
         builder.setPositiveButton("Post", (dialog, which) -> {
             String content = contentInput.getText().toString().trim();
             if (!content.isEmpty()) {
-                createPublication(content, selectedImageUrl); // Pass the photo URL
+                createPublication(content); // Create a new note
             } else {
                 showToast("Note content cannot be empty");
             }
@@ -161,108 +151,55 @@ public class CardActivity extends AppCompatActivity {
         builder.show();
     }
 
-    private void openImagePicker() {
-        Intent intent = new Intent(Intent.ACTION_PICK);
-        intent.setType("image/*");
-        startActivityForResult(intent, 1); // Use startActivityForResult to handle the result
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        if (requestCode == 1 && resultCode == RESULT_OK && data != null) {
-            Uri imageUri = data.getData(); // Get the selected image URI
-            if (imageUri != null) {
-                uploadImageToFirebase(imageUri); // Upload the image to Firebase Storage
-            } else {
-                showToast("Failed to retrieve image URI");
-            }
-        }
-    }
-
-    private void uploadImageToFirebase(Uri imageUri) {
-        if (imageUri == null) {
-            showToast("Invalid image URI");
-            return;
-        }
-
-        // Create a reference to Firebase Storage
-        StorageReference storageRef = FirebaseStorage.getInstance()
-                .getReference("images/" + System.currentTimeMillis() + ".jpg");
-
-        // Upload the image
-        storageRef.putFile(imageUri)
-                .addOnSuccessListener(taskSnapshot -> {
-                    // Get the download URL
-                    storageRef.getDownloadUrl().addOnSuccessListener(uri -> {
-                        selectedImageUrl = uri.toString(); // Save the download URL
-                        Log.d("ImageUpload", "Image uploaded successfully: " + selectedImageUrl);
-                        showToast("Photo uploaded successfully");
-
-                        // Save the image URL to Firestore
-                        saveImageUrlToFirestore(selectedImageUrl);
-                    }).addOnFailureListener(e -> {
-                        Log.e("ImageUpload", "Failed to get download URL", e);
-                        showToast("Failed to get download URL");
-                    });
-                })
-                .addOnFailureListener(e -> {
-                    Log.e("ImageUpload", "Failed to upload photo", e);
-                    showToast("Failed to upload photo");
-                });
-    }
-
-    private void saveImageUrlToFirestore(String imageUrl) {
+    private void createPublication(String content) {
         if (cardId == null || cardId.isEmpty()) {
             showToast("Card ID is missing");
             return;
         }
 
-        // Create a new photo document
-        Map<String, Object> photoData = new HashMap<>();
-        photoData.put("authorId", currentUserId);
-        photoData.put("cardId", cardId);
-        photoData.put("imageUrl", imageUrl);
-        photoData.put("timestamp", System.currentTimeMillis());
+        // Create a new publication document
+        Map<String, Object> publicationData = new HashMap<>();
+        publicationData.put("authorId", currentUserId);
+        publicationData.put("cardId", cardId);
+        publicationData.put("content", content);
+        publicationData.put("timestamp", System.currentTimeMillis());
 
-        // Add the photo to Firestore
-        photosRef.add(photoData)
+        // Add the publication to Firestore
+        publicationsRef.add(publicationData)
                 .addOnSuccessListener(documentReference -> {
-                    showToast("Photo saved successfully");
-                    loadPhotos(); // Reload photos
+                    showToast("Note added successfully");
+                    loadPublications(); // Reload publications
                 })
                 .addOnFailureListener(e -> {
-                    showToast("Failed to save photo");
-                    Log.e("SaveImage", "Failed to save photo", e);
+                    showToast("Failed to add note");
+                    Log.e("CreatePublication", "Failed to add note", e);
                 });
     }
 
-    private void loadPhotos() {
+    private void loadPublications() {
         if (cardId == null || cardId.isEmpty()) {
             showToast("Card ID is missing");
             return;
         }
 
-        // Query photos for the specific card
-        photosRef.whereEqualTo("cardId", cardId)
+        // Query publications for the specific card
+        publicationsRef.whereEqualTo("cardId", cardId)
                 .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
                 .get()
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
                         publicationsList.clear();
                         for (com.google.firebase.firestore.QueryDocumentSnapshot document : task.getResult()) {
-                            String photoId = document.getId();
+                            String publicationId = document.getId();
                             String authorId = document.getString("authorId");
-                            String imageUrl = document.getString("imageUrl");
+                            String content = document.getString("content");
                             Long timestamp = document.getLong("timestamp");
 
-                            if (photoId != null && authorId != null && timestamp != null) {
+                            if (publicationId != null && authorId != null && timestamp != null) {
                                 Publication publication = new Publication(
-                                        photoId,
+                                        publicationId,
                                         authorId,
-                                        "", // Empty content for photos
-                                        imageUrl,
+                                        content,
                                         timestamp
                                 );
                                 publicationsList.add(publication);
@@ -270,8 +207,8 @@ public class CardActivity extends AppCompatActivity {
                         }
                         publicationsAdapter.notifyDataSetChanged();
                     } else {
-                        showToast("Failed to load photos");
-                        Log.e("LoadPhotos", "Failed to load photos", task.getException());
+                        showToast("Failed to load notes");
+                        Log.e("LoadPublications", "Failed to load notes", task.getException());
                     }
                 });
     }
@@ -400,71 +337,6 @@ public class CardActivity extends AppCompatActivity {
                 showToast("Database error: " + error.getMessage());
             }
         });
-    }
-
-    private void loadPublications() {
-        if (cardId == null || cardId.isEmpty()) {
-            showToast("Card ID is missing");
-            return;
-        }
-
-        DatabaseReference publicationsRef = FirebaseDatabase.getInstance()
-                .getReference("publications")
-                .child(cardId);
-
-        publicationsRef.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                publicationsList.clear();
-                for (DataSnapshot publicationSnapshot : snapshot.getChildren()) {
-                    String publicationId = publicationSnapshot.getKey();
-                    String authorId = publicationSnapshot.child("authorId").getValue(String.class);
-                    String content = publicationSnapshot.child("content").getValue(String.class);
-                    String imageUrl = publicationSnapshot.child("imageUrl").getValue(String.class);
-                    Long timestamp = publicationSnapshot.child("timestamp").getValue(Long.class);
-
-                    if (publicationId != null && authorId != null && timestamp != null) {
-                        Publication publication = new Publication(
-                                publicationId,
-                                authorId,
-                                content,
-                                imageUrl,
-                                timestamp
-                        );
-                        publicationsList.add(publication);
-                    }
-                }
-                publicationsAdapter.notifyDataSetChanged();
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                Log.e("FirebaseError", "Error loading publications: " + error.getMessage());
-                showToast("Database error: " + error.getMessage());
-            }
-        });
-    }
-
-    private void createPublication(String content, String imageUrl) {
-        if (cardId == null || cardId.isEmpty()) {
-            showToast("Card ID is missing");
-            return;
-        }
-
-        DatabaseReference publicationsRef = database.child("publications").child(cardId).push();
-        String publicationId = publicationsRef.getKey();
-        if (publicationId != null) {
-            Publication publication = new Publication(publicationId, currentUserId, content, imageUrl, System.currentTimeMillis());
-            publicationsRef.setValue(publication)
-                    .addOnCompleteListener(task -> {
-                        if (task.isSuccessful()) {
-                            showToast("Note added successfully");
-                            loadPublications(); // Reload publications
-                        } else {
-                            showToast("Failed to add note");
-                        }
-                    });
-        }
     }
 
     private void showShareDialog(String cardId) {

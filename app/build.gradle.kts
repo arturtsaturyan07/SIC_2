@@ -63,13 +63,17 @@ dependencies {
 
     implementation("com.squareup.okhttp3:okhttp:4.11.0") // or latest version
     implementation("com.google.code.gson:gson:2.10.1")
-    implementation ('com.squareup.retrofit2:retrofit:2.9.0')
-    implementation ('com.squareup.retrofit2:converter-gson:2.9.0')
-    implementation ('com.squareup.okhttp3:okhttp:4.9.3')
-    implementation ('com.squareup.okhttp3:logging-interceptor:4.9.3')
+//    implementation ('com.squareup.retrofit2:retrofit:2.9.0')
+//    implementation ('com.squareup.retrofit2:converter-gson:2.9.0')
+//    implementation ('com.squareup.okhttp3:okhttp:4.9.3')
+//    implementation ('com.squareup.okhttp3:logging-interceptor:4.9.3')
 
     // Material CalendarView
     implementation(libs.material.calendarview)
+
+
+    implementation("com.amazonaws:aws-android-sdk-s3:2.35.0") // or latest version
+    implementation("com.amazonaws:aws-android-sdk-core:2.35.0")
 
     // App Dependencies
     implementation(libs.appcompat)
