@@ -192,11 +192,8 @@ public class CardActivity extends AppCompatActivity {
                 .addOnSuccessListener(taskSnapshot -> {
                     // Get the download URL
                     storageRef.getDownloadUrl().addOnSuccessListener(uri -> {
-                        String imageUrl = uri.toString(); // Save the download URL
+                        selectedImageUrl = uri.toString(); // Save the download URL
                         showToast("Photo uploaded successfully");
-
-                        // Save the image URL to the database
-                        saveImageUrlToDatabase(imageUrl);
                     }).addOnFailureListener(e -> {
                         showToast("Failed to get download URL");
                     });
