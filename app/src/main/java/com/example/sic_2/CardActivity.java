@@ -400,6 +400,9 @@ public class CardActivity extends AppCompatActivity {
     /**
      * Navigates to the specified activity.
      */
+
+
+
     private void navigateTo(Class<?> activityClass) {
         Intent intent = new Intent(CardActivity.this, activityClass);
         startActivity(intent);
