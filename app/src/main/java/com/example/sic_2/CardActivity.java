@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
@@ -21,9 +22,6 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
-import com.google.firebase.firestore.CollectionReference;
-import com.google.firebase.firestore.FirebaseFirestore;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -46,9 +44,6 @@ public class CardActivity extends AppCompatActivity {
     private PublicationsAdapter publicationsAdapter;
     private List<Publication> publicationsList;
 
-    private FirebaseFirestore firestore;
-    private CollectionReference publicationsRef;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -60,10 +55,6 @@ public class CardActivity extends AppCompatActivity {
                 ? FirebaseAuth.getInstance().getCurrentUser().getUid()
                 : null;
         cardId = getIntent().getStringExtra("cardId");
-
-        // Initialize Firestore
-        firestore = FirebaseFirestore.getInstance();
-        publicationsRef = firestore.collection("publications");
 
         // Validate card ID and user authentication
         if (cardId == null || cardId.isEmpty()) {
@@ -130,89 +121,9 @@ public class CardActivity extends AppCompatActivity {
         }
     }
 
-    private void showAddPublicationDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Add Note");
-
-        final EditText contentInput = new EditText(this);
-        contentInput.setHint("Enter note content");
-        builder.setView(contentInput);
-
-        builder.setPositiveButton("Post", (dialog, which) -> {
-            String content = contentInput.getText().toString().trim();
-            if (!content.isEmpty()) {
-                createPublication(content); // Create a new note
-            } else {
-                showToast("Note content cannot be empty");
-            }
-        });
-
-        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
-        builder.show();
-    }
-
-    private void createPublication(String content) {
-        if (cardId == null || cardId.isEmpty()) {
-            showToast("Card ID is missing");
-            return;
-        }
-
-        // Create a new publication document
-        Map<String, Object> publicationData = new HashMap<>();
-        publicationData.put("authorId", currentUserId);
-        publicationData.put("cardId", cardId);
-        publicationData.put("content", content);
-        publicationData.put("timestamp", System.currentTimeMillis());
-
-        // Add the publication to Firestore
-        publicationsRef.add(publicationData)
-                .addOnSuccessListener(documentReference -> {
-                    showToast("Note added successfully");
-                    loadPublications(); // Reload publications
-                })
-                .addOnFailureListener(e -> {
-                    showToast("Failed to add note");
-                    Log.e("CreatePublication", "Failed to add note", e);
-                });
-    }
-
-    private void loadPublications() {
-        if (cardId == null || cardId.isEmpty()) {
-            showToast("Card ID is missing");
-            return;
-        }
-
-        // Query publications for the specific card
-        publicationsRef.whereEqualTo("cardId", cardId)
-                .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                .get()
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        publicationsList.clear();
-                        for (com.google.firebase.firestore.QueryDocumentSnapshot document : task.getResult()) {
-                            String publicationId = document.getId();
-                            String authorId = document.getString("authorId");
-                            String content = document.getString("content");
-                            Long timestamp = document.getLong("timestamp");
-
-                            if (publicationId != null && authorId != null && timestamp != null) {
-                                Publication publication = new Publication(
-                                        publicationId,
-                                        authorId,
-                                        content,
-                                        timestamp
-                                );
-                                publicationsList.add(publication);
-                            }
-                        }
-                        publicationsAdapter.notifyDataSetChanged();
-                    } else {
-                        showToast("Failed to load notes");
-                        Log.e("LoadPublications", "Failed to load notes", task.getException());
-                    }
-                });
-    }
-
+    /**
+     * Checks if the current user has access to the specified card.
+     */
     private void checkUserAccess() {
         if (currentUserId == null || cardId == null) {
             showToast("Invalid user or card ID");
@@ -266,6 +177,9 @@ public class CardActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Loads the card data from Firebase.
+     */
     private void loadCardData() {
         DatabaseReference cardRef = database.child(currentUserId).child(cardId);
         cardRef.addListenerForSingleValueEvent(new ValueEventListener() {
@@ -289,6 +203,9 @@ public class CardActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Loads shared card data.
+     */
     private void loadSharedCardData(DataSnapshot sharedSnapshot) {
         String message = sharedSnapshot.child("message").getValue(String.class);
         String sharedBy = sharedSnapshot.child("sharedBy").getValue(String.class);
@@ -300,6 +217,9 @@ public class CardActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Loads shared cards for the current user.
+     */
     private void loadSharedCards() {
         if (currentUserId == null) {
             showToast("User authentication failed");
@@ -339,6 +259,105 @@ public class CardActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Loads publications for the current card.
+     */
+    private void loadPublications() {
+        if (cardId == null || cardId.isEmpty()) {
+            showToast("Card ID is missing");
+            return;
+        }
+
+        DatabaseReference publicationsRef = FirebaseDatabase.getInstance()
+                .getReference("publications")
+                .child(cardId);
+
+        publicationsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                publicationsList.clear(); // Clear existing data
+                if (snapshot.exists()) {
+                    for (DataSnapshot publicationSnapshot : snapshot.getChildren()) {
+                        String publicationId = publicationSnapshot.getKey();
+                        String authorId = publicationSnapshot.child("authorId").getValue(String.class);
+                        String content = publicationSnapshot.child("content").getValue(String.class);
+                        Long timestamp = publicationSnapshot.child("timestamp").getValue(Long.class);
+                        if (publicationId != null && authorId != null && content != null && timestamp != null) {
+                            Publication publication = new Publication(publicationId, authorId, content, timestamp);
+                            publicationsList.add(publication);
+                        }
+                    }
+                    publicationsAdapter.notifyDataSetChanged(); // Refresh RecyclerView
+                } else {
+                    Log.d("Publications", "No publications found");
+                    showToast("No publications found");
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("FirebaseError", "Error loading publications: " + error.getMessage());
+                showToast("Database error: " + error.getMessage());
+            }
+        });
+    }
+
+    /**
+     * Shows a dialog to add a new publication.
+     */
+    private void showAddPublicationDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Add Publication");
+
+        final EditText contentInput = new EditText(this);
+        contentInput.setHint("Enter publication content");
+        builder.setView(contentInput);
+
+        builder.setPositiveButton("Post", (dialog, which) -> {
+            String content = contentInput.getText().toString().trim();
+            if (!content.isEmpty()) {
+                createPublication(content);
+            } else {
+                showToast("Publication content cannot be empty");
+            }
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+        builder.show();
+    }
+
+    /**
+     * Creates a new publication in Firebase.
+     */
+    private void createPublication(String content) {
+        if (cardId == null || cardId.isEmpty()) {
+            showToast("Card ID is missing");
+            return;
+        }
+
+        DatabaseReference publicationsRef = FirebaseDatabase.getInstance()
+                .getReference("publications")
+                .child(cardId)
+                .push();
+
+        String publicationId = publicationsRef.getKey();
+        if (publicationId != null) {
+            Publication publication = new Publication(publicationId, currentUserId, content, System.currentTimeMillis());
+            publicationsRef.setValue(publication)
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            showToast("Publication added successfully");
+                            loadPublications(); // Reload publications
+                        } else {
+                            showToast("Failed to add publication");
+                        }
+                    });
+        }
+    }
+
+    /**
+     * Shows a dialog to share the card with another user.
+     */
     private void showShareDialog(String cardId) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Share Card");
@@ -360,6 +379,9 @@ public class CardActivity extends AppCompatActivity {
         builder.show();
     }
 
+    /**
+     * Shares the card with another user by updating the sharedCards node in Firebase.
+     */
     private void shareCardWithUser(String userId, String cardId) {
         if (userId == null || userId.isEmpty() || cardId == null || cardId.isEmpty()) {
             Log.e("ShareCard", "Invalid user ID or card ID");
@@ -415,10 +437,16 @@ public class CardActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Displays a short toast message.
+     */
     private void showToast(String message) {
         Toast.makeText(CardActivity.this, message, Toast.LENGTH_SHORT).show();
     }
 
+    /**
+     * Navigates to the specified activity.
+     */
     private void navigateTo(Class<?> activityClass) {
         Intent intent = new Intent(CardActivity.this, activityClass);
         startActivity(intent);
