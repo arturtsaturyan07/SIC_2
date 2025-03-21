@@ -7,4 +7,8 @@
         android:id="@+id/nav_chat"
         android:icon="@drawable/baseline_chat_24"
         android:title="Chat" />
+    <item
+        android:id="@+id/nav_parameters"
+        android:icon="@drawable/baseline_build_circle_24"
+        android:title="Settings" />
 </menu>

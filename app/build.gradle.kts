@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.example.sic_2"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.sic_2"
@@ -89,6 +89,7 @@ dependencies {
 
     // Image Loading with Glide
     implementation(libs.glide)
+    implementation(libs.recyclerview)
     annotationProcessor(libs.compiler)
 
     // Floating Action Button

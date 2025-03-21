@@ -16,6 +16,9 @@
         android:theme="@style/Theme.MyApp"
         tools:targetApi="31">
         <activity
+            android:name=".ParametersActivity"
+            android:exported="false" />
+        <activity
             android:name=".PublicationsAdapter"
             android:exported="false" />
         <activity
