@@ -46,6 +46,9 @@ public class CardFragment extends Fragment {
         if (getArguments() != null) {
             cardId = getArguments().getString(ARG_CARD_ID);
         }
+
+        // In CardFragment.java
+        publicationsAdapter = new PublicationsAdapter(publicationsList, currentUserId);
     }
 
     @Override
@@ -75,7 +78,7 @@ public class CardFragment extends Fragment {
 
         // Set up RecyclerView
         publicationsList = new ArrayList<>();
-        publicationsAdapter = new PublicationsAdapter(publicationsList);
+        publicationsAdapter = new PublicationsAdapter(publicationsList, currentUserId);
         publicationsRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         publicationsRecyclerView.setAdapter(publicationsAdapter);
 
@@ -128,7 +131,7 @@ public class CardFragment extends Fragment {
 
         String publicationId = newPublicationRef.getKey();
         if (publicationId != null) {
-            Publication publication = new Publication(publicationId, currentUserId, content, System.currentTimeMillis());
+            Publication publication = new Publication(currentUserId, content, System.currentTimeMillis());
             newPublicationRef.setValue(publication)
                     .addOnCompleteListener(task -> {
                         if (task.isSuccessful()) {
@@ -168,7 +171,7 @@ public class CardFragment extends Fragment {
 
                         // Validate all required fields
                         if (publicationId != null && authorId != null && content != null && timestamp != null) {
-                            Publication publication = new Publication(publicationId, authorId, content, timestamp);
+                            Publication publication = new Publication(authorId, content, timestamp);
                             publicationsList.add(publication);
                         } else {
                             Log.w("PublicationLoad", "Skipping invalid publication: " + publicationId);

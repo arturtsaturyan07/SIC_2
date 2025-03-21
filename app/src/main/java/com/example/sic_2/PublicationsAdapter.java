@@ -3,6 +3,7 @@ package com.example.sic_2;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -12,10 +13,12 @@ import java.util.List;
 
 public class PublicationsAdapter extends RecyclerView.Adapter<PublicationsAdapter.PublicationViewHolder> {
 
-    private final List<Publication> publications;
+    private List<Publication> publicationsList;
+    private String currentUserId;
 
-    public PublicationsAdapter(List<Publication> publications) {
-        this.publications = publications;
+    public PublicationsAdapter(List<Publication> publicationsList, String currentUserId) {
+        this.publicationsList = publicationsList;
+        this.currentUserId = currentUserId;
     }
 
     @NonNull
@@ -28,23 +31,39 @@ public class PublicationsAdapter extends RecyclerView.Adapter<PublicationsAdapte
 
     @Override
     public void onBindViewHolder(@NonNull PublicationViewHolder holder, int position) {
-        Publication publication = publications.get(position);
-        holder.authorTextView.setText("Author ID: " + publication.getAuthorId());
-        holder.contentTextView.setText(publication.getContent());
+        Publication publication = publicationsList.get(position);
+
+        // Check if the publication is from the current user
+        if (publication.getAuthorId().equals(currentUserId)) {
+            // Current user's publication: show right-aligned container
+            holder.publicationContainerMe.setVisibility(View.VISIBLE);
+            holder.publicationTextMe.setText(publication.getContent());
+            holder.publicationContainerOther.setVisibility(View.GONE); // Hide left-aligned container
+        } else {
+            // Other user's publication: show left-aligned container
+            holder.publicationContainerOther.setVisibility(View.VISIBLE);
+            holder.publicationTextOther.setText(publication.getContent());
+            holder.publicationContainerMe.setVisibility(View.GONE); // Hide right-aligned container
+        }
     }
 
     @Override
     public int getItemCount() {
-        return publications.size();
+        return publicationsList.size();
     }
 
     static class PublicationViewHolder extends RecyclerView.ViewHolder {
-        TextView authorTextView, contentTextView;
+        LinearLayout publicationContainerOther;
+        TextView publicationTextOther;
+        LinearLayout publicationContainerMe;
+        TextView publicationTextMe;
 
         public PublicationViewHolder(@NonNull View itemView) {
             super(itemView);
-            authorTextView = itemView.findViewById(R.id.author_text_view);
-            contentTextView = itemView.findViewById(R.id.content_text_view);
+            publicationContainerOther = itemView.findViewById(R.id.publication_container_other);
+            publicationTextOther = itemView.findViewById(R.id.publication_text_other);
+            publicationContainerMe = itemView.findViewById(R.id.publication_container_me);
+            publicationTextMe = itemView.findViewById(R.id.publication_text_me);
         }
     }
 }

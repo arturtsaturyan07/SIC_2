@@ -48,7 +48,8 @@ public class ChatActivity extends AppCompatActivity {
         }
 
         chatMessages = new ArrayList<>();
-        chatAdapter = new ChatAdapter(chatMessages);
+        // In ChatFragment.java
+        chatAdapter = new ChatAdapter(chatMessages, currentUserId);
         chatRecyclerView = findViewById(R.id.chat_recycler_view);
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         chatRecyclerView.setAdapter(chatAdapter);

@@ -5,7 +5,9 @@ public class ChatMessage {
     private String message;
     private long timestamp;
 
-    public ChatMessage() {}
+    public ChatMessage() {
+        // Default constructor required for Firebase
+    }
 
     public ChatMessage(String senderId, String message, long timestamp) {
         this.senderId = senderId;

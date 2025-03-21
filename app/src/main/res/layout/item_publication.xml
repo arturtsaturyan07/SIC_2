@@ -1,22 +1,50 @@
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="8dp">
 
-    <!-- Author -->
-    <TextView
-        android:id="@+id/author_text_view"
+    <!-- Container for other users' publications (left-aligned) -->
+    <LinearLayout
+        android:id="@+id/publication_container_other"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Author ID"
-        android:textStyle="bold" />
+        android:padding="12dp"
+        android:background="@drawable/bg_other_user_message"
+        android:orientation="vertical"
+        android:layout_gravity="start"
+    android:visibility="gone">
 
-    <!-- Content -->
     <TextView
-        android:id="@+id/content_text_view"
+        android:id="@+id/publication_text_other"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Content" />
+        android:text="Publication"
+        android:textColor="@android:color/white"
+        android:textSize="16sp" />
+
 </LinearLayout>
+
+    <!-- Container for current user's publications (right-aligned) -->
+<LinearLayout
+android:id="@+id/publication_container_me"
+android:layout_width="wrap_content"
+android:layout_height="wrap_content"
+android:padding="12dp"
+android:background="@drawable/bg_current_user_message"
+android:orientation="vertical"
+android:layout_gravity="end"
+    android:visibility="gone">
+
+<TextView
+android:id="@+id/publication_text_me"
+android:layout_width="wrap_content"
+android:layout_height="wrap_content"
+android:text="Publication"
+android:textColor="@android:color/white"
+android:textSize="16sp" />
+
+    </LinearLayout>
+
+    </LinearLayout>

@@ -54,6 +54,9 @@ public class ChatFragment extends Fragment {
             Log.d("ChatFragment", "Card ID: " + cardId); // Debugging
         }
 
+        // In ChatFragment.java
+        chatAdapter = new ChatAdapter(chatMessages, currentUserId);
+
         // Validate cardId
         if (cardId == null || cardId.isEmpty()) {
             Log.e("ChatFragment", "Card ID is missing");
@@ -80,7 +83,8 @@ public class ChatFragment extends Fragment {
 
         // Initialize RecyclerView and adapter
         chatMessages = new ArrayList<>();
-        chatAdapter = new ChatAdapter(chatMessages);
+        // In ChatFragment.java
+        chatAdapter = new ChatAdapter(chatMessages, currentUserId);
         chatRecyclerView = view.findViewById(R.id.chat_recycler_view);
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         chatRecyclerView.setAdapter(chatAdapter);
