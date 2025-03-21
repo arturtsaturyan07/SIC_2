@@ -2,10 +2,8 @@ package com.example.sic_2;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
@@ -23,8 +21,6 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
-import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.StorageReference;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,11 +34,6 @@ public class CardActivity extends AppCompatActivity {
     private String cardId;
     private String currentUserId;
 
-    // Shared Cards RecyclerView
-    private RecyclerView sharedCardsRecyclerView;
-    private SharedCardsAdapter sharedCardsAdapter;
-    private List<SharedCard> sharedCardList;
-
     // Publications RecyclerView
     private RecyclerView publicationsRecyclerView;
     private PublicationsAdapter publicationsAdapter;
@@ -52,11 +43,6 @@ public class CardActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.card_view_layout);
-
-
-
-        Button addPhotoButton = findViewById(R.id.add_photo_button);
-        addPhotoButton.setOnClickListener(v -> openImagePicker());
 
         // Initialize Firebase database and UI components
         database = FirebaseDatabase.getInstance().getReference("cards");
@@ -85,13 +71,6 @@ public class CardActivity extends AppCompatActivity {
         Button shareCardButton = findViewById(R.id.shareCardButton);
         Button addPublicationButton = findViewById(R.id.add_publication_button);
 
-        // Initialize Shared Cards RecyclerView
-        sharedCardList = new ArrayList<>();
-        sharedCardsAdapter = new SharedCardsAdapter(sharedCardList);
-        sharedCardsRecyclerView = findViewById(R.id.shared_cards_recycler_view);
-        sharedCardsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
-        sharedCardsRecyclerView.setAdapter(sharedCardsAdapter);
-
         // Initialize Publications RecyclerView
         publicationsList = new ArrayList<>();
         publicationsAdapter = new PublicationsAdapter(publicationsList);
@@ -101,7 +80,6 @@ public class CardActivity extends AppCompatActivity {
 
         // Load data
         checkUserAccess();
-        loadSharedCards();
         loadPublications();
 
         // Button functionalities
@@ -130,84 +108,34 @@ public class CardActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Shows a dialog to add a new publication.
+     */
+    private void showAddPublicationDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Add Publication");
 
-//    private void showAddPublicationDialog() {
-//        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-//        builder.setTitle("Add Publication");
-//
-//        final EditText contentInput = new EditText(this);
-//        contentInput.setHint("Enter publication content");
-//        builder.setView(contentInput);
-//
-//        // Add a button to select a photo
-//        Button selectPhotoButton = new Button(this);
-//        selectPhotoButton.setText("Select Photo");
-//        builder.setView(selectPhotoButton);
-//
-//        builder.setPositiveButton("Post", (dialog, which) -> {
-//            String content = contentInput.getText().toString().trim();
-//            if (!content.isEmpty()) {
-//                createPublication(content, selectedImageUrl); // Pass the photo URL
-//            } else {
-//                showToast("Publication content cannot be empty");
-//            }
-//        });
-//
-//        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
-//
-//        AlertDialog dialog = builder.create();
-//        dialog.show();
-//
-//        // Handle photo selection
-//        selectPhotoButton.setOnClickListener(v -> openImagePicker());
-//    }
+        final EditText contentInput = new EditText(this);
+        contentInput.setHint("Enter publication content");
+        builder.setView(contentInput);
 
-    // Variable to store the selected photo's download URL
-    private String selectedImageUrl;
+        builder.setPositiveButton("Post", (dialog, which) -> {
+            String content = contentInput.getText().toString().trim();
+            if (!content.isEmpty()) {
+                createPublication(content);
+            } else {
+                showToast("Publication content cannot be empty");
+            }
+        });
 
-    private void openImagePicker() {
-        Intent intent = new Intent(Intent.ACTION_PICK);
-        intent.setType("image/*");
-        startActivityForResult(intent, 1); // Use startActivityForResult to handle the result
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+        builder.show();
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        if (requestCode == 1 && resultCode == RESULT_OK && data != null) {
-            // Get the selected image URI
-            Uri imageUri = data.getData();
-            uploadImageToFirebase(imageUri);
-        }
-    }
-
-    private void uploadImageToFirebase(Uri imageUri) {
-        // Create a reference to Firebase Storage
-        StorageReference storageRef = FirebaseStorage.getInstance().getReference()
-                .child("images/" + System.currentTimeMillis() + ".jpg");
-
-        // Upload the image
-        storageRef.putFile(imageUri)
-                .addOnSuccessListener(taskSnapshot -> {
-                    // Get the download URL
-                    storageRef.getDownloadUrl().addOnSuccessListener(uri -> {
-                        String imageUrl = uri.toString(); // Save the download URL
-                        showToast("Photo uploaded successfully");
-
-                        // Save the image URL to the database
-                        saveImageUrlToDatabase(imageUrl);
-                    }).addOnFailureListener(e -> {
-                        showToast("Failed to get download URL");
-                    });
-                })
-                .addOnFailureListener(e -> {
-                    showToast("Failed to upload photo");
-                });
-    }
-
-
-    private void saveImageUrlToDatabase(String imageUrl) {
+    /**
+     * Creates a new publication in Firebase.
+     */
+    private void createPublication(String content) {
         if (cardId == null || cardId.isEmpty()) {
             showToast("Card ID is missing");
             return;
@@ -220,7 +148,7 @@ public class CardActivity extends AppCompatActivity {
 
         String publicationId = publicationsRef.getKey();
         if (publicationId != null) {
-            Publication publication = new Publication(publicationId, currentUserId, "", imageUrl, System.currentTimeMillis());
+            Publication publication = new Publication(publicationId, currentUserId, content, System.currentTimeMillis());
             publicationsRef.setValue(publication)
                     .addOnCompleteListener(task -> {
                         if (task.isSuccessful()) {
@@ -231,6 +159,57 @@ public class CardActivity extends AppCompatActivity {
                         }
                     });
         }
+    }
+
+    /**
+     * Loads publications for the current card.
+     */
+    private void loadPublications() {
+        if (cardId == null || cardId.isEmpty()) {
+            showToast("Card ID is missing");
+            return;
+        }
+
+        DatabaseReference publicationsRef = FirebaseDatabase.getInstance()
+                .getReference("publications")
+                .child(cardId);
+
+        publicationsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                publicationsList.clear(); // Clear existing data
+
+                if (snapshot.exists()) {
+                    for (DataSnapshot publicationSnapshot : snapshot.getChildren()) {
+                        String publicationId = publicationSnapshot.getKey();
+                        String authorId = publicationSnapshot.child("authorId").getValue(String.class);
+                        String content = publicationSnapshot.child("content").getValue(String.class);
+                        Long timestamp = publicationSnapshot.child("timestamp").getValue(Long.class);
+
+                        // Validate all required fields
+                        if (publicationId != null && authorId != null && content != null && timestamp != null) {
+                            Publication publication = new Publication(publicationId, authorId, content, timestamp);
+                            publicationsList.add(publication);
+                        } else {
+                            Log.w("PublicationLoad", "Skipping invalid publication: " + publicationId);
+                        }
+                    }
+
+                    // Notify adapter and scroll to the latest publication
+                    publicationsAdapter.notifyDataSetChanged();
+                    publicationsRecyclerView.scrollToPosition(publicationsList.size() - 1);
+                } else {
+                    Log.d("Publications", "No publications found");
+                    showToast("No publications found");
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("FirebaseError", "Error loading publications: " + error.getMessage());
+                showToast("Database error: " + error.getMessage());
+            }
+        });
     }
 
     /**
@@ -326,151 +305,6 @@ public class CardActivity extends AppCompatActivity {
         } else {
             showToast("Shared card data is incomplete");
             finish();
-        }
-    }
-
-    /**
-     * Loads shared cards for the current user.
-     */
-    private void loadSharedCards() {
-        if (currentUserId == null) {
-            showToast("User authentication failed");
-            return;
-        }
-
-        DatabaseReference sharedCardsRef = FirebaseDatabase.getInstance()
-                .getReference("sharedCards")
-                .child(currentUserId);
-
-        sharedCardsRef.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                sharedCardList.clear(); // Clear existing data
-                if (snapshot.exists()) {
-                    for (DataSnapshot cardSnapshot : snapshot.getChildren()) {
-                        String cardId = cardSnapshot.getKey();
-                        String message = cardSnapshot.child("message").getValue(String.class);
-                        String sharedBy = cardSnapshot.child("sharedBy").getValue(String.class);
-                        if (message != null && sharedBy != null) {
-                            SharedCard sharedCard = new SharedCard(cardId, message, sharedBy);
-                            sharedCardList.add(sharedCard);
-                        }
-                    }
-                    sharedCardsAdapter.notifyDataSetChanged(); // Refresh RecyclerView
-                } else {
-                    Log.d("SharedCard", "No shared cards found");
-                    showToast("No shared cards found");
-                }
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                Log.e("FirebaseError", "Error loading shared cards: " + error.getMessage());
-                showToast("Database error: " + error.getMessage());
-            }
-        });
-    }
-
-    /**
-     * Loads publications for the current card.
-     */
-    private void loadPublications() {
-        if (cardId == null || cardId.isEmpty()) {
-            showToast("Card ID is missing");
-            return;
-        }
-
-        DatabaseReference publicationsRef = FirebaseDatabase.getInstance()
-                .getReference("publications")
-                .child(cardId);
-
-        publicationsRef.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                publicationsList.clear(); // Clear existing data
-
-                if (snapshot.exists()) {
-                    for (DataSnapshot publicationSnapshot : snapshot.getChildren()) {
-                        String publicationId = publicationSnapshot.getKey();
-                        String authorId = publicationSnapshot.child("authorId").getValue(String.class);
-                        String content = publicationSnapshot.child("content").getValue(String.class);
-                        Long timestamp = publicationSnapshot.child("timestamp").getValue(Long.class);
-
-                        // Validate all required fields
-                        if (publicationId != null && authorId != null && content != null && timestamp != null) {
-                            Publication publication = new Publication(publicationId, authorId, content, selectedImageUrl, timestamp);
-                            publicationsList.add(publication);
-                        } else {
-                            Log.w("PublicationLoad", "Skipping invalid publication: " + publicationId);
-                        }
-                    }
-
-                    // Notify adapter and scroll to the latest publication
-                    publicationsAdapter.notifyDataSetChanged();
-                    publicationsRecyclerView.scrollToPosition(publicationsList.size() - 1);
-                } else {
-                    Log.d("Publications", "No publications found");
-                    showToast("No publications found");
-                }
-            }
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                Log.e("FirebaseError", "Error loading publications: " + error.getMessage());
-                showToast("Database error: " + error.getMessage());
-            }
-        });
-    }
-
-    /**
-     * Shows a dialog to add a new publication.
-     */
-    private void showAddPublicationDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Add Publication");
-
-        final EditText contentInput = new EditText(this);
-        contentInput.setHint("Enter publication content");
-        builder.setView(contentInput);
-
-        builder.setPositiveButton("Post", (dialog, which) -> {
-            String content = contentInput.getText().toString().trim();
-            if (!content.isEmpty()) {
-                createPublication(content, selectedImageUrl);
-            } else {
-                showToast("Publication content cannot be empty");
-            }
-        });
-
-        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
-        builder.show();
-    }
-
-    /**
-     * Creates a new publication in Firebase.
-     */
-    private void createPublication(String content, String imageUrl) {
-        if (cardId == null || cardId.isEmpty()) {
-            showToast("Card ID is missing");
-            return;
-        }
-
-        DatabaseReference publicationsRef = FirebaseDatabase.getInstance()
-                .getReference("publications")
-                .child(cardId)
-                .push();
-
-        String publicationId = publicationsRef.getKey();
-        if (publicationId != null) {
-            Publication publication = new Publication(publicationId, currentUserId, content, imageUrl, System.currentTimeMillis());
-            publicationsRef.setValue(publication)
-                    .addOnCompleteListener(task -> {
-                        if (task.isSuccessful()) {
-                            showToast("Publication added successfully");
-                            loadPublications(); // Reload publications
-                        } else {
-                            showToast("Failed to add publication");
-                        }
-                    });
         }
     }
 

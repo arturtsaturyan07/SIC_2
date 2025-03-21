@@ -69,25 +69,55 @@
     </LinearLayout>
 
     <!-- Shared Cards RecyclerView -->
+<!--    <androidx.recyclerview.widget.RecyclerView-->
+<!--        android:id="@+id/shared_cards_recycler_view"-->
+<!--        android:layout_width="0dp"-->
+<!--        android:layout_height="0dp"-->
+<!--        android:scrollbars="vertical"-->
+<!--        app:layout_constraintTop_toBottomOf="@id/action_buttons_container"-->
+<!--        app:layout_constraintBottom_toTopOf="@id/publications_recycler_view"-->
+<!--        app:layout_constraintStart_toStartOf="parent"-->
+<!--        app:layout_constraintEnd_toEndOf="parent"-->
+<!--        android:layout_marginTop="16dp"-->
+<!--        android:layout_marginBottom="8dp" />-->
+
+    <!-- Publications RecyclerView -->
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/shared_cards_recycler_view"
+        android:id="@+id/publications_recycler_view"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:scrollbars="vertical"
         app:layout_constraintTop_toBottomOf="@id/action_buttons_container"
-        app:layout_constraintBottom_toTopOf="@id/bottom_navigation"
+        app:layout_constraintBottom_toTopOf="@id/add_photo_button"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="16dp" />
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp" />
 
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/publications_recycler_view"
-        android:layout_width="match_parent"
+    <!-- Add Photo Button -->
+    <Button
+        android:id="@+id/add_photo_button"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:scrollbars="vertical"
-        tools:ignore="MissingConstraints" />
+        android:text="Add Photo"
+        app:layout_constraintTop_toBottomOf="@id/publications_recycler_view"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp" />
+
+    <!-- Add Publication Button -->
+    <Button
+        android:id="@+id/add_publication_button"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Add Publication"
+        app:layout_constraintTop_toBottomOf="@id/add_photo_button"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/bottom_navigation"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp" />
 
     <!-- Bottom Navigation -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
@@ -100,12 +130,4 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <Button
-        android:id="@+id/add_publication_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Add Publication"
-        tools:layout_editor_absoluteX="154dp"
-        tools:layout_editor_absoluteY="-1dp"
-        tools:ignore="MissingConstraints" />
 </androidx.constraintlayout.widget.ConstraintLayout>
