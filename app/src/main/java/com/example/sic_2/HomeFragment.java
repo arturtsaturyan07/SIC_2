@@ -32,6 +32,7 @@ public class HomeFragment extends Fragment {
     private DatabaseReference database;
     private String userId;
     private List<Card> cardList; // List to store cards
+    private CardAdapter cardAdapter;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -270,9 +271,8 @@ public class HomeFragment extends Fragment {
         for (int i = 0; i < cardList.size(); i++) {
             if (cardList.get(i).getId().equals(cardId)) {
                 cardList.remove(i); // Remove the card from the list
-                cardContainer.removeViewAt(i); // Remove the card view from the container
+                cardAdapter.notifyItemRemoved(i); // Notify the adapter
                 break;
             }
         }
-    }
-}
+    }}

@@ -161,6 +161,9 @@ public class ParametersFragment extends Fragment {
     /**
      * Deletes the card from Firebase and notifies the HomeFragment to update the UI.
      */
+    /**
+     * Deletes the card from Firebase (both main cards and shared cards) and notifies the HomeFragment to update the UI.
+     */
     private void deleteCard() {
         if (cardId == null || database == null || currentUserId == null) {
             Toast.makeText(requireContext(), "Invalid card or user", Toast.LENGTH_SHORT).show();
@@ -170,18 +173,39 @@ public class ParametersFragment extends Fragment {
         // Reference to the card in the current user's cards
         DatabaseReference cardRef = database.child(currentUserId).child(cardId);
 
-        // Delete the card from Firebase
+        // Reference to the sharedCards node
+        DatabaseReference sharedCardsRef = FirebaseDatabase.getInstance().getReference("sharedCards");
+
+        // Delete the card from the current user's cards
         cardRef.removeValue().addOnCompleteListener(task -> {
             if (task.isSuccessful() && isAdded()) {
-                Toast.makeText(requireContext(), "Card deleted", Toast.LENGTH_SHORT).show();
+                // Delete the card from all sharedCards nodes
+                sharedCardsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        for (DataSnapshot userSnapshot : snapshot.getChildren()) {
+                            String userId = userSnapshot.getKey();
+                            if (userId != null) {
+                                // Delete the card from the sharedCards node of each user
+                                sharedCardsRef.child(userId).child(cardId).removeValue();
+                            }
+                        }
 
-                // Notify the HomeFragment to remove the card from the RecyclerView
-                if (getActivity() instanceof CardActivity) {
-                    ((CardActivity) getActivity()).onCardDeleted(cardId);
-                }
+                        // Notify the HomeFragment to remove the card from the RecyclerView
+                        if (getActivity() instanceof CardActivity) {
+                            ((CardActivity) getActivity()).onCardDeleted(cardId);
+                        }
 
-                // Close the CardActivity and return to the HomeFragment
-                requireActivity().finish();
+                        // Close the CardActivity and return to the HomeFragment
+                        requireActivity().finish();
+                        Toast.makeText(requireContext(), "Card deleted", Toast.LENGTH_SHORT).show();
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+                        Toast.makeText(requireContext(), "Failed to delete shared cards: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                });
             } else if (isAdded()) {
                 Toast.makeText(requireContext(), "Failed to delete card", Toast.LENGTH_SHORT).show();
             }

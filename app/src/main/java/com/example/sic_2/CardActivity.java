@@ -85,7 +85,7 @@ public class CardActivity extends AppCompatActivity {
     public void onCardDeleted(String cardId) {
         Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
         if (fragment instanceof HomeFragment) {
-            ((HomeFragment) fragment).onCardDeleted(cardId);
+            ((HomeFragment) fragment).onCardDeleted(cardId); // Notify HomeFragment to remove the card
         }
     }
 }
