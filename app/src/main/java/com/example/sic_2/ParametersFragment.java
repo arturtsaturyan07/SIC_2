@@ -194,6 +194,7 @@ public class ParametersFragment extends Fragment {
                         // Notify the HomeFragment to remove the card from the RecyclerView
                         if (getActivity() instanceof CardActivity) {
                             ((CardActivity) getActivity()).onCardDeleted(cardId);
+                            ((CardActivity) getActivity()).reloadHomeFragmentData(); // Reload data in HomeFragment
                         }
 
                         // Close the CardActivity and return to the HomeFragment

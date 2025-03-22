@@ -88,4 +88,13 @@ public class CardActivity extends AppCompatActivity {
             ((HomeFragment) fragment).onCardDeleted(cardId); // Notify HomeFragment to remove the card
         }
     }
+
+
+    public void reloadHomeFragmentData() {
+        Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
+        if (fragment instanceof HomeFragment) {
+            ((HomeFragment) fragment).reloadData(); // Reload data in HomeFragment
+        }
+    }
+
 }

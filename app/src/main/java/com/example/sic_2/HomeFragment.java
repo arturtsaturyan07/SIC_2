@@ -275,4 +275,13 @@ public class HomeFragment extends Fragment {
                 break;
             }
         }
-    }}
+    }
+
+
+    public void reloadData() {
+        cardList.clear(); // Clear the existing data
+        loadCards(); // Load cards from Firebase
+        loadSharedCards(); // Load shared cards from Firebase
+    }
+
+}
