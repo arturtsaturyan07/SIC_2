@@ -3,6 +3,7 @@ package com.example.sic_2;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -13,6 +14,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.widget.SearchView;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.appcompat.app.AlertDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -274,26 +276,55 @@ public class HomeFragment extends Fragment {
     private void filterCards(String query) {
         if (!isAdded()) return;
 
+        // Clear the card container before displaying filtered results
         cardContainer.removeAllViews();
-        database.orderByChild("message").startAt(query).endAt(query + "\uf8ff").addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot snapshot) {
-                if (!isAdded()) return;
-                for (DataSnapshot data : snapshot.getChildren()) {
-                    Card card = data.getValue(Card.class);
-                    if (card != null) {
-                        createCardView(card.getId(), card.getMessage(), false); // Regular card
-                    }
-                }
-            }
 
-            @Override
-            public void onCancelled(DatabaseError error) {
-                if (isAdded()) {
-                    Log.e("Firebase", "Error filtering cards", error.toException());
-                }
-            }
-        });
+        // Perform the search query
+        database.orderByChild("message")
+                .startAt(query)
+                .endAt(query + "\uf8ff")
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(DataSnapshot snapshot) {
+                        if (!isAdded()) return;
+
+                        int matchCount = 0; // Track the number of matching cards
+
+                        for (DataSnapshot data : snapshot.getChildren()) {
+                            Card card = data.getValue(Card.class);
+                            if (card != null) {
+                                createCardView(card.getId(), card.getMessage(), false); // Regular card
+                                matchCount++; // Increment the match count
+                            }
+                        }
+
+                        // If no cards match the query, display a "No cards found" message
+                        if (matchCount == 0) {
+                            showNoCardsFoundMessage();
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(DatabaseError error) {
+                        if (isAdded()) {
+                            Log.e("Firebase", "Error filtering cards", error.toException());
+                        }
+                    }
+                });
+    }
+
+    private void showNoCardsFoundMessage() {
+        if (!isAdded()) return;
+
+        // Create a TextView to display the "No cards found" message
+        TextView noCardsFoundText = new TextView(requireContext());
+        noCardsFoundText.setText("No cards found");
+        noCardsFoundText.setTextSize(18); // Set text size
+        noCardsFoundText.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.darker_gray)); // Set text color
+        noCardsFoundText.setGravity(Gravity.CENTER); // Center the text
+
+        // Add the TextView to the card container
+        cardContainer.addView(noCardsFoundText);
     }
 
     public void onCardDeleted(String cardId) {
