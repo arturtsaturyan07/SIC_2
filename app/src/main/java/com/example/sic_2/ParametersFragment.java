@@ -8,17 +8,14 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
-
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
-
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
-
 import java.util.HashMap;
 import java.util.Map;
 
@@ -162,23 +159,32 @@ public class ParametersFragment extends Fragment {
     }
 
     /**
-     * Deletes the card from Firebase.
+     * Deletes the card from Firebase and notifies the HomeFragment to update the UI.
      */
     private void deleteCard() {
-        if (cardId == null || cardId.isEmpty() || currentUserId == null) {
+        if (cardId == null || database == null || currentUserId == null) {
             Toast.makeText(requireContext(), "Invalid card or user", Toast.LENGTH_SHORT).show();
             return;
         }
 
+        // Reference to the card in the current user's cards
         DatabaseReference cardRef = database.child(currentUserId).child(cardId);
-        cardRef.removeValue()
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        Toast.makeText(requireContext(), "Card deleted successfully", Toast.LENGTH_SHORT).show();
-                        requireActivity().finish(); // Close the activity after deletion
-                    } else {
-                        Toast.makeText(requireContext(), "Failed to delete card", Toast.LENGTH_SHORT).show();
-                    }
-                });
+
+        // Delete the card from Firebase
+        cardRef.removeValue().addOnCompleteListener(task -> {
+            if (task.isSuccessful() && isAdded()) {
+                Toast.makeText(requireContext(), "Card deleted", Toast.LENGTH_SHORT).show();
+
+                // Notify the HomeFragment to remove the card from the RecyclerView
+                if (getActivity() instanceof CardActivity) {
+                    ((CardActivity) getActivity()).onCardDeleted(cardId);
+                }
+
+                // Close the CardActivity and return to the HomeFragment
+                requireActivity().finish();
+            } else if (isAdded()) {
+                Toast.makeText(requireContext(), "Failed to delete card", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 }

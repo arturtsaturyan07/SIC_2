@@ -6,7 +6,6 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -21,7 +20,9 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class HomeFragment extends Fragment {
@@ -30,6 +31,7 @@ public class HomeFragment extends Fragment {
     private SearchView searchView;
     private DatabaseReference database;
     private String userId;
+    private List<Card> cardList; // List to store cards
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -39,6 +41,9 @@ public class HomeFragment extends Fragment {
             fab = view.findViewById(R.id.fab);
             cardContainer = view.findViewById(R.id.card_container);
             searchView = view.findViewById(R.id.search);
+
+            // Initialize the card list
+            cardList = new ArrayList<>();
 
             FirebaseAuth auth = FirebaseAuth.getInstance();
             if (auth.getCurrentUser() != null) {
@@ -89,47 +94,33 @@ public class HomeFragment extends Fragment {
         builder.show();
     }
 
-    private void saveCardToFirebase(String message) {
-        String cardId = database.push().getKey();
-        if (cardId != null) {
-            Map<String, Object> cardData = new HashMap<>();
-            cardData.put("cardId", cardId);
-            cardData.put("message", message);
 
-            database.child(cardId).setValue(cardData).addOnCompleteListener(task -> {
-                if (task.isSuccessful() && isAdded()) {
-                    createCardView(cardId, message, false); // Regular card
-                } else if (isAdded()) {
-                    Toast.makeText(requireContext(), "Failed to save card", Toast.LENGTH_SHORT).show();
-                }
-            });
-        }
-    }
 
-    private void loadCards() {
-        if (!isAdded() || database == null) return;
-
-        database.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot snapshot) {
-                if (!isAdded()) return;
-                for (DataSnapshot data : snapshot.getChildren()) {
-                    String cardId = data.child("cardId").getValue(String.class);
-                    String message = data.child("message").getValue(String.class);
-                    if (cardId != null && message != null) {
-                        createCardView(cardId, message, false); // Regular card
-                    }
-                }
-            }
-
-            @Override
-            public void onCancelled(DatabaseError error) {
-                if (isAdded()) {
-                    Log.e("Firebase", "Error loading cards", error.toException());
-                }
-            }
-        });
-    }
+//    private void loadCards() {
+//        if (!isAdded() || database == null) return;
+//
+//        database.addListenerForSingleValueEvent(new ValueEventListener() {
+//            @Override
+//            public void onDataChange(DataSnapshot snapshot) {
+//                if (!isAdded()) return;
+//                cardList.clear(); // Clear the list before adding new cards
+//                for (DataSnapshot data : snapshot.getChildren()) {
+//                    Card card = data.getValue(Card.class);
+//                    if (card != null) {
+//                        cardList.add(card); // Add the card to the list
+//                        createCardView(card.getId(), card.getMessage(), false); // Regular card
+//                    }
+//                }
+//            }
+//
+//            @Override
+//            public void onCancelled(DatabaseError error) {
+//                if (isAdded()) {
+//                    Log.e("Firebase", "Error loading cards", error.toException());
+//                }
+//            }
+//        });
+//    }
 
     private void loadSharedCards() {
         if (!isAdded() || getContext() == null) return;
@@ -143,9 +134,12 @@ public class HomeFragment extends Fragment {
             public void onDataChange(DataSnapshot snapshot) {
                 if (!isAdded()) return;
                 for (DataSnapshot cardSnapshot : snapshot.getChildren()) {
-                    String cardId = cardSnapshot.getKey();
+                    String cardId = cardSnapshot.getKey(); // Use the key as the cardId
                     String message = cardSnapshot.child("message").getValue(String.class);
                     String sharedBy = cardSnapshot.child("sharedBy").getValue(String.class);
+
+                    // Log the shared card details
+                    Log.d("HomeFragment", "Shared Card ID: " + cardId + ", Message: " + message + ", Shared By: " + sharedBy);
 
                     if (cardId != null && message != null && sharedBy != null) {
                         createCardView(cardId, message, true); // Shared card
@@ -162,29 +156,87 @@ public class HomeFragment extends Fragment {
         });
     }
 
+    private void saveCardToFirebase(String message) {
+        String cardId = database.push().getKey(); // Generate a unique cardId
+        Log.d("HomeFragment", "Generated Card ID: " + cardId); // Log the generated cardId
+
+        if (cardId != null) {
+            Map<String, Object> cardData = new HashMap<>();
+            cardData.put("message", message); // Only store the message
+
+            database.child(cardId).setValue(cardData).addOnCompleteListener(task -> {
+                if (task.isSuccessful() && isAdded()) {
+                    Card card = new Card(cardId, message, userId, System.currentTimeMillis());
+                    cardList.add(card); // Add the new card to the list
+                    createCardView(cardId, message, false); // Regular card
+                } else if (isAdded()) {
+                    Toast.makeText(requireContext(), "Failed to save card", Toast.LENGTH_SHORT).show();
+                }
+            });
+        } else {
+            Log.e("HomeFragment", "Failed to generate cardId");
+        }
+    }
+
+    private void loadCards() {
+        if (!isAdded() || database == null) return;
+
+        database.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                if (!isAdded()) return;
+                cardList.clear(); // Clear the list before adding new cards
+                for (DataSnapshot data : snapshot.getChildren()) {
+                    String cardId = data.getKey(); // Use the key as the cardId
+                    String message = data.child("message").getValue(String.class);
+
+                    // Log the cardId and message
+                    Log.d("HomeFragment", "Loaded Card ID: " + cardId + ", Message: " + message);
+
+                    if (cardId != null && message != null) {
+                        Card card = new Card(cardId, message, userId, System.currentTimeMillis());
+                        cardList.add(card); // Add the card to the list
+                        createCardView(cardId, message, false); // Regular card
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                if (isAdded()) {
+                    Log.e("Firebase", "Error loading cards", error.toException());
+                }
+            }
+        });
+    }
+
     private void createCardView(String cardId, String message, boolean isShared) {
         if (!isAdded()) return;
 
         View cardView = LayoutInflater.from(requireContext()).inflate(R.layout.home_card_item, cardContainer, false);
         TextView cardMessage = cardView.findViewById(R.id.card_message);
-        Button deleteButton = cardView.findViewById(R.id.delete_button);
 
         cardMessage.setText(message);
 
         if (isShared) {
             cardMessage.setText("[Shared] " + message); // Indicate shared cards
-            deleteButton.setVisibility(View.GONE); // Disable delete for shared cards
         }
+
+        // Log the cardId before passing it
+        Log.d("HomeFragment", "Card ID: " + cardId);
 
         // Open Card activity on card click
         cardView.setOnClickListener(v -> {
+            if (cardId == null || cardId.isEmpty()) {
+                Toast.makeText(requireContext(), "Card ID is missing", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
             Intent intent = new Intent(requireContext(), CardActivity.class);
-            intent.putExtra("cardId", cardId);
+            intent.putExtra("cardId", cardId); // Pass the cardId to CardActivity
+            Log.d("HomeFragment", "Intent Card ID: " + cardId);
             startActivity(intent);
         });
-
-        // Delete button logic (only for regular cards)
-        deleteButton.setOnClickListener(v -> deleteCard(cardId, cardView));
 
         cardContainer.addView(cardView);
     }
@@ -198,10 +250,9 @@ public class HomeFragment extends Fragment {
             public void onDataChange(DataSnapshot snapshot) {
                 if (!isAdded()) return;
                 for (DataSnapshot data : snapshot.getChildren()) {
-                    String cardId = data.child("cardId").getValue(String.class);
-                    String message = data.child("message").getValue(String.class);
-                    if (cardId != null && message != null) {
-                        createCardView(cardId, message, false); // Regular card
+                    Card card = data.getValue(Card.class);
+                    if (card != null) {
+                        createCardView(card.getId(), card.getMessage(), false); // Regular card
                     }
                 }
             }
@@ -215,16 +266,13 @@ public class HomeFragment extends Fragment {
         });
     }
 
-    private void deleteCard(String cardId, View cardView) {
-        if (!isAdded() || database == null) return;
-
-        database.child(cardId).removeValue().addOnCompleteListener(task -> {
-            if (task.isSuccessful() && isAdded()) {
-                cardContainer.removeView(cardView);
-                Toast.makeText(requireContext(), "Card deleted", Toast.LENGTH_SHORT).show();
-            } else if (isAdded()) {
-                Toast.makeText(requireContext(), "Failed to delete card", Toast.LENGTH_SHORT).show();
+    public void onCardDeleted(String cardId) {
+        for (int i = 0; i < cardList.size(); i++) {
+            if (cardList.get(i).getId().equals(cardId)) {
+                cardList.remove(i); // Remove the card from the list
+                cardContainer.removeViewAt(i); // Remove the card view from the container
+                break;
             }
-        });
+        }
     }
 }

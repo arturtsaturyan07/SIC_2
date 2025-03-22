@@ -21,9 +21,13 @@ public class CardActivity extends AppCompatActivity {
 
         // Retrieve card ID from intent
         cardId = getIntent().getStringExtra("cardId");
+
+        // Log the received cardId
+        Log.d("CardActivity", "Received Card ID: " + cardId);
+
         if (cardId == null || cardId.isEmpty()) {
             Toast.makeText(this, "Card ID is missing", Toast.LENGTH_SHORT).show();
-            finish();
+            finish(); // Close the activity if cardId is missing
             return;
         }
 
@@ -38,7 +42,6 @@ public class CardActivity extends AppCompatActivity {
         BottomNavigationView bottomNavigationView = findViewById(R.id.bottom_navigation);
         if (bottomNavigationView != null) {
             bottomNavigationView.setOnNavigationItemSelectedListener(item -> {
-                // In CardActivity.java
                 Fragment selectedFragment = null;
 
                 int itemId = item.getItemId();
@@ -77,5 +80,12 @@ public class CardActivity extends AppCompatActivity {
             transaction.addToBackStack(null);
         }
         transaction.commit();
+    }
+
+    public void onCardDeleted(String cardId) {
+        Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
+        if (fragment instanceof HomeFragment) {
+            ((HomeFragment) fragment).onCardDeleted(cardId);
+        }
     }
 }
