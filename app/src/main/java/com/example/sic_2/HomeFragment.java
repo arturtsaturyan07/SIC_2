@@ -10,6 +10,8 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
 import androidx.appcompat.widget.SearchView;
 import androidx.fragment.app.Fragment;
 import androidx.appcompat.app.AlertDialog;
@@ -158,25 +160,52 @@ public class HomeFragment extends Fragment {
     }
 
     private void saveCardToFirebase(String message) {
-        String cardId = database.push().getKey(); // Generate a unique cardId
-        Log.d("HomeFragment", "Generated Card ID: " + cardId); // Log the generated cardId
-
-        if (cardId != null) {
-            Map<String, Object> cardData = new HashMap<>();
-            cardData.put("message", message); // Only store the message
-
-            database.child(cardId).setValue(cardData).addOnCompleteListener(task -> {
-                if (task.isSuccessful() && isAdded()) {
-                    Card card = new Card(cardId, message, userId, System.currentTimeMillis());
-                    cardList.add(card); // Add the new card to the list
-                    createCardView(cardId, message, false); // Regular card
-                } else if (isAdded()) {
-                    Toast.makeText(requireContext(), "Failed to save card", Toast.LENGTH_SHORT).show();
-                }
-            });
-        } else {
-            Log.e("HomeFragment", "Failed to generate cardId");
+        if (message == null || message.isEmpty()) {
+            Toast.makeText(requireContext(), "Message cannot be empty", Toast.LENGTH_SHORT).show();
+            return;
         }
+
+        // Query to check if a card with the same message already exists
+        database.orderByChild("message").equalTo(message).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (snapshot.exists()) {
+                    // A card with the same message already exists
+                    Toast.makeText(requireContext(), "A card with this name already exists", Toast.LENGTH_SHORT).show();
+                } else {
+                    // No card with the same message exists, proceed to create a new card
+                    String cardId = database.push().getKey();
+                    if (cardId != null) {
+                        Map<String, Object> cardData = new HashMap<>();
+                        cardData.put("cardId", cardId);
+                        cardData.put("message", message);
+                        cardData.put("authorId", userId);
+                        cardData.put("timestamp", System.currentTimeMillis());
+
+                        database.child(cardId).setValue(cardData).addOnCompleteListener(task -> {
+                            if (task.isSuccessful() && isAdded()) {
+                                Card card = new Card(cardId, message, userId, System.currentTimeMillis());
+                                cardList.add(card); // Add the new card to the list
+
+                                // Check if cardAdapter is not null before calling notifyDataSetChanged
+                                if (cardAdapter != null) {
+                                    cardAdapter.notifyDataSetChanged(); // Refresh the RecyclerView
+                                }
+
+                                Toast.makeText(requireContext(), "Card created", Toast.LENGTH_SHORT).show();
+                            } else if (isAdded()) {
+                                Toast.makeText(requireContext(), "Failed to save card", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Toast.makeText(requireContext(), "Database error: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void loadCards() {
@@ -277,11 +306,16 @@ public class HomeFragment extends Fragment {
         }
     }
 
-
     public void reloadData() {
         cardList.clear(); // Clear the existing data
         loadCards(); // Load cards from Firebase
         loadSharedCards(); // Load shared cards from Firebase
     }
+
+//    @Override
+//    public void onResume() {
+//        super.onResume();
+//        reloadData(); // Reload data when the fragment is resumed
+//    }
 
 }
