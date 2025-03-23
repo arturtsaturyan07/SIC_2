@@ -147,7 +147,31 @@ public class HomeFragment extends Fragment {
                     Log.d("HomeFragment", "Shared Card ID: " + cardId + ", Message: " + message + ", Shared By: " + sharedBy);
 
                     if (cardId != null && message != null && sharedBy != null) {
-                        createCardView(cardId, message, true); // Shared card
+                        // Check if the shared card still exists in the original user's database
+                        DatabaseReference originalCardRef = FirebaseDatabase.getInstance()
+                                .getReference("cards")
+                                .child(sharedBy)
+                                .child(cardId);
+
+                        originalCardRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                            @Override
+                            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                                if (snapshot.exists()) {
+                                    // Shared card exists, create the card view
+                                    createCardView(cardId, message, true); // Shared card
+                                } else {
+                                    // Shared card has been deleted, remove it from the shared list
+                                    sharedCardsRef.child(cardId).removeValue()
+                                            .addOnSuccessListener(aVoid -> Log.d("HomeFragment", "Deleted shared card: " + cardId))
+                                            .addOnFailureListener(e -> Log.e("HomeFragment", "Failed to delete shared card", e));
+                                }
+                            }
+
+                            @Override
+                            public void onCancelled(@NonNull DatabaseError error) {
+                                Log.e("HomeFragment", "Failed to check shared card", error.toException());
+                            }
+                        });
                     }
                 }
             }
@@ -264,10 +288,33 @@ public class HomeFragment extends Fragment {
                 return;
             }
 
-            Intent intent = new Intent(requireContext(), CardActivity.class);
-            intent.putExtra("cardId", cardId); // Pass the cardId to CardActivity
-            Log.d("HomeFragment", "Intent Card ID: " + cardId);
-            startActivity(intent);
+            // Check if the card exists in the database
+            DatabaseReference cardRef = FirebaseDatabase.getInstance()
+                    .getReference("cards")
+                    .child(userId)
+                    .child(cardId);
+
+            cardRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(@NonNull DataSnapshot snapshot) {
+                    if (snapshot.exists()) {
+                        // Card exists, proceed to open it
+                        Intent intent = new Intent(requireContext(), CardActivity.class);
+                        intent.putExtra("cardId", cardId); // Pass the cardId to CardActivity
+                        Log.d("HomeFragment", "Intent Card ID: " + cardId);
+                        startActivity(intent);
+                    } else {
+                        // Card does not exist, show a message to the user
+                        Toast.makeText(requireContext(), "This card has been deleted", Toast.LENGTH_SHORT).show();
+                    }
+                }
+
+                @Override
+                public void onCancelled(@NonNull DatabaseError error) {
+                    // Handle database error
+                    Toast.makeText(requireContext(), "Failed to check card: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            });
         });
 
         cardContainer.addView(cardView);
