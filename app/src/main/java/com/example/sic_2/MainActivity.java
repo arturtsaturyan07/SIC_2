@@ -2,6 +2,8 @@ package com.example.sic_2;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.ImageView;
@@ -12,6 +14,8 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.fragment.app.Fragment;
@@ -19,7 +23,6 @@ import androidx.preference.PreferenceManager;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationView;
-import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DatabaseError;
@@ -30,6 +33,7 @@ import com.google.firebase.database.DataSnapshot;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 public class MainActivity extends AppCompatActivity {
     private DrawerLayout drawerLayout;
@@ -39,7 +43,6 @@ public class MainActivity extends AppCompatActivity {
     private DatabaseReference usersRef;
     private FirebaseUser user;
     private String userId;
-
     private LinearLayout cardContainer;
 
     @Override
@@ -49,6 +52,13 @@ public class MainActivity extends AppCompatActivity {
 
         auth = FirebaseAuth.getInstance();
         user = auth.getCurrentUser();
+
+        // Request notification permissions for Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, "android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{"android.permission.POST_NOTIFICATIONS"}, 1);
+            }
+        }
 
         // Check if this is guest mode
         Intent intent = getIntent();
@@ -65,8 +75,6 @@ public class MainActivity extends AppCompatActivity {
             loadUserCards();
         }
 
-
-        initializeFirebase(isGuest, intent);
         applyDarkMode();
         initializeViews();
         setupDrawerNavigation();
@@ -97,8 +105,6 @@ public class MainActivity extends AppCompatActivity {
         usersRef = FirebaseDatabase.getInstance().getReference("users");
         checkIfUserExists(email_, name_, surname_);
     }
-
-
 
     private void redirectToLogin() {
         startActivity(new Intent(MainActivity.this, LoginActivity.class));
@@ -132,10 +138,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void createUser(String email, String name, String surname) {
-        if (name == null || name.isEmpty()) name = user.getDisplayName();
-        if (name == null || name.isEmpty()) name = "Unknown"; // Если в профиле нет имени
-        if (surname == null || surname.isEmpty()) surname = "Unknown";
-        if (email == null || email.isEmpty()) email = "no-email@example.com";
+        name = Objects.requireNonNullElse(name, Objects.requireNonNullElse(user.getDisplayName(), "Unknown"));
+        surname = Objects.requireNonNullElse(surname, "Unknown");
+        email = Objects.requireNonNullElse(email, "no-email@example.com");
 
         User newUser = new User(userId, name, surname, email);
         String finalName = name;
@@ -144,7 +149,7 @@ public class MainActivity extends AppCompatActivity {
         usersRef.child(userId).setValue(newUser)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
-                        Log.d("Firebase", "User created successfully"+ finalName + finalSurname + finalEmail);
+                        Log.d("Firebase", "User created successfully: " + finalName + " " + finalSurname + " " + finalEmail);
                     } else {
                         Log.e("Firebase", "User creation failed", task.getException());
                     }
@@ -155,22 +160,19 @@ public class MainActivity extends AppCompatActivity {
         drawerLayout = findViewById(R.id.drawer_layout);
         navigationView = findViewById(R.id.navigation_view);
         bottomNavigationView = findViewById(R.id.bottom_navigation);
+        cardContainer = findViewById(R.id.card_container); // Initialize cardContainer
     }
 
     private void setupDrawerNavigation() {
         navigationView.setNavigationItemSelectedListener(item -> {
             int itemId = item.getItemId();
-            Map<Integer, Fragment> fragmentMap = new HashMap<>();
-            fragmentMap.put(R.id.home, new HomeFragment());
-            fragmentMap.put(R.id.notification, new NotificationFragment());
-            fragmentMap.put(R.id.settings, new SettingsFragment());
-
-            if (itemId == R.id.add_button) {
+            Fragment selectedFragment = getFragmentById(itemId);
+            if (selectedFragment != null) {
+                loadFragment(selectedFragment);
+            } else if (itemId == R.id.add_button) {
                 startActivity(new Intent(MainActivity.this, UserSearchActivity.class));
             } else if (itemId == R.id.nav_logout) {
                 logout();
-            } else if (fragmentMap.containsKey(itemId)) {
-                loadFragment(fragmentMap.get(itemId));
             }
 
             drawerLayout.closeDrawer(GravityCompat.START);
@@ -178,15 +180,10 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-
     private Fragment getFragmentById(int id) {
         if (id == R.id.home) return new HomeFragment();
         if (id == R.id.notification) return new NotificationFragment();
         if (id == R.id.settings) return new SettingsFragment();
-        if (id == R.id.add_button) {
-            startActivity(new Intent(MainActivity.this, UserSearchActivity.class));
-            return null;
-        }
         return null;
     }
 
@@ -217,7 +214,6 @@ public class MainActivity extends AppCompatActivity {
                 for (DataSnapshot cardSnapshot : snapshot.getChildren()) {
                     DataSnapshot usersSnapshot = cardSnapshot.child("users");
 
-                    // 🔹 Check if user is in "users" section
                     if (usersSnapshot.hasChild(userId) && usersSnapshot.child(userId).getValue(Boolean.class)) {
                         String cardId = cardSnapshot.getKey();
                         String message = cardSnapshot.child("message").getValue(String.class);
@@ -250,8 +246,6 @@ public class MainActivity extends AppCompatActivity {
 
         cardContainer.addView(cardView);
     }
-
-
 
     private void logout() {
         FirebaseAuth.getInstance().signOut();

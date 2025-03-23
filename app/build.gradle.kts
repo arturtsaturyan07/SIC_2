@@ -47,6 +47,8 @@ dependencies {
     // Google Play Services Auth
     implementation("com.google.android.gms:play-services-auth:20.4.0") // Use a specific version
 
+    implementation (libs.firebase.messaging)
+
     // Navigation Components
     implementation(libs.navigation.fragment.ktx)
     implementation(libs.navigation.ui.ktx)

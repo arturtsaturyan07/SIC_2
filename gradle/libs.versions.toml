@@ -6,6 +6,7 @@ fab = "1.6.4"
 firebaseBom = "33.8.0"
 firebaseBomVersion = "32.3.1"
 firebaseDatabaseVersion = "20.0.0"
+firebaseMessaging = "24.1.1"
 glide = "4.14.2"
 googleFirebaseDatabase = "latest_version"
 gson = "2.10.1"
@@ -51,6 +52,7 @@ firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "fir
 firebase-bom-v3231 = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBomVersion" }
 firebase-database-v2000 = { module = "com.google.firebase:firebase-database", version.ref = "firebaseDatabaseVersion" }
 firebase-database-vlatestversion = { module = "com.google.firebase:firebase-database", version.ref = "googleFirebaseDatabase" }
+firebase-messaging = { module = "com.google.firebase:firebase-messaging", version.ref = "firebaseMessaging" }
 github-imagekit-android = { module = "com.github.imagekit-developer.imagekit-android:imagekit-android", version.ref = "imagekitAndroidVersion" }
 glide = { module = "com.github.bumptech.glide:glide", version.ref = "glide" }
 google-firebase-auth = { module = "com.google.firebase:firebase-auth" }

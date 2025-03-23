@@ -22,7 +22,9 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ChatFragment extends Fragment {
 
@@ -54,9 +56,6 @@ public class ChatFragment extends Fragment {
             Log.d("ChatFragment", "Card ID: " + cardId); // Debugging
         }
 
-        // In ChatFragment.java
-        chatAdapter = new ChatAdapter(chatMessages, currentUserId);
-
         // Validate cardId
         if (cardId == null || cardId.isEmpty()) {
             Log.e("ChatFragment", "Card ID is missing");
@@ -83,8 +82,7 @@ public class ChatFragment extends Fragment {
 
         // Initialize RecyclerView and adapter
         chatMessages = new ArrayList<>();
-        // In ChatFragment.java
-        chatAdapter = new ChatAdapter(chatMessages, currentUserId);
+        chatAdapter = new ChatAdapter(chatMessages, currentUserId); // Initialize here
         chatRecyclerView = view.findViewById(R.id.chat_recycler_view);
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         chatRecyclerView.setAdapter(chatAdapter);
@@ -149,26 +147,80 @@ public class ChatFragment extends Fragment {
      * Sends a new message to Firebase.
      */
     private void sendMessage(String message) {
-        if (currentUserId == null || cardId == null) {
-            showToast("User authentication failed");
-            return;
-        }
+        String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        DatabaseReference cardRef = FirebaseDatabase.getInstance().getReference("cards").child(cardId);
 
-        // Generate a unique message ID
-        String messageId = chatRef.push().getKey();
-        if (messageId != null) {
-            // Create a new ChatMessage object
-            ChatMessage chatMessage = new ChatMessage(currentUserId, message, System.currentTimeMillis());
+        // Fetch the card name
+        cardRef.child("name").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                String cardName = snapshot.getValue(String.class);
+                if (cardName == null) {
+                    cardName = "Unknown Card"; // Default name if not found
+                }
 
-            // Save the message to Firebase
-            chatRef.child(messageId).setValue(chatMessage)
-                    .addOnCompleteListener(task -> {
-                        if (!task.isSuccessful()) {
-                            Log.e("FirebaseError", "Failed to send message", task.getException());
-                            showToast("Failed to send message");
+                // Save the message to the chat
+                String chatId = cardRef.child("chats").push().getKey();
+                if (chatId != null) {
+                    Map<String, Object> chatData = new HashMap<>();
+                    chatData.put("message", message);
+                    chatData.put("senderId", userId);
+                    chatData.put("timestamp", System.currentTimeMillis());
+
+                    String finalCardName = cardName;
+                    cardRef.child("chats").child(chatId).setValue(chatData)
+                            .addOnCompleteListener(task -> {
+                                if (task.isSuccessful()) {
+                                    // Create notifications for all users in the card (except the sender)
+                                    createNotifications(cardId, finalCardName, message, userId);
+                                } else {
+                                    showToast("Failed to send message");
+                                }
+                            });
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("Firebase", "Failed to fetch card name", error.toException());
+                showToast("Failed to fetch card name");
+            }
+        });
+    }
+
+    private void createNotifications(String cardId, String cardName, String message, String senderId) {
+        DatabaseReference cardRef = FirebaseDatabase.getInstance().getReference("cards").child(cardId);
+        cardRef.child("users").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                for (DataSnapshot userSnapshot : snapshot.getChildren()) {
+                    String userId = userSnapshot.getKey();
+                    if (userId != null && !userId.equals(senderId)) {
+                        // Create a notification for the user
+                        DatabaseReference notificationsRef = FirebaseDatabase.getInstance()
+                                .getReference("notifications")
+                                .child(userId);
+
+                        String notificationId = notificationsRef.push().getKey();
+                        if (notificationId != null) {
+                            Map<String, Object> notificationData = new HashMap<>();
+                            notificationData.put("cardId", cardId);
+                            notificationData.put("cardName", cardName);
+                            notificationData.put("message", "New message in " + cardName + "'s chat");
+                            notificationData.put("timestamp", System.currentTimeMillis());
+                            notificationData.put("isRead", false);
+
+                            notificationsRef.child(notificationId).setValue(notificationData);
                         }
-                    });
-        }
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("Firebase", "Failed to load users", error.toException());
+            }
+        });
     }
 
     /**

@@ -4,6 +4,7 @@
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -15,81 +16,81 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApp"
         tools:targetApi="31">
-        <activity
-            android:name=".CardAdapter"
-            android:exported="false" />
-        <activity
-            android:name=".Card"
-            android:exported="false" />
-        <activity
-            android:name=".ParametersActivity"
-            android:exported="false" />
-        <activity
-            android:name=".PublicationsAdapter"
-            android:exported="false" />
-        <activity
-            android:name=".Publication"
-            android:exported="false" />
-        <activity
-            android:name=".ChatAdapter"
-            android:exported="false" />
-        <activity
-            android:name=".ChatModel"
-            android:exported="false" />
-        <activity
-            android:name=".SharedCardsAdapter"
-            android:exported="false" />
-        <activity
-            android:name=".SharedCard"
-            android:exported="false" />
-        <activity
-            android:name=".ChatActivity"
-            android:exported="false" />
-        <activity
-            android:name=".ChatActivity"
-            android:exported="false"
-            tools:ignore="DuplicateActivity" />
-        <activity
-            android:name=".VerifyEmailActivity"
-            android:exported="false" />
-        <activity
-            android:name=".EventDecorator"
-            android:exported="false"
-            tools:ignore="Instantiatable" />
-        <activity
-            android:name=".CampConfigActivity"
-            android:exported="false" />
-        <activity
-            android:name=".UserAddActivity"
-            android:exported="false" />
-        <activity
-            android:name=".User"
-            android:exported="false"
-            tools:ignore="Instantiatable" />
+
+        <!-- Activities -->
         <activity
             android:name=".SplashActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
         <activity
             android:name=".LoginActivity"
             android:exported="true" />
+
         <activity
             android:name=".RegisterActivity"
             android:exported="false" />
+
         <activity
             android:name=".MainActivity"
             android:exported="false" />
+
         <activity
             android:name=".UserSearchActivity"
             android:exported="true" />
+
         <activity
             android:name=".CardActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".ParametersActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ChatActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".VerifyEmailActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".CampConfigActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".UserAddActivity"
+            android:exported="false" />
+
+        <!-- Services -->
+        <service
+            android:name=".MyFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- Remove unnecessary declarations -->
+        <!--
+        <activity android:name=".Notification" android:exported="false" />
+        <activity android:name=".CardAdapter" android:exported="false" />
+        <activity android:name=".Card" android:exported="false" />
+        <activity android:name=".PublicationsAdapter" android:exported="false" />
+        <activity android:name=".Publication" android:exported="false" />
+        <activity android:name=".ChatAdapter" android:exported="false" />
+        <activity android:name=".ChatModel" android:exported="false" />
+        <activity android:name=".SharedCardsAdapter" android:exported="false" />
+        <activity android:name=".SharedCard" android:exported="false" />
+        <activity android:name=".EventDecorator" android:exported="false" tools:ignore="Instantiatable" />
+        <activity android:name=".User" android:exported="false" tools:ignore="Instantiatable" />
+        -->
+
     </application>
 
 </manifest>
