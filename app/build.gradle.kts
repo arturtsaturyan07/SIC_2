@@ -36,6 +36,17 @@ dependencies {
     // Firebase BOM (Bill of Materials)
     implementation(platform(libs.firebase.bom))
 
+    // Retrofit for API calls
+    implementation (libs.retrofit)
+    implementation (libs.converter.gson)
+
+// OkHttp for networking
+    implementation (libs.okhttp)
+
+// Kotlin Coroutines for asynchronous tasks
+    implementation (libs.kotlinx.coroutines.core)
+    implementation (libs.kotlinx.coroutines.android)
+
     // Firebase Libraries
     implementation(libs.firebase.auth)
     implementation(libs.firebase.database)
