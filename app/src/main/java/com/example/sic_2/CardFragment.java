@@ -1,6 +1,13 @@
 package com.example.sic_2;
 
+import static android.app.Activity.RESULT_OK;
+
+import android.content.Intent;
+import android.database.Cursor;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -8,6 +15,7 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -17,8 +25,22 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.database.annotations.Nullable;
+import com.google.firebase.inappmessaging.model.ImageData;
+
+import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
 
 public class CardFragment extends Fragment {
 
@@ -29,6 +51,8 @@ public class CardFragment extends Fragment {
     private DatabaseReference publicationsRef;
     private String cardId;
     private String currentUserId;
+    private Uri imageUri;
+    private static final int REQUEST_IMAGE_CAPTURE = 1;
 
     // Factory method to create a new instance of CardFragment
     public static CardFragment newInstance(String cardId) {
@@ -60,6 +84,9 @@ public class CardFragment extends Fragment {
                 ? FirebaseAuth.getInstance().getCurrentUser().getUid()
                 : null;
 
+
+        Button addPhotoButton = view.findViewById(R.id.add_photo_button);
+        addPhotoButton.setOnClickListener(v -> showImagePickerDialog());
         // Validate card ID and user authentication
         if (cardId == null || cardId.isEmpty()) {
             Toast.makeText(requireContext(), "Card ID is missing", Toast.LENGTH_SHORT).show();
@@ -193,5 +220,118 @@ public class CardFragment extends Fragment {
                 Toast.makeText(requireContext(), "Database error: " + error.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    // Image picker dialog
+    private void showImagePickerDialog() {
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Choose Image Source")
+                .setItems(new CharSequence[]{"Gallery", "Camera"}, (dialog, which) -> {
+                    if (which == 0) {
+                        Intent galleryIntent = new Intent(Intent.ACTION_PICK,
+                                MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                        startActivityForResult(galleryIntent, REQUEST_IMAGE_CAPTURE);
+                    } else {
+                        Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                        if (cameraIntent.resolveActivity(requireActivity().getPackageManager()) != null) {
+                            File photoFile = createImageFile();
+                            if (photoFile != null) {
+                                imageUri = Uri.fromFile(photoFile);
+                                cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
+                                startActivityForResult(cameraIntent, REQUEST_IMAGE_CAPTURE);
+                            }
+                        }
+                    }
+                })
+                .show();
+    }
+
+    // Create temp image file
+    private File createImageFile() {
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+        String imageFileName = "JPEG_" + timeStamp + "_";
+        File storageDir = requireContext().getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+        try {
+            return File.createTempFile(imageFileName, ".jpg", storageDir);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    // Handle image selection result
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
+            if (data != null && data.getData() != null) {
+                imageUri = data.getData();
+            }
+            if (imageUri != null) {
+                uploadImageToImageKit();
+            }
+        }
+    }
+
+    // Upload to ImageKit
+    private void uploadImageToImageKit() {
+        try {
+            String filePath = getRealPathFromURI(imageUri);
+            File file = new File(filePath);
+
+            RequestBody requestFile = RequestBody.create(MediaType.parse("image/*"), file);
+            MultipartBody.Part filePart = MultipartBody.Part.createFormData("file", file.getName(), requestFile);
+
+            ImageKitApiService service = new Retrofit.Builder()
+                    .baseUrl("https://upload.imagekit.io/api/v1/")
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .build()
+                    .create(ImageKitApiService.class);
+
+            service.uploadImage(
+                    RequestBody.create(MediaType.parse("text/plain"), "your_public_key"),
+                    filePart,
+                    RequestBody.create(MediaType.parse("text/plain"), file.getName()),
+                    RequestBody.create(MediaType.parse("text/plain"), "true"),
+                    RequestBody.create(MediaType.parse("text/plain"), "/uploads/")
+            ).enqueue(new Callback<ImageKitResponse>() {
+                @Override
+                public void onResponse(Call<ImageKitResponse> call, Response<ImageKitResponse> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        saveImageUrlToFirebase(response.body().url);
+                        Toast.makeText(requireContext(), "Upload successful", Toast.LENGTH_SHORT).show();
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<ImageKitResponse> call, Throwable t) {
+                    Toast.makeText(requireContext(), "Upload failed", Toast.LENGTH_SHORT).show();
+                }
+            });
+        } catch (Exception e) {
+            Toast.makeText(requireContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // Helper to get file path from URI
+    private String getRealPathFromURI(Uri contentUri) {
+        String[] proj = {MediaStore.Images.Media.DATA};
+        Cursor cursor = requireActivity().getContentResolver().query(contentUri, proj, null, null, null);
+        if (cursor == null) return null;
+        int column_index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
+        cursor.moveToFirst();
+        String path = cursor.getString(column_index);
+        cursor.close();
+        return path;
+    }
+
+    // Save URL to Firebase
+    private void saveImageUrlToFirebase(String imageUrl) {
+        DatabaseReference ref = FirebaseDatabase.getInstance()
+                .getReference("images")
+                .child(cardId)
+                .push();
+
+        ref.setValue(new ImageData(currentUserId, imageUrl, System.currentTimeMillis()));
     }
 }

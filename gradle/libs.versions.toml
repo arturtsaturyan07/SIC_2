@@ -37,6 +37,7 @@ firebaseDatabase = "21.0.0"
 firebaseStorage = "21.0.1"
 firebaseFirestore = "25.1.1"
 sdk = "1.0.0"
+sdkVersion = "8.0.0"
 supabaseStorageAndroid = "0.1.0"
 
 [libraries]
@@ -90,6 +91,7 @@ firebase-database = { group = "com.google.firebase", name = "firebase-database",
 firebase-storage = { group = "com.google.firebase", name = "firebase-storage", version.ref = "firebaseStorage" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore", version.ref = "firebaseFirestore" }
 sdk = { module = "io.imagekit:sdk", version.ref = "sdk" }
+sdk-v800 = { module = "io.imagekit:sdk", version.ref = "sdkVersion" }
 supabase-storage-android = { module = "io.github.jan-supabase:supabase-storage-android", version.ref = "supabaseStorageAndroid" }
 
 [plugins]
