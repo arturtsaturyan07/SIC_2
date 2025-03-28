@@ -1,69 +1,82 @@
 package com.example.sic_2;
 
+import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.LinearLayout;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
-public class PublicationsAdapter extends RecyclerView.Adapter<PublicationsAdapter.PublicationViewHolder> {
+public class PublicationsAdapter extends RecyclerView.Adapter<PublicationsAdapter.PostViewHolder> {
+    private List<Publication> publications;
+    private Context context;
 
-    private List<Publication> publicationsList;
-    private String currentUserId;
-
-    public PublicationsAdapter(List<Publication> publicationsList, String currentUserId) {
-        this.publicationsList = publicationsList;
-        this.currentUserId = currentUserId;
+    public PublicationsAdapter(List<Publication> publications, Context context) {
+        this.publications = publications;
+        this.context = context;
     }
 
     @NonNull
     @Override
-    public PublicationViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+    public PostViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_publication, parent, false);
-        return new PublicationViewHolder(view);
+                .inflate(R.layout.item_post, parent, false);
+        return new PostViewHolder(view);
     }
 
     @Override
-    public void onBindViewHolder(@NonNull PublicationViewHolder holder, int position) {
-        Publication publication = publicationsList.get(position);
+    public void onBindViewHolder(@NonNull PostViewHolder holder, int position) {
+        Publication publication = publications.get(position);
 
-        // Check if the publication is from the current user
-        if (publication.getAuthorId().equals(currentUserId)) {
-            // Current user's publication: show right-aligned container
-            holder.publicationContainerMe.setVisibility(View.VISIBLE);
-            holder.publicationTextMe.setText(publication.getContent());
-            holder.publicationContainerOther.setVisibility(View.GONE); // Hide left-aligned container
+        if (publication.getContent() != null && !publication.getContent().isEmpty()) {
+            holder.postText.setVisibility(View.VISIBLE);
+            holder.postText.setText(publication.getContent());
         } else {
-            // Other user's publication: show left-aligned container
-            holder.publicationContainerOther.setVisibility(View.VISIBLE);
-            holder.publicationTextOther.setText(publication.getContent());
-            holder.publicationContainerMe.setVisibility(View.GONE); // Hide right-aligned container
+            holder.postText.setVisibility(View.GONE);
         }
+
+        if (publication.getImageUrl() != null && !publication.getImageUrl().isEmpty()) {
+            holder.postImage.setVisibility(View.VISIBLE);
+            Glide.with(context)
+                    .load(publication.getImageUrl())
+                    .into(holder.postImage);
+        } else {
+            holder.postImage.setVisibility(View.GONE);
+        }
+
+        holder.postTime.setText(formatTimestamp(publication.getTimestamp()));
+    }
+
+    private String formatTimestamp(long timestamp) {
+        SimpleDateFormat sdf = new SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault());
+        return sdf.format(new Date(timestamp));
     }
 
     @Override
     public int getItemCount() {
-        return publicationsList.size();
+        return publications.size();
     }
 
-    static class PublicationViewHolder extends RecyclerView.ViewHolder {
-        LinearLayout publicationContainerOther;
-        TextView publicationTextOther;
-        LinearLayout publicationContainerMe;
-        TextView publicationTextMe;
+    public static class PostViewHolder extends RecyclerView.ViewHolder {
+        TextView postText;
+        ImageView postImage;
+        TextView postTime;
 
-        public PublicationViewHolder(@NonNull View itemView) {
+        public PostViewHolder(@NonNull View itemView) {
             super(itemView);
-            publicationContainerOther = itemView.findViewById(R.id.publication_container_other);
-            publicationTextOther = itemView.findViewById(R.id.publication_text_other);
-            publicationContainerMe = itemView.findViewById(R.id.publication_container_me);
-            publicationTextMe = itemView.findViewById(R.id.publication_text_me);
+            postText = itemView.findViewById(R.id.post_text);
+            postImage = itemView.findViewById(R.id.post_image);
+            postTime = itemView.findViewById(R.id.post_time);
         }
     }
 }

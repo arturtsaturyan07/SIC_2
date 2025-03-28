@@ -129,7 +129,7 @@ public class CardFragment extends Fragment {
     }
 
     private void setupRecyclerView() {
-        publicationsAdapter = new PublicationsAdapter(publicationsList, currentUserId);
+        publicationsAdapter = new PublicationsAdapter(publicationsList, requireContext());
         publicationsRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         publicationsRecyclerView.setAdapter(publicationsAdapter);
     }
@@ -160,36 +160,20 @@ public class CardFragment extends Fragment {
         builder.show();
     }
 
-    private void createPublication(String content) {
-        DatabaseReference newPublicationRef = FirebaseDatabase.getInstance()
-                .getReference("publications")
-                .child(cardId)
-                .push();
-
-        newPublicationRef.setValue(new Publication(currentUserId, content, System.currentTimeMillis()))
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        loadPublications();
-                    } else {
-                        showToast("Failed to create publication");
-                    }
-                });
-    }
-
     private void loadPublications() {
-        publicationsRef = FirebaseDatabase.getInstance()
-                .getReference("publications")
+        DatabaseReference postsRef = FirebaseDatabase.getInstance()
+                .getReference("posts")
                 .child(cardId);
 
-        publicationsRef.addValueEventListener(new ValueEventListener() {
+        postsRef.orderByChild("timestamp").addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 publicationsList.clear();
                 if (snapshot.exists()) {
-                    for (DataSnapshot publicationSnapshot : snapshot.getChildren()) {
-                        Publication publication = publicationSnapshot.getValue(Publication.class);
+                    for (DataSnapshot postSnapshot : snapshot.getChildren()) {
+                        Publication publication = postSnapshot.getValue(Publication.class);
                         if (publication != null) {
-                            publicationsList.add(publication);
+                            publicationsList.add(0, publication); // Newest first
                         }
                     }
                     publicationsAdapter.notifyDataSetChanged();
@@ -198,10 +182,44 @@ public class CardFragment extends Fragment {
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                showToast("Failed to load publications");
+                showToast("Failed to load posts");
                 Log.e("FirebaseError", error.getMessage());
             }
         });
+    }
+
+    private void createPublication(String content) {
+        DatabaseReference newPostRef = FirebaseDatabase.getInstance()
+                .getReference("posts")
+                .child(cardId)
+                .push();
+
+        Publication publication = new Publication(currentUserId, content, System.currentTimeMillis());
+        newPostRef.setValue(publication)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        showToast("Publication created successfully");
+                    } else {
+                        showToast("Failed to create publication");
+                    }
+                });
+    }
+
+    private void saveImageUrlToFirebase(String imageUrl) {
+        DatabaseReference newPostRef = FirebaseDatabase.getInstance()
+                .getReference("posts")
+                .child(cardId)
+                .push();
+
+        Publication publication = new Publication(currentUserId, imageUrl, System.currentTimeMillis());
+        newPostRef.setValue(publication)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        showToast("Image posted successfully");
+                    } else {
+                        showToast("Failed to post image");
+                    }
+                });
     }
 
     private void showImagePickerDialog() {
@@ -290,7 +308,6 @@ public class CardFragment extends Fragment {
                                 String imageUrl = (String) resultData.get("secure_url");
                                 if (imageUrl != null) {
                                     saveImageUrlToFirebase(imageUrl);
-                                    showToast("Image uploaded successfully!");
                                 } else {
                                     showToast("Upload failed: No URL returned");
                                 }
@@ -302,14 +319,13 @@ public class CardFragment extends Fragment {
                             requireActivity().runOnUiThread(() -> {
                                 progressDialog.dismiss();
                                 showToast("Upload failed: " + error.getDescription());
-                                Log.e("CloudinaryError", "Code: " + error.getCode() + ", Desc: " + error.getDescription());
+                                Log.e("CloudinaryError", error.getDescription());
                             });
                         }
 
                         @Override
                         public void onReschedule(String requestId, ErrorInfo error) {
-                            requireActivity().runOnUiThread(() ->
-                                    Log.d("Upload", "Rescheduling upload"));
+                            Log.d("Upload", "Rescheduling upload");
                         }
                     })
                     .dispatch();
@@ -318,20 +334,6 @@ public class CardFragment extends Fragment {
             showToast("Error starting upload: " + e.getMessage());
             Log.e("UploadError", "Upload preparation failed", e);
         }
-    }
-
-    private void saveImageUrlToFirebase(String imageUrl) {
-        DatabaseReference ref = FirebaseDatabase.getInstance()
-                .getReference("images")
-                .child(cardId)
-                .push();
-
-        ref.setValue(new ImageData(currentUserId, imageUrl, System.currentTimeMillis()))
-                .addOnCompleteListener(task -> {
-                    if (!task.isSuccessful()) {
-                        Log.e("Firebase", "Failed to save image URL");
-                    }
-                });
     }
 
     private void showToast(String message) {
