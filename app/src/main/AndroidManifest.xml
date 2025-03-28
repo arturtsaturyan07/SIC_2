@@ -2,9 +2,23 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" /> <!-- Optional: Improve location accuracy for photos -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.INTERNET" /> <!-- For reading/writing files (images) -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" /> <!-- Only needed for Android 9 and below -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" /> <!-- For camera access -->
+    <uses-permission android:name="android.permission.CAMERA" />
 
     <application
         android:allowBackup="true"
@@ -16,58 +30,63 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApp"
         tools:targetApi="31">
-
-        <!-- Activities -->
+        <activity
+            android:name=".ImageData"
+            android:exported="false"
+            tools:ignore="Instantiatable" />
+        <activity
+            android:name=".CloudinaryConfig"
+            android:exported="false" />
+        <activity
+            android:name=".CloudinaryHelper"
+            android:exported="false" />
+        <activity
+            android:name=".ImageKitClient"
+            android:exported="false"
+            tools:ignore="Instantiatable" />
+        <activity
+            android:name=".ImageKitService"
+            android:exported="false"
+            tools:ignore="Instantiatable" /> <!-- Activities -->
         <activity
             android:name=".SplashActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <activity
             android:name=".LoginActivity"
             android:exported="true" />
-
         <activity
             android:name=".RegisterActivity"
             android:exported="false" />
-
         <activity
             android:name=".MainActivity"
             android:exported="false" />
-
         <activity
             android:name=".UserSearchActivity"
             android:exported="true" />
-
         <activity
             android:name=".CardActivity"
             android:exported="false" />
-
         <activity
             android:name=".ParametersActivity"
             android:exported="false" />
-
         <activity
             android:name=".ChatActivity"
             android:exported="false" />
-
         <activity
             android:name=".VerifyEmailActivity"
             android:exported="false" />
-
         <activity
             android:name=".CampConfigActivity"
             android:exported="false" />
-
         <activity
             android:name=".UserAddActivity"
-            android:exported="false" />
-
-        <!-- Services -->
+            android:exported="false" /> <!-- Services -->
         <service
             android:name=".MyFirebaseMessagingService"
             android:exported="false">
@@ -75,22 +94,6 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
-
-        <!-- Remove unnecessary declarations -->
-        <!--
-        <activity android:name=".Notification" android:exported="false" />
-        <activity android:name=".CardAdapter" android:exported="false" />
-        <activity android:name=".Card" android:exported="false" />
-        <activity android:name=".PublicationsAdapter" android:exported="false" />
-        <activity android:name=".Publication" android:exported="false" />
-        <activity android:name=".ChatAdapter" android:exported="false" />
-        <activity android:name=".ChatModel" android:exported="false" />
-        <activity android:name=".SharedCardsAdapter" android:exported="false" />
-        <activity android:name=".SharedCard" android:exported="false" />
-        <activity android:name=".EventDecorator" android:exported="false" tools:ignore="Instantiatable" />
-        <activity android:name=".User" android:exported="false" tools:ignore="Instantiatable" />
-        -->
-
     </application>
 
 </manifest>
