@@ -38,23 +38,31 @@ public class PublicationsAdapter extends RecyclerView.Adapter<PublicationsAdapte
     public void onBindViewHolder(@NonNull PostViewHolder holder, int position) {
         Publication publication = publications.get(position);
 
-        if (publication.getContent() != null && !publication.getContent().isEmpty()) {
-            holder.postText.setVisibility(View.VISIBLE);
+        // Handle text content
+        holder.postText.setVisibility(publication.getContent() != null ? View.VISIBLE : View.GONE);
+        if (publication.getContent() != null) {
             holder.postText.setText(publication.getContent());
-        } else {
-            holder.postText.setVisibility(View.GONE);
         }
 
-        if (publication.getImageUrl() != null && !publication.getImageUrl().isEmpty()) {
-            holder.postImage.setVisibility(View.VISIBLE);
+        // Handle image content
+        holder.postImage.setVisibility(publication.getImageUrl() != null ? View.VISIBLE : View.GONE);
+        if (publication.getImageUrl() != null) {
             Glide.with(context)
                     .load(publication.getImageUrl())
+                    .placeholder(R.drawable.baseline_account_circle_24) // Add a placeholder
+                    .error(R.drawable.baseline_dangerous_24) // Add an error image
                     .into(holder.postImage);
-        } else {
-            holder.postImage.setVisibility(View.GONE);
         }
 
+        // Set formatted timestamp
         holder.postTime.setText(formatTimestamp(publication.getTimestamp()));
+
+        // Optional: Add click listener for images
+        if (publication.getImageUrl() != null) {
+            holder.postImage.setOnClickListener(v -> {
+                // Handle image click (e.g., open full screen)
+            });
+        }
     }
 
     private String formatTimestamp(long timestamp) {
@@ -62,9 +70,14 @@ public class PublicationsAdapter extends RecyclerView.Adapter<PublicationsAdapte
         return sdf.format(new Date(timestamp));
     }
 
+    public void updatePublications(List<Publication> newPublications) {
+        this.publications = newPublications;
+        notifyDataSetChanged();
+    }
+
     @Override
     public int getItemCount() {
-        return publications.size();
+        return publications != null ? publications.size() : 0;
     }
 
     public static class PostViewHolder extends RecyclerView.ViewHolder {

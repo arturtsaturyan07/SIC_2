@@ -9,6 +9,9 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 
 public class CardActivity extends AppCompatActivity {
 
@@ -21,6 +24,13 @@ public class CardActivity extends AppCompatActivity {
 
         // Retrieve card ID from intent
         cardId = getIntent().getStringExtra("cardId");
+        String originalOwnerId = getIntent().getStringExtra("originalOwnerId");
+
+        String cardsPath = (originalOwnerId != null) ? originalOwnerId : FirebaseAuth.getInstance().getCurrentUser().getUid();
+        DatabaseReference cardRef = FirebaseDatabase.getInstance()
+                .getReference("cards")
+                .child(cardsPath)
+                .child(cardId);
 
         // Log the received cardId
         Log.d("CardActivity", "Received Card ID: " + cardId);

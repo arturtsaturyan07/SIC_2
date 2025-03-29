@@ -44,6 +44,7 @@ import java.util.Map;
 
 public class CardFragment extends Fragment {
 
+    private static final String TAG = "CardFragment";
     private static final String ARG_CARD_ID = "cardId";
     private static final int REQUEST_IMAGE_CAPTURE = 1;
     private static final int REQUEST_IMAGE_PICK = 2;
@@ -52,12 +53,13 @@ public class CardFragment extends Fragment {
     private RecyclerView publicationsRecyclerView;
     private PublicationsAdapter publicationsAdapter;
     private List<Publication> publicationsList;
-    private DatabaseReference publicationsRef;
+    private DatabaseReference postsRef;
     private String cardId;
     private String currentUserId;
     private Uri imageUri;
     private Button addPhotoButton;
     private ProgressDialog progressDialog;
+    private ValueEventListener publicationsListener;
 
     public static CardFragment newInstance(String cardId) {
         CardFragment fragment = new CardFragment();
@@ -70,10 +72,13 @@ public class CardFragment extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.d(TAG, "onCreate");
+
         initializeCloudinary();
 
         if (getArguments() != null) {
             cardId = getArguments().getString(ARG_CARD_ID);
+            Log.d(TAG, "Card ID: " + cardId);
         }
         publicationsList = new ArrayList<>();
     }
@@ -83,15 +88,17 @@ public class CardFragment extends Fragment {
             Map<String, String> config = new HashMap<>();
             config.put("cloud_name", "disiijbpp");
             config.put("api_key", "265226997838638");
-            config.put("api_secret", "RsPtut3zPunRm-8Hwh8zRqQ8uG8"); // WARNING: For development only!
+            config.put("api_secret", "RsPtut3zPunRm-8Hwh8zRqQ8uG8");
             MediaManager.init(requireContext(), config);
-        } catch (IllegalStateException e) {
-            Log.d("Cloudinary", "Already initialized");
+            Log.d(TAG, "Cloudinary initialized successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Cloudinary initialization failed", e);
         }
     }
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        Log.d(TAG, "onCreateView");
         View view = inflater.inflate(R.layout.fragment_card, container, false);
         initializeDependencies();
         initializeViews(view);
@@ -105,11 +112,14 @@ public class CardFragment extends Fragment {
 
         if (cardId == null || cardId.isEmpty()) {
             showToast("Card ID is missing");
+            Log.e(TAG, "Card ID is missing");
             requireActivity().finish();
             return;
         }
+
         if (currentUserId == null) {
-            showToast("User authentication failed");
+            showToast("Please sign in first");
+            Log.e(TAG, "User not authenticated");
             requireActivity().finish();
             return;
         }
@@ -122,10 +132,16 @@ public class CardFragment extends Fragment {
 
         setupRecyclerView();
         setupButtonListeners(addPublicationButton);
-        loadPublications();
 
         progressDialog = new ProgressDialog(requireContext());
         progressDialog.setCancelable(false);
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        Log.d(TAG, "onStart - Loading publications");
+        loadPublications();
     }
 
     private void setupRecyclerView() {
@@ -141,90 +157,97 @@ public class CardFragment extends Fragment {
 
     private void showAddPublicationDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
-        builder.setTitle("Add Publication");
+        builder.setTitle("Add New Post");
 
-        final android.widget.EditText contentInput = new android.widget.EditText(requireContext());
-        contentInput.setHint("Enter publication content");
-        builder.setView(contentInput);
+        final android.widget.EditText input = new android.widget.EditText(requireContext());
+        input.setHint("What's on your mind?");
+        builder.setView(input);
 
         builder.setPositiveButton("Post", (dialog, which) -> {
-            String content = contentInput.getText().toString().trim();
+            String content = input.getText().toString().trim();
             if (!content.isEmpty()) {
-                createPublication(content);
+                createPublication(content, null);
             } else {
-                showToast("Publication content cannot be empty");
+                showToast("Post cannot be empty");
             }
         });
-
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
         builder.show();
     }
 
     private void loadPublications() {
-        DatabaseReference postsRef = FirebaseDatabase.getInstance()
+        Log.d(TAG, "Loading publications for card: " + cardId);
+
+        // Clear existing listener if any
+        if (publicationsListener != null) {
+            postsRef.removeEventListener(publicationsListener);
+        }
+
+        postsRef = FirebaseDatabase.getInstance()
                 .getReference("posts")
                 .child(cardId);
 
-        postsRef.orderByChild("timestamp").addValueEventListener(new ValueEventListener() {
+        publicationsListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 publicationsList.clear();
+                Log.d(TAG, "Found " + snapshot.getChildrenCount() + " publications");
+
                 if (snapshot.exists()) {
                     for (DataSnapshot postSnapshot : snapshot.getChildren()) {
-                        Publication publication = postSnapshot.getValue(Publication.class);
-                        if (publication != null) {
-                            publicationsList.add(0, publication); // Newest first
+                        try {
+                            Publication publication = postSnapshot.getValue(Publication.class);
+                            if (publication != null) {
+                                publicationsList.add(0, publication); // Newest first
+                                Log.d(TAG, "Loaded publication: " + publication.getContent()
+                                        + " | Image: " + publication.getImageUrl());
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error parsing publication", e);
                         }
                     }
-                    publicationsAdapter.notifyDataSetChanged();
+                    publicationsAdapter.updatePublications(publicationsList);
+                } else {
+                    Log.d(TAG, "No publications found");
                 }
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                showToast("Failed to load posts");
-                Log.e("FirebaseError", error.getMessage());
+                Log.e(TAG, "Failed to load publications: " + error.getMessage());
+                showToast("Failed to load posts: " + error.getMessage());
             }
-        });
+        };
+
+        postsRef.orderByChild("timestamp").addValueEventListener(publicationsListener);
     }
 
-    private void createPublication(String content) {
+    private void createPublication(String content, String imageUrl) {
+        Log.d(TAG, "Creating new publication");
+
         DatabaseReference newPostRef = FirebaseDatabase.getInstance()
                 .getReference("posts")
                 .child(cardId)
                 .push();
 
-        Publication publication = new Publication(currentUserId, content, System.currentTimeMillis());
+        Publication publication = new Publication(currentUserId, content, imageUrl, System.currentTimeMillis());
+
         newPostRef.setValue(publication)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
-                        showToast("Publication created successfully");
+                        String message = imageUrl != null ? "Image posted!" : "Post published!";
+                        showToast(message);
+                        Log.d(TAG, "Publication created successfully");
                     } else {
-                        showToast("Failed to create publication");
-                    }
-                });
-    }
-
-    private void saveImageUrlToFirebase(String imageUrl) {
-        DatabaseReference newPostRef = FirebaseDatabase.getInstance()
-                .getReference("posts")
-                .child(cardId)
-                .push();
-
-        Publication publication = new Publication(currentUserId, imageUrl, System.currentTimeMillis());
-        newPostRef.setValue(publication)
-                .addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        showToast("Image posted successfully");
-                    } else {
-                        showToast("Failed to post image");
+                        showToast("Failed to create post");
+                        Log.e(TAG, "Publication creation failed", task.getException());
                     }
                 });
     }
 
     private void showImagePickerDialog() {
         new AlertDialog.Builder(requireContext())
-                .setTitle("Choose Image Source")
+                .setTitle("Add Photo")
                 .setItems(new String[]{"Gallery", "Camera"}, (dialog, which) -> {
                     if (which == 0) openGallery();
                     else openCamera();
@@ -253,11 +276,14 @@ public class CardFragment extends Fragment {
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
         String imageFileName = "JPEG_" + timeStamp + "_";
         File storageDir = requireContext().getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+
         try {
-            return File.createTempFile(imageFileName, ".jpg", storageDir);
+            File imageFile = File.createTempFile(imageFileName, ".jpg", storageDir);
+            Log.d(TAG, "Image file created: " + imageFile.getAbsolutePath());
+            return imageFile;
         } catch (IOException e) {
-            Log.e("FileCreation", "Error creating image file", e);
-            showToast("Error creating image file");
+            Log.e(TAG, "Error creating image file", e);
+            showToast("Error creating image");
             return null;
         }
     }
@@ -268,8 +294,11 @@ public class CardFragment extends Fragment {
         if (resultCode == RESULT_OK) {
             if (requestCode == REQUEST_IMAGE_PICK && data != null) {
                 imageUri = data.getData();
+                Log.d(TAG, "Image selected from gallery: " + imageUri);
             }
+
             if (imageUri != null) {
+                Log.d(TAG, "Starting image upload");
                 uploadImageToCloudinary();
             }
         }
@@ -281,7 +310,7 @@ public class CardFragment extends Fragment {
             return;
         }
 
-        progressDialog.setMessage("Preparing upload...");
+        progressDialog.setMessage("Uploading image...");
         progressDialog.show();
 
         try {
@@ -290,8 +319,9 @@ public class CardFragment extends Fragment {
                     .callback(new UploadCallback() {
                         @Override
                         public void onStart(String requestId) {
+                            Log.d(TAG, "Upload started");
                             requireActivity().runOnUiThread(() ->
-                                    progressDialog.setMessage("Upload started..."));
+                                    progressDialog.setMessage("Uploading..."));
                         }
 
                         @Override
@@ -307,9 +337,11 @@ public class CardFragment extends Fragment {
                                 progressDialog.dismiss();
                                 String imageUrl = (String) resultData.get("secure_url");
                                 if (imageUrl != null) {
-                                    saveImageUrlToFirebase(imageUrl);
+                                    Log.d(TAG, "Image uploaded successfully: " + imageUrl);
+                                    createPublication(null, imageUrl);
                                 } else {
-                                    showToast("Upload failed: No URL returned");
+                                    Log.e(TAG, "Upload failed - no URL returned");
+                                    showToast("Upload failed");
                                 }
                             });
                         }
@@ -318,21 +350,21 @@ public class CardFragment extends Fragment {
                         public void onError(String requestId, ErrorInfo error) {
                             requireActivity().runOnUiThread(() -> {
                                 progressDialog.dismiss();
+                                Log.e(TAG, "Upload error: " + error.getDescription());
                                 showToast("Upload failed: " + error.getDescription());
-                                Log.e("CloudinaryError", error.getDescription());
                             });
                         }
 
                         @Override
                         public void onReschedule(String requestId, ErrorInfo error) {
-                            Log.d("Upload", "Rescheduling upload");
+                            Log.d(TAG, "Upload rescheduled");
                         }
                     })
                     .dispatch();
         } catch (Exception e) {
             progressDialog.dismiss();
-            showToast("Error starting upload: " + e.getMessage());
-            Log.e("UploadError", "Upload preparation failed", e);
+            Log.e(TAG, "Upload failed", e);
+            showToast("Upload failed");
         }
     }
 
@@ -341,10 +373,22 @@ public class CardFragment extends Fragment {
     }
 
     @Override
-    public void onDestroyView() {
-        super.onDestroyView();
+    public void onStop() {
+        super.onStop();
+        Log.d(TAG, "onStop");
         if (progressDialog != null && progressDialog.isShowing()) {
             progressDialog.dismiss();
+        }
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        Log.d(TAG, "onDestroyView");
+
+        // Clean up Firebase listener
+        if (postsRef != null && publicationsListener != null) {
+            postsRef.removeEventListener(publicationsListener);
         }
     }
 }

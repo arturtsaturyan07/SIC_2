@@ -139,15 +139,12 @@ public class HomeFragment extends Fragment {
             public void onDataChange(DataSnapshot snapshot) {
                 if (!isAdded()) return;
                 for (DataSnapshot cardSnapshot : snapshot.getChildren()) {
-                    String cardId = cardSnapshot.getKey(); // Use the key as the cardId
+                    String cardId = cardSnapshot.getKey();
                     String message = cardSnapshot.child("message").getValue(String.class);
                     String sharedBy = cardSnapshot.child("sharedBy").getValue(String.class);
 
-                    // Log the shared card details
-                    Log.d("HomeFragment", "Shared Card ID: " + cardId + ", Message: " + message + ", Shared By: " + sharedBy);
-
                     if (cardId != null && message != null && sharedBy != null) {
-                        // Check if the shared card still exists in the original user's database
+                        // Verify the card still exists with the original owner
                         DatabaseReference originalCardRef = FirebaseDatabase.getInstance()
                                 .getReference("cards")
                                 .child(sharedBy)
@@ -155,21 +152,19 @@ public class HomeFragment extends Fragment {
 
                         originalCardRef.addListenerForSingleValueEvent(new ValueEventListener() {
                             @Override
-                            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                                if (snapshot.exists()) {
-                                    // Shared card exists, create the card view
-                                    createCardView(cardId, message, true); // Shared card
+                            public void onDataChange(@NonNull DataSnapshot originalSnapshot) {
+                                if (originalSnapshot.exists()) {
+                                    // Card exists, create the view
+                                    createCardView(cardId, message, true);
                                 } else {
-                                    // Shared card has been deleted, remove it from the shared list
-                                    sharedCardsRef.child(cardId).removeValue()
-                                            .addOnSuccessListener(aVoid -> Log.d("HomeFragment", "Deleted shared card: " + cardId))
-                                            .addOnFailureListener(e -> Log.e("HomeFragment", "Failed to delete shared card", e));
+                                    // Card doesn't exist, remove the shared reference
+                                    sharedCardsRef.child(cardId).removeValue();
                                 }
                             }
 
                             @Override
                             public void onCancelled(@NonNull DatabaseError error) {
-                                Log.e("HomeFragment", "Failed to check shared card", error.toException());
+                                Log.e("HomeFragment", "Error checking original card", error.toException());
                             }
                         });
                     }
@@ -275,46 +270,92 @@ public class HomeFragment extends Fragment {
         cardMessage.setText(message);
 
         if (isShared) {
-            cardMessage.setText("[Shared] " + message); // Indicate shared cards
+            cardMessage.setText("[Shared] " + message);
         }
 
-        // Log the cardId before passing it
-        Log.d("HomeFragment", "Card ID: " + cardId);
-
-        // Open Card activity on card click
         cardView.setOnClickListener(v -> {
             if (cardId == null || cardId.isEmpty()) {
                 Toast.makeText(requireContext(), "Card ID is missing", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // Check if the card exists in the database
-            DatabaseReference cardRef = FirebaseDatabase.getInstance()
-                    .getReference("cards")
-                    .child(userId)
-                    .child(cardId);
+            // For shared cards, we need to check the original owner's cards
+            if (isShared) {
+                // First get the shared card details to find the original owner
+                DatabaseReference sharedCardRef = FirebaseDatabase.getInstance()
+                        .getReference("sharedCards")
+                        .child(userId)
+                        .child(cardId);
 
-            cardRef.addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override
-                public void onDataChange(@NonNull DataSnapshot snapshot) {
-                    if (snapshot.exists()) {
-                        // Card exists, proceed to open it
-                        Intent intent = new Intent(requireContext(), CardActivity.class);
-                        intent.putExtra("cardId", cardId); // Pass the cardId to CardActivity
-                        Log.d("HomeFragment", "Intent Card ID: " + cardId);
-                        startActivity(intent);
-                    } else {
-                        // Card does not exist, show a message to the user
-                        Toast.makeText(requireContext(), "This card has been deleted", Toast.LENGTH_SHORT).show();
+                sharedCardRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        if (snapshot.exists()) {
+                            String originalOwnerId = snapshot.child("sharedBy").getValue(String.class);
+                            if (originalOwnerId != null) {
+                                // Now check the original owner's cards
+                                DatabaseReference originalCardRef = FirebaseDatabase.getInstance()
+                                        .getReference("cards")
+                                        .child(originalOwnerId)
+                                        .child(cardId);
+
+                                originalCardRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                                    @Override
+                                    public void onDataChange(@NonNull DataSnapshot originalSnapshot) {
+                                        if (originalSnapshot.exists()) {
+                                            // Card exists with original owner, open it
+                                            Intent intent = new Intent(requireContext(), CardActivity.class);
+                                            intent.putExtra("cardId", cardId);
+                                            intent.putExtra("originalOwnerId", originalOwnerId); // Pass original owner ID
+                                            startActivity(intent);
+                                        } else {
+                                            Toast.makeText(requireContext(), "This card has been deleted by the owner", Toast.LENGTH_SHORT).show();
+                                            // Optionally remove the shared card reference
+                                            sharedCardRef.removeValue();
+                                        }
+                                    }
+
+                                    @Override
+                                    public void onCancelled(@NonNull DatabaseError error) {
+                                        Toast.makeText(requireContext(), "Error checking card: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                                    }
+                                });
+                            }
+                        } else {
+                            Toast.makeText(requireContext(), "Shared card reference not found", Toast.LENGTH_SHORT).show();
+                        }
                     }
-                }
 
-                @Override
-                public void onCancelled(@NonNull DatabaseError error) {
-                    // Handle database error
-                    Toast.makeText(requireContext(), "Failed to check card: " + error.getMessage(), Toast.LENGTH_SHORT).show();
-                }
-            });
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+                        Toast.makeText(requireContext(), "Error checking shared card: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                });
+            } else {
+                // For regular cards, check the current user's cards
+                DatabaseReference cardRef = FirebaseDatabase.getInstance()
+                        .getReference("cards")
+                        .child(userId)
+                        .child(cardId);
+
+                cardRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        if (snapshot.exists()) {
+                            Intent intent = new Intent(requireContext(), CardActivity.class);
+                            intent.putExtra("cardId", cardId);
+                            startActivity(intent);
+                        } else {
+                            Toast.makeText(requireContext(), "This card has been deleted", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+                        Toast.makeText(requireContext(), "Error checking card: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
         });
 
         cardContainer.addView(cardView);
