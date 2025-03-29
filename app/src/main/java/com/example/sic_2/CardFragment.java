@@ -145,7 +145,7 @@ public class CardFragment extends Fragment {
     }
 
     private void setupRecyclerView() {
-        publicationsAdapter = new PublicationsAdapter(publicationsList, requireContext());
+        publicationsAdapter = new PublicationsAdapter(publicationsList, requireContext(), currentUserId);
         publicationsRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         publicationsRecyclerView.setAdapter(publicationsAdapter);
     }
