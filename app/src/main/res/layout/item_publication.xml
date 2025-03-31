@@ -1,50 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="8dp">
-
-    <!-- Container for other users' publications (left-aligned) -->
-    <LinearLayout
-        android:id="@+id/publication_container_other"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:padding="12dp"
-        android:background="@drawable/bg_other_user_message"
-        android:orientation="vertical"
-        android:layout_gravity="start"
-    android:visibility="gone">
+    android:padding="8dp"
+    android:background="@android:color/white"
+    android:layout_marginBottom="8dp"
+    android:elevation="2dp">
 
     <TextView
-        android:id="@+id/publication_text_other"
-        android:layout_width="wrap_content"
+        android:id="@+id/publication_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Publication"
-        android:textColor="@android:color/white"
+        android:layout_marginBottom="8dp"
         android:textSize="16sp" />
 
+    <ImageView
+        android:id="@+id/publication_image"
+        android:layout_width="match_parent"
+        android:layout_height="300dp"
+        android:adjustViewBounds="true"
+        android:scaleType="centerCrop"
+        android:visibility="gone" />
 </LinearLayout>
-
-    <!-- Container for current user's publications (right-aligned) -->
-<LinearLayout
-android:id="@+id/publication_container_me"
-android:layout_width="wrap_content"
-android:layout_height="wrap_content"
-android:padding="12dp"
-android:background="@drawable/bg_current_user_message"
-android:orientation="vertical"
-android:layout_gravity="end"
-    android:visibility="gone">
-
-<TextView
-android:id="@+id/publication_text_me"
-android:layout_width="wrap_content"
-android:layout_height="wrap_content"
-android:text="Publication"
-android:textColor="@android:color/white"
-android:textSize="16sp" />
-
-    </LinearLayout>
-
-    </LinearLayout>
