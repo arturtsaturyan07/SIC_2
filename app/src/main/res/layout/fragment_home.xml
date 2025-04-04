@@ -5,6 +5,7 @@
     android:layout_height="match_parent"
     android:background="@color/background_color">
 
+    <!-- Search Bar -->
     <androidx.appcompat.widget.SearchView
         android:id="@+id/search"
         android:layout_width="match_parent"
@@ -13,6 +14,7 @@
         app:iconifiedByDefault="false"
         app:queryHint="Search cards..."/>
 
+    <!-- Scroll View for Cards -->
     <ScrollView
         android:id="@+id/scroll_view"
         android:layout_width="match_parent"
@@ -28,17 +30,19 @@
             android:padding="8dp"/>
     </ScrollView>
 
+    <!-- Add Card Button (Positioned Higher) -->
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
         android:id="@+id/fab"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:layout_alignParentEnd="true"
-        android:layout_margin="16dp"
-        android:text="Add Card"
-        app:icon="@drawable/ic_add"
-        app:iconTint="@android:color/white"
-        app:backgroundTint="@color/lavender"/>
+        android:layout_marginBottom="80dp"
+    android:layout_marginEnd="16dp"
+    android:text="Add Card"
+    app:icon="@drawable/ic_add"
+    app:iconTint="@android:color/white"
+    app:backgroundTint="@color/lavender"/>
 
     <!-- Empty State View -->
     <LinearLayout
@@ -54,7 +58,7 @@
             android:layout_width="120dp"
             android:layout_height="120dp"
             android:src="@drawable/ic_empty_state"
-            android:tint="@color/lavender"/>
+            app:tint="@color/lavender" />
 
         <TextView
             android:layout_width="wrap_content"

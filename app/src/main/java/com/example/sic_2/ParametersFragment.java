@@ -126,12 +126,15 @@ public class ParametersFragment extends Fragment {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (snapshot.exists()) {
-                    String message = snapshot.child("message").getValue(String.class);
-                    if (message != null) {
+                    Card card = snapshot.getValue(Card.class);
+                    if (card != null) {
                         // Create a map to store the shared card data
                         Map<String, Object> shareData = new HashMap<>();
                         shareData.put("sharedBy", currentUserId); // ID of the user sharing the card
-                        shareData.put("message", message); // Card message
+                        shareData.put("title", card.getTitle()); // Card title
+                        shareData.put("description", card.getDescription()); // Card description
+                        shareData.put("priority", card.getPriority()); // Card priority
+                        shareData.put("authorId", card.getAuthorId()); // Original author ID
                         shareData.put("timestamp", System.currentTimeMillis()); // Timestamp of sharing
 
                         // Save the shared card data to the recipient's sharedCards node
@@ -144,7 +147,7 @@ public class ParametersFragment extends Fragment {
                                     }
                                 });
                     } else {
-                        Toast.makeText(requireContext(), "Card message is missing", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(requireContext(), "Card data is missing", Toast.LENGTH_SHORT).show();
                     }
                 } else {
                     Toast.makeText(requireContext(), "Card not found", Toast.LENGTH_SHORT).show();
@@ -158,9 +161,6 @@ public class ParametersFragment extends Fragment {
         });
     }
 
-    /**
-     * Deletes the card from Firebase and notifies the HomeFragment to update the UI.
-     */
     /**
      * Deletes the card from Firebase (both main cards and shared cards) and notifies the HomeFragment to update the UI.
      */

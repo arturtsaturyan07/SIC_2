@@ -115,16 +115,16 @@ public class HomeFragment extends Fragment {
     }
 
     private void loadSharedCards() {
-        sharedCardsRef.addValueEventListener(new ValueEventListener() {
+        sharedCardsRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (!isAdded()) return;
+                if (getActivity() == null) return;
 
                 for (DataSnapshot data : snapshot.getChildren()) {
                     String sharedBy = data.child("sharedBy").getValue(String.class);
                     Card card = data.getValue(Card.class);
 
-                    if (card != null && card.getId() != null && sharedBy != null && !sharedBy.isEmpty()) {
+                    if (card != null && card.getId() != null && sharedBy != null) {
                         verifyAndAddSharedCard(card, sharedBy);
                     }
                 }
@@ -152,12 +152,11 @@ public class HomeFragment extends Fragment {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (!isAdded()) return;
-
                 if (snapshot.exists()) {
                     getActivity().runOnUiThread(() -> {
                         if (!cardExists(card.getId())) {
                             cardList.add(card);
-                            createAndAddCardView(card, true);
+                            createAndAddCardView(card, true); // Mark as shared
                             updateEmptyState();
                         }
                     });
@@ -235,22 +234,26 @@ public class HomeFragment extends Fragment {
 
         try {
             View cardView = LayoutInflater.from(getContext()).inflate(R.layout.rec_card, cardContainer, false);
-
             ShapeableImageView recImage = cardView.findViewById(R.id.recImage);
             TextView recTitle = cardView.findViewById(R.id.recTitle);
             TextView recPriority = cardView.findViewById(R.id.recPriority);
             TextView recDesc = cardView.findViewById(R.id.recDesc);
 
+            // Set card details
             recTitle.setText(isShared ? "[Shared] " + card.getTitle() : card.getTitle());
             recDesc.setText(card.getDescription());
             recPriority.setText(card.getPriority());
             recImage.setImageResource(R.drawable.uploadimg);
 
+            // Highlight shared cards visually
             if (isShared) {
                 cardView.setBackgroundColor(ContextCompat.getColor(getContext(), R.color.shared_card_bg));
             }
 
+            // Set click listener to open card details
             cardView.setOnClickListener(v -> openCardDetails(card, isShared));
+
+            // Add the card view to the container
             cardContainer.addView(cardView);
             cardViewsMap.put(card.getId(), cardView);
         } catch (Exception e) {
