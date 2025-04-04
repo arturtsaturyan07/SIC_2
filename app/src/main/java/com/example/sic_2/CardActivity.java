@@ -93,17 +93,48 @@ public class CardActivity extends AppCompatActivity {
     }
 
     public void onCardDeleted(String cardId) {
+        // Option 1: If you want to refresh the entire HomeFragment
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.fragment_container, new HomeFragment())
+                .commit();
+
+        // OR Option 2: If you want to notify the existing fragment
         Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
-        if (fragment instanceof HomeFragment) {
-            ((HomeFragment) fragment).onCardDeleted(cardId); // Notify HomeFragment to remove the card
+        if (fragment != null && fragment instanceof HomeFragment) {
+            ((HomeFragment) fragment).onCardDeleted(cardId);
         }
+
+        // Close the activity after deletion
+        finish();
     }
 
 
     public void reloadHomeFragmentData() {
-        Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
-        if (fragment instanceof HomeFragment) {
-            ((HomeFragment) fragment).reloadData(); // Reload data in HomeFragment
+        try {
+            // First try to find by container ID
+            Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
+
+            // If not found by ID, try finding by tag (more reliable when fragments are added with tags)
+            if (fragment == null) {
+                fragment = getSupportFragmentManager().findFragmentByTag("HomeFragment");
+            }
+
+            // If we found the fragment and it's the right type
+            if (fragment instanceof HomeFragment) {
+                // Post the reload to ensure it runs on UI thread
+                Fragment finalFragment = fragment;
+                fragment.getView().post(() -> {
+                    try {
+                        ((HomeFragment) finalFragment).reloadData();
+                    } catch (Exception e) {
+                        Log.e("CardActivity", "Error reloading HomeFragment data", e);
+                    }
+                });
+            } else {
+                Log.d("CardActivity", "HomeFragment not found in fragment manager");
+            }
+        } catch (IllegalStateException e) {
+            Log.e("CardActivity", "Fragment manager not ready", e);
         }
     }
 

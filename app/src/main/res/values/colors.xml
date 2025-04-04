@@ -22,5 +22,12 @@
     <color name="secondaryColor">#03DAC5</color>
     <color name="errorColor">#B00020</color>
     <color name="bottom_nav_colors">#FFFFFF</color>
+    <color name="card_background">#FFFFFFFF</color>
+    <color name="shared_card_bg">#F0F8FF</color>
+    <color name="priority_high">#FF5252</color>
+    <color name="priority_medium">#FFC107</color>
+    <color name="priority_low">#4CAF50</color>
+    <color name="background_color">#FFF5F5FF</color>
+    <color name="lavender_dark">#D8BFD8</color>
 
 </resources>

@@ -2,23 +2,26 @@ package com.example.sic_2;
 
 public class Card {
     private String id;
-    private String message;
+    private String title;
+    private String description;
+    private String priority;
     private String authorId;
     private long timestamp;
 
-    // Default constructor (required for Firebase)
     public Card() {
+        // Default constructor required for Firebase
     }
 
-    // Parameterized constructor
-    public Card(String id, String message, String authorId, long timestamp) {
+    public Card(String id, String title, String description, String priority, String authorId, long timestamp) {
         this.id = id;
-        this.message = message;
+        this.title = title;
+        this.description = description;
+        this.priority = priority;
         this.authorId = authorId;
         this.timestamp = timestamp;
     }
 
-    // Getters and Setters
+    // Getters and setters
     public String getId() {
         return id;
     }
@@ -27,12 +30,28 @@ public class Card {
         this.id = id;
     }
 
-    public String getMessage() {
-        return message;
+    public String getTitle() {
+        return title;
     }
 
-    public void setMessage(String message) {
-        this.message = message;
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getPriority() {
+        return priority;
+    }
+
+    public void setPriority(String priority) {
+        this.priority = priority;
     }
 
     public String getAuthorId() {

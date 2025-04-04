@@ -3,438 +3,373 @@ package com.example.sic_2;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Gravity;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.EditText;
-import android.widget.LinearLayout;
-import android.widget.TextView;
-import android.widget.Toast;
-
+import android.view.*;
+import android.widget.*;
 import androidx.annotation.NonNull;
-import androidx.appcompat.widget.SearchView;
+import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
-import androidx.appcompat.app.AlertDialog;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import androidx.appcompat.widget.SearchView;
+import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
+import com.google.android.material.imageview.ShapeableImageView;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import com.google.firebase.database.*;
+import java.util.*;
 
 public class HomeFragment extends Fragment {
-    private FloatingActionButton fab;
+    // UI Components
+    private ExtendedFloatingActionButton fab;
     private LinearLayout cardContainer;
     private SearchView searchView;
+    private View emptyStateView;
+    private ProgressBar progressBar;
+
+    // Firebase
     private DatabaseReference database;
+    private DatabaseReference sharedCardsRef;
     private String userId;
-    private List<Card> cardList; // List to store cards
-    private CardAdapter cardAdapter;
+
+    // Data
+    private List<Card> cardList = new ArrayList<>();
+    private Map<String, View> cardViewsMap = new HashMap<>();
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_home, container, false);
-
-        if (isAdded()) {
-            fab = view.findViewById(R.id.fab);
-            cardContainer = view.findViewById(R.id.card_container);
-            searchView = view.findViewById(R.id.search);
-
-            // Initialize the card list
-            cardList = new ArrayList<>();
-
-            FirebaseAuth auth = FirebaseAuth.getInstance();
-            if (auth.getCurrentUser() != null) {
-                userId = auth.getCurrentUser().getUid();
-                database = FirebaseDatabase.getInstance().getReference("cards").child(userId);
-                loadCards(); // Load regular cards
-                loadSharedCards(); // Load shared cards
-            }
-
-            fab.setOnClickListener(v -> showInputDialog());
-
-            searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
-                @Override
-                public boolean onQueryTextSubmit(String query) {
-                    filterCards(query);
-                    return true;
-                }
-
-                @Override
-                public boolean onQueryTextChange(String newText) {
-                    filterCards(newText);
-                    return true;
-                }
-            });
-        }
-
+        initializeViews(view);
+        setupFirebase();
+        setupListeners();
         return view;
     }
 
-    private void showInputDialog() {
-        if (!isAdded() || getContext() == null) return;
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
-        builder.setTitle("Create a Card");
-
-        final EditText input = new EditText(getContext());
-        builder.setView(input);
-
-        builder.setPositiveButton("OK", (dialog, which) -> {
-            String message = input.getText().toString().trim();
-            if (!message.isEmpty()) {
-                saveCardToFirebase(message);
-            } else {
-                Toast.makeText(getContext(), "Message cannot be empty", Toast.LENGTH_SHORT).show();
-            }
-        });
-        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
-        builder.show();
+    private void initializeViews(View view) {
+        fab = view.findViewById(R.id.fab);
+        cardContainer = view.findViewById(R.id.card_container);
+        searchView = view.findViewById(R.id.search);
+        emptyStateView = view.findViewById(R.id.empty_state);
+        progressBar = view.findViewById(R.id.progress_bar);
     }
 
-
-
-//    private void loadCards() {
-//        if (!isAdded() || database == null) return;
-//
-//        database.addListenerForSingleValueEvent(new ValueEventListener() {
-//            @Override
-//            public void onDataChange(DataSnapshot snapshot) {
-//                if (!isAdded()) return;
-//                cardList.clear(); // Clear the list before adding new cards
-//                for (DataSnapshot data : snapshot.getChildren()) {
-//                    Card card = data.getValue(Card.class);
-//                    if (card != null) {
-//                        cardList.add(card); // Add the card to the list
-//                        createCardView(card.getId(), card.getMessage(), false); // Regular card
-//                    }
-//                }
-//            }
-//
-//            @Override
-//            public void onCancelled(DatabaseError error) {
-//                if (isAdded()) {
-//                    Log.e("Firebase", "Error loading cards", error.toException());
-//                }
-//            }
-//        });
-//    }
-
-    private void loadSharedCards() {
-        if (!isAdded() || getContext() == null) return;
-
-        DatabaseReference sharedCardsRef = FirebaseDatabase.getInstance()
-                .getReference("sharedCards")
-                .child(userId);
-
-        sharedCardsRef.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot snapshot) {
-                if (!isAdded()) return;
-                for (DataSnapshot cardSnapshot : snapshot.getChildren()) {
-                    String cardId = cardSnapshot.getKey();
-                    String message = cardSnapshot.child("message").getValue(String.class);
-                    String sharedBy = cardSnapshot.child("sharedBy").getValue(String.class);
-
-                    if (cardId != null && message != null && sharedBy != null) {
-                        // Verify the card still exists with the original owner
-                        DatabaseReference originalCardRef = FirebaseDatabase.getInstance()
-                                .getReference("cards")
-                                .child(sharedBy)
-                                .child(cardId);
-
-                        originalCardRef.addListenerForSingleValueEvent(new ValueEventListener() {
-                            @Override
-                            public void onDataChange(@NonNull DataSnapshot originalSnapshot) {
-                                if (originalSnapshot.exists()) {
-                                    // Card exists, create the view
-                                    createCardView(cardId, message, true);
-                                } else {
-                                    // Card doesn't exist, remove the shared reference
-                                    sharedCardsRef.child(cardId).removeValue();
-                                }
-                            }
-
-                            @Override
-                            public void onCancelled(@NonNull DatabaseError error) {
-                                Log.e("HomeFragment", "Error checking original card", error.toException());
-                            }
-                        });
-                    }
-                }
-            }
-
-            @Override
-            public void onCancelled(DatabaseError error) {
-                if (isAdded()) {
-                    Log.e("Firebase", "Error loading shared cards", error.toException());
-                }
-            }
-        });
-    }
-
-    private void saveCardToFirebase(String message) {
-        if (message == null || message.isEmpty()) {
-            Toast.makeText(requireContext(), "Message cannot be empty", Toast.LENGTH_SHORT).show();
-            return;
+    private void setupFirebase() {
+        FirebaseAuth auth = FirebaseAuth.getInstance();
+        if (auth.getCurrentUser() != null) {
+            userId = auth.getCurrentUser().getUid();
+            database = FirebaseDatabase.getInstance().getReference("cards").child(userId);
+            sharedCardsRef = FirebaseDatabase.getInstance().getReference("sharedCards").child(userId);
+            loadData();
         }
+    }
 
-        // Query to check if a card with the same message already exists
-        database.orderByChild("message").equalTo(message).addListenerForSingleValueEvent(new ValueEventListener() {
+    private void setupListeners() {
+        fab.setOnClickListener(v -> showCardCreationDialog());
+
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                filterCards(query);
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                filterCards(newText);
+                return true;
+            }
+        });
+    }
+
+    private void loadData() {
+        showLoadingIndicator(true);
+        cardContainer.removeAllViews();
+        cardList.clear();
+        cardViewsMap.clear();
+
+        loadUserCards();
+        loadSharedCards();
+    }
+
+    private void loadUserCards() {
+        database.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (snapshot.exists()) {
-                    // A card with the same message already exists
-                    Toast.makeText(requireContext(), "A card with this name already exists", Toast.LENGTH_SHORT).show();
-                } else {
-                    // No card with the same message exists, proceed to create a new card
-                    String cardId = database.push().getKey();
-                    if (cardId != null) {
-                        Map<String, Object> cardData = new HashMap<>();
-                        cardData.put("cardId", cardId);
-                        cardData.put("message", message);
-                        cardData.put("authorId", userId);
-                        cardData.put("timestamp", System.currentTimeMillis());
+                if (!isAdded()) return;
 
-                        database.child(cardId).setValue(cardData).addOnCompleteListener(task -> {
-                            if (task.isSuccessful() && isAdded()) {
-                                Card card = new Card(cardId, message, userId, System.currentTimeMillis());
-                                cardList.add(card); // Add the new card to the list
+                for (DataSnapshot data : snapshot.getChildren()) {
+                    Card card = data.getValue(Card.class);
+                    if (card != null && card.getId() != null && !cardExists(card.getId())) {
+                        cardList.add(card);
+                        createAndAddCardView(card, false);
+                    }
+                }
+                updateEmptyState();
+                showLoadingIndicator(false);
+            }
 
-                                // Check if cardAdapter is not null before calling notifyDataSetChanged
-                                if (cardAdapter != null) {
-                                    cardAdapter.notifyDataSetChanged(); // Refresh the RecyclerView
-                                }
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("HomeFragment", "Error loading cards", error.toException());
+                showLoadingIndicator(false);
+                Toast.makeText(getContext(), "Failed to load cards", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
 
-                                Toast.makeText(requireContext(), "Card created", Toast.LENGTH_SHORT).show();
-                            } else if (isAdded()) {
-                                Toast.makeText(requireContext(), "Failed to save card", Toast.LENGTH_SHORT).show();
-                            }
-                        });
+    private void loadSharedCards() {
+        sharedCardsRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (!isAdded()) return;
+
+                for (DataSnapshot data : snapshot.getChildren()) {
+                    String sharedBy = data.child("sharedBy").getValue(String.class);
+                    Card card = data.getValue(Card.class);
+
+                    if (card != null && card.getId() != null && sharedBy != null && !sharedBy.isEmpty()) {
+                        verifyAndAddSharedCard(card, sharedBy);
                     }
                 }
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                Toast.makeText(requireContext(), "Database error: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                Log.e("HomeFragment", "Error loading shared cards", error.toException());
             }
         });
     }
 
-    private void loadCards() {
-        if (!isAdded() || database == null) return;
-
-        database.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot snapshot) {
-                if (!isAdded()) return;
-                cardList.clear(); // Clear the list before adding new cards
-                for (DataSnapshot data : snapshot.getChildren()) {
-                    String cardId = data.getKey(); // Use the key as the cardId
-                    String message = data.child("message").getValue(String.class);
-
-                    // Log the cardId and message
-                    Log.d("HomeFragment", "Loaded Card ID: " + cardId + ", Message: " + message);
-
-                    if (cardId != null && message != null) {
-                        Card card = new Card(cardId, message, userId, System.currentTimeMillis());
-                        cardList.add(card); // Add the card to the list
-                        createCardView(cardId, message, false); // Regular card
-                    }
-                }
-            }
-
-            @Override
-            public void onCancelled(DatabaseError error) {
-                if (isAdded()) {
-                    Log.e("Firebase", "Error loading cards", error.toException());
-                }
-            }
-        });
-    }
-
-    private void createCardView(String cardId, String message, boolean isShared) {
-        if (!isAdded()) return;
-
-        View cardView = LayoutInflater.from(requireContext()).inflate(R.layout.home_card_item, cardContainer, false);
-        TextView cardMessage = cardView.findViewById(R.id.card_message);
-
-        cardMessage.setText(message);
-
-        if (isShared) {
-            cardMessage.setText("[Shared] " + message);
+    private void verifyAndAddSharedCard(Card card, String sharedBy) {
+        if (sharedBy == null || sharedBy.isEmpty() || card == null || card.getId() == null) {
+            Log.e("HomeFragment", "Invalid shared card data");
+            return;
         }
 
-        cardView.setOnClickListener(v -> {
-            if (cardId == null || cardId.isEmpty()) {
-                Toast.makeText(requireContext(), "Card ID is missing", Toast.LENGTH_SHORT).show();
-                return;
+        DatabaseReference originalCardRef = FirebaseDatabase.getInstance()
+                .getReference("cards")
+                .child(sharedBy)
+                .child(card.getId());
+
+        originalCardRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (!isAdded()) return;
+
+                if (snapshot.exists()) {
+                    getActivity().runOnUiThread(() -> {
+                        if (!cardExists(card.getId())) {
+                            cardList.add(card);
+                            createAndAddCardView(card, true);
+                            updateEmptyState();
+                        }
+                    });
+                } else {
+                    // Remove invalid shared card reference
+                    sharedCardsRef.child(card.getId()).removeValue()
+                            .addOnSuccessListener(aVoid -> Log.d("HomeFragment", "Removed invalid shared card"))
+                            .addOnFailureListener(e -> Log.e("HomeFragment", "Failed to remove shared card", e));
+                }
             }
 
-            // For shared cards, we need to check the original owner's cards
-            if (isShared) {
-                // First get the shared card details to find the original owner
-                DatabaseReference sharedCardRef = FirebaseDatabase.getInstance()
-                        .getReference("sharedCards")
-                        .child(userId)
-                        .child(cardId);
-
-                sharedCardRef.addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(@NonNull DataSnapshot snapshot) {
-                        if (snapshot.exists()) {
-                            String originalOwnerId = snapshot.child("sharedBy").getValue(String.class);
-                            if (originalOwnerId != null) {
-                                // Now check the original owner's cards
-                                DatabaseReference originalCardRef = FirebaseDatabase.getInstance()
-                                        .getReference("cards")
-                                        .child(originalOwnerId)
-                                        .child(cardId);
-
-                                originalCardRef.addListenerForSingleValueEvent(new ValueEventListener() {
-                                    @Override
-                                    public void onDataChange(@NonNull DataSnapshot originalSnapshot) {
-                                        if (originalSnapshot.exists()) {
-                                            // Card exists with original owner, open it
-                                            Intent intent = new Intent(requireContext(), CardActivity.class);
-                                            intent.putExtra("cardId", cardId);
-                                            intent.putExtra("originalOwnerId", originalOwnerId); // Pass original owner ID
-                                            startActivity(intent);
-                                        } else {
-                                            Toast.makeText(requireContext(), "This card has been deleted by the owner", Toast.LENGTH_SHORT).show();
-                                            // Optionally remove the shared card reference
-                                            sharedCardRef.removeValue();
-                                        }
-                                    }
-
-                                    @Override
-                                    public void onCancelled(@NonNull DatabaseError error) {
-                                        Toast.makeText(requireContext(), "Error checking card: " + error.getMessage(), Toast.LENGTH_SHORT).show();
-                                    }
-                                });
-                            }
-                        } else {
-                            Toast.makeText(requireContext(), "Shared card reference not found", Toast.LENGTH_SHORT).show();
-                        }
-                    }
-
-                    @Override
-                    public void onCancelled(@NonNull DatabaseError error) {
-                        Toast.makeText(requireContext(), "Error checking shared card: " + error.getMessage(), Toast.LENGTH_SHORT).show();
-                    }
-                });
-            } else {
-                // For regular cards, check the current user's cards
-                DatabaseReference cardRef = FirebaseDatabase.getInstance()
-                        .getReference("cards")
-                        .child(userId)
-                        .child(cardId);
-
-                cardRef.addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(@NonNull DataSnapshot snapshot) {
-                        if (snapshot.exists()) {
-                            Intent intent = new Intent(requireContext(), CardActivity.class);
-                            intent.putExtra("cardId", cardId);
-                            startActivity(intent);
-                        } else {
-                            Toast.makeText(requireContext(), "This card has been deleted", Toast.LENGTH_SHORT).show();
-                        }
-                    }
-
-                    @Override
-                    public void onCancelled(@NonNull DatabaseError error) {
-                        Toast.makeText(requireContext(), "Error checking card: " + error.getMessage(), Toast.LENGTH_SHORT).show();
-                    }
-                });
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("HomeFragment", "Error verifying shared card", error.toException());
             }
         });
+    }
 
-        cardContainer.addView(cardView);
+    private void showCardCreationDialog() {
+        if (!isAdded() || getContext() == null) return;
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+        builder.setTitle("Create New Card");
+
+        final EditText titleInput = new EditText(getContext());
+        titleInput.setHint("Title");
+        titleInput.setSingleLine();
+
+        final EditText descInput = new EditText(getContext());
+        descInput.setHint("Description (Optional)");
+
+        LinearLayout layout = new LinearLayout(getContext());
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(32, 16, 32, 16);
+        layout.addView(titleInput);
+        layout.addView(descInput);
+
+        builder.setView(layout);
+        builder.setPositiveButton("Create", (dialog, which) -> {
+            String title = titleInput.getText().toString().trim();
+            String description = descInput.getText().toString().trim();
+
+            if (!title.isEmpty()) {
+                createNewCard(title, description);
+            } else {
+                Toast.makeText(getContext(), "Title cannot be empty", Toast.LENGTH_SHORT).show();
+            }
+        });
+        builder.setNegativeButton("Cancel", null);
+        builder.show();
+    }
+
+    private void createNewCard(String title, String description) {
+        String cardId = database.push().getKey();
+        if (cardId == null) {
+            Toast.makeText(getContext(), "Failed to create card ID", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Card card = new Card(cardId, title, description, "Medium", userId, System.currentTimeMillis());
+        database.child(cardId).setValue(card)
+                .addOnSuccessListener(aVoid -> {
+                    cardList.add(card);
+                    createAndAddCardView(card, false);
+                    updateEmptyState();
+                    Toast.makeText(getContext(), "Card created", Toast.LENGTH_SHORT).show();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(getContext(), "Failed to create card", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    private void createAndAddCardView(Card card, boolean isShared) {
+        if (!isAdded() || getContext() == null) return;
+
+        try {
+            View cardView = LayoutInflater.from(getContext()).inflate(R.layout.rec_card, cardContainer, false);
+
+            ShapeableImageView recImage = cardView.findViewById(R.id.recImage);
+            TextView recTitle = cardView.findViewById(R.id.recTitle);
+            TextView recPriority = cardView.findViewById(R.id.recPriority);
+            TextView recDesc = cardView.findViewById(R.id.recDesc);
+
+            recTitle.setText(isShared ? "[Shared] " + card.getTitle() : card.getTitle());
+            recDesc.setText(card.getDescription());
+            recPriority.setText(card.getPriority());
+            recImage.setImageResource(R.drawable.uploadimg);
+
+            if (isShared) {
+                cardView.setBackgroundColor(ContextCompat.getColor(getContext(), R.color.shared_card_bg));
+            }
+
+            cardView.setOnClickListener(v -> openCardDetails(card, isShared));
+            cardContainer.addView(cardView);
+            cardViewsMap.put(card.getId(), cardView);
+        } catch (Exception e) {
+            Log.e("HomeFragment", "Error creating card view", e);
+        }
+    }
+
+    private void openCardDetails(Card card, boolean isShared) {
+        if (!isAdded()) return;
+
+        Intent intent = new Intent(getContext(), CardActivity.class);
+        intent.putExtra("cardId", card.getId());
+        if (isShared) {
+            intent.putExtra("originalOwnerId", card.getAuthorId());
+        }
+        startActivity(intent);
     }
 
     private void filterCards(String query) {
         if (!isAdded()) return;
 
-        // Clear the card container before displaying filtered results
-        cardContainer.removeAllViews();
+        if (query.isEmpty()) {
+            for (View cardView : cardViewsMap.values()) {
+                cardView.setVisibility(View.VISIBLE);
+            }
+            updateEmptyState();
+            return;
+        }
 
-        // Perform the search query
-        database.orderByChild("message")
-                .startAt(query)
-                .endAt(query + "\uf8ff")
-                .addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(DataSnapshot snapshot) {
-                        if (!isAdded()) return;
+        int visibleCount = 0;
+        String lowerCaseQuery = query.toLowerCase();
 
-                        int matchCount = 0; // Track the number of matching cards
+        for (Card card : cardList) {
+            View cardView = cardViewsMap.get(card.getId());
+            if (cardView != null) {
+                boolean matches = (card.getTitle() != null && card.getTitle().toLowerCase().contains(lowerCaseQuery)) ||
+                        (card.getDescription() != null && card.getDescription().toLowerCase().contains(lowerCaseQuery));
 
-                        for (DataSnapshot data : snapshot.getChildren()) {
-                            Card card = data.getValue(Card.class);
-                            if (card != null) {
-                                createCardView(card.getId(), card.getMessage(), false); // Regular card
-                                matchCount++; // Increment the match count
-                            }
-                        }
+                cardView.setVisibility(matches ? View.VISIBLE : View.GONE);
+                if (matches) visibleCount++;
+            }
+        }
 
-                        // If no cards match the query, display a "No cards found" message
-                        if (matchCount == 0) {
-                            showNoCardsFoundMessage();
-                        }
-                    }
-
-                    @Override
-                    public void onCancelled(DatabaseError error) {
-                        if (isAdded()) {
-                            Log.e("Firebase", "Error filtering cards", error.toException());
-                        }
-                    }
-                });
+        if (visibleCount == 0) {
+            showNoResultsMessage();
+        }
     }
 
-    private void showNoCardsFoundMessage() {
-        if (!isAdded()) return;
-
-        // Create a TextView to display the "No cards found" message
-        TextView noCardsFoundText = new TextView(requireContext());
-        noCardsFoundText.setText("No cards found");
-        noCardsFoundText.setTextSize(18); // Set text size
-        noCardsFoundText.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.darker_gray)); // Set text color
-        noCardsFoundText.setGravity(Gravity.CENTER); // Center the text
-
-        // Add the TextView to the card container
-        cardContainer.addView(noCardsFoundText);
+    private void showNoResultsMessage() {
+        TextView noResults = new TextView(getContext());
+        noResults.setText("No matching cards found");
+        noResults.setTextSize(16);
+        noResults.setTextColor(ContextCompat.getColor(getContext(), android.R.color.darker_gray));
+        noResults.setGravity(Gravity.CENTER);
+        noResults.setPadding(0, 32, 0, 0);
+        cardContainer.addView(noResults);
     }
 
     public void onCardDeleted(String cardId) {
-        for (int i = 0; i < cardList.size(); i++) {
-            if (cardList.get(i).getId().equals(cardId)) {
-                cardList.remove(i); // Remove the card from the list
-                cardAdapter.notifyItemRemoved(i); // Notify the adapter
+        if (!isAdded() || cardId == null) return;
+
+        View cardView = cardViewsMap.remove(cardId);
+        if (cardView != null) {
+            cardContainer.removeView(cardView);
+        }
+
+        Iterator<Card> iterator = cardList.iterator();
+        while (iterator.hasNext()) {
+            Card card = iterator.next();
+            if (card != null && cardId.equals(card.getId())) {
+                iterator.remove();
                 break;
             }
+        }
+        updateEmptyState();
+    }
+
+    private void updateEmptyState() {
+        if (!isAdded()) return;
+
+        boolean isEmpty = cardList.isEmpty();
+        emptyStateView.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        cardContainer.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+    }
+
+    private boolean cardExists(String cardId) {
+        if (cardId == null || cardList == null) return false;
+
+        for (Card card : cardList) {
+            if (card != null && cardId.equals(card.getId())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void showLoadingIndicator(boolean show) {
+        if (!isAdded() || progressBar == null) return;
+        progressBar.setVisibility(show ? View.VISIBLE : View.GONE);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (userId != null) {
+            loadData();
         }
     }
 
     public void reloadData() {
-        cardList.clear(); // Clear the existing data
-        loadCards(); // Load cards from Firebase
-        loadSharedCards(); // Load shared cards from Firebase
+        if (!isAdded() || getActivity() == null) return;
+
+        getActivity().runOnUiThread(() -> {
+            showLoadingIndicator(true);
+            cardContainer.removeAllViews();
+            cardList.clear();
+            cardViewsMap.clear();
+            loadUserCards();
+            loadSharedCards();
+        });
     }
-
-//    @Override
-//    public void onResume() {
-//        super.onResume();
-//        reloadData(); // Reload data when the fragment is resumed
-//    }
-
 }
