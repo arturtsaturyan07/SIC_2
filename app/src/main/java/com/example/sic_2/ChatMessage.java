@@ -1,6 +1,7 @@
 package com.example.sic_2;
 
 public class ChatMessage {
+    private String id;
     private String senderId;
     private String message;
     private long timestamp;
@@ -13,6 +14,15 @@ public class ChatMessage {
         this.senderId = senderId;
         this.message = message;
         this.timestamp = timestamp;
+    }
+
+    // Add getters and setters for all fields including ID
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 
     public String getSenderId() {
