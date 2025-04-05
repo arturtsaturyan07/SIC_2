@@ -61,7 +61,7 @@ public class CardFragment extends Fragment {
     private ProgressDialog progressDialog;
     private ValueEventListener publicationsListener;
 
-    public static CardFragment newInstance(String cardId) {
+    public static CardFragment newInstance(String cardId, String originalOwnerId) {
         CardFragment fragment = new CardFragment();
         Bundle args = new Bundle();
         args.putString(ARG_CARD_ID, cardId);

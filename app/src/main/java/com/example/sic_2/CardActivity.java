@@ -4,63 +4,121 @@ import android.os.Bundle;
 import android.util.Log;
 import android.widget.ImageButton;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 public class CardActivity extends AppCompatActivity {
 
+    private static final String TAG = "CardActivity";
     private String cardId;
+    private String originalOwnerId;
+    private String currentUserId;
+    private DatabaseReference cardRef;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.card_view_layout);
+        Log.d(TAG, "onCreate");
 
-        // Retrieve card ID from intent
+        // Initialize Firebase user
+        currentUserId = FirebaseAuth.getInstance().getCurrentUser() != null
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid()
+                : null;
+
+        // Retrieve card ID and original owner ID from intent
         cardId = getIntent().getStringExtra("cardId");
-        String originalOwnerId = getIntent().getStringExtra("originalOwnerId");
-
-        String cardsPath = (originalOwnerId != null) ? originalOwnerId : FirebaseAuth.getInstance().getCurrentUser().getUid();
-        DatabaseReference cardRef = FirebaseDatabase.getInstance()
-                .getReference("cards")
-                .child(cardsPath)
-                .child(cardId);
-
-        // Log the received cardId
-        Log.d("CardActivity", "Received Card ID: " + cardId);
+        originalOwnerId = getIntent().getStringExtra("originalOwnerId");
 
         if (cardId == null || cardId.isEmpty()) {
             Toast.makeText(this, "Card ID is missing", Toast.LENGTH_SHORT).show();
-            finish(); // Close the activity if cardId is missing
+            Log.e(TAG, "Card ID is missing");
+            finish();
             return;
         }
 
+        if (currentUserId == null) {
+            Toast.makeText(this, "Please sign in first", Toast.LENGTH_SHORT).show();
+            Log.e(TAG, "User not authenticated");
+            finish();
+            return;
+        }
+
+        // Log the received IDs
+        Log.d(TAG, "Card ID: " + cardId);
+        Log.d(TAG, "Original Owner ID: " + (originalOwnerId != null ? originalOwnerId : "null"));
+        Log.d(TAG, "Current User ID: " + currentUserId);
+
+        // Initialize Firebase reference
+        String cardOwnerId = originalOwnerId != null ? originalOwnerId : currentUserId;
+        cardRef = FirebaseDatabase.getInstance()
+                .getReference("cards")
+                .child(cardOwnerId)
+                .child(cardId);
+
         // Initialize back button
         ImageButton backButton = findViewById(R.id.back_button);
-        backButton.setOnClickListener(v -> finish()); // Close the activity and go back
+        backButton.setOnClickListener(v -> finish());
+
+        // Verify card exists before proceeding
+        verifyCardExists();
 
         // Load the default fragment (CardFragment)
-        loadFragment(CardFragment.newInstance(cardId), false);
+        loadInitialFragment();
 
-        // Bottom navigation setup
+        // Setup bottom navigation
+        setupBottomNavigation();
+    }
+
+    private void verifyCardExists() {
+        cardRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (!snapshot.exists()) {
+                    Toast.makeText(CardActivity.this, "Card not found", Toast.LENGTH_SHORT).show();
+                    Log.e(TAG, "Card does not exist in database");
+                    finish();
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Toast.makeText(CardActivity.this, "Error verifying card", Toast.LENGTH_SHORT).show();
+                Log.e(TAG, "Error verifying card existence", error.toException());
+                finish();
+            }
+        });
+    }
+
+    private void loadInitialFragment() {
+        Fragment initialFragment = CardFragment.newInstance(cardId, originalOwnerId);
+        loadFragment(initialFragment, false);
+    }
+
+    private void setupBottomNavigation() {
         BottomNavigationView bottomNavigationView = findViewById(R.id.bottom_navigation);
         if (bottomNavigationView != null) {
             bottomNavigationView.setOnNavigationItemSelectedListener(item -> {
                 Fragment selectedFragment = null;
-
                 int itemId = item.getItemId();
+
                 if (itemId == R.id.nav_main) {
-                    selectedFragment = CardFragment.newInstance(cardId); // CardFragment
+                    selectedFragment = CardFragment.newInstance(cardId, originalOwnerId);
                 } else if (itemId == R.id.nav_chat) {
-                    selectedFragment = ChatFragment.newInstance(cardId); // ChatFragment
+                    selectedFragment = ChatFragment.newInstance(cardId, originalOwnerId);
                 } else if (itemId == R.id.nav_parameters) {
-                    selectedFragment = ParametersFragment.newInstance("param1", "param2", cardId); // ParametersFragment
+                    selectedFragment = ParametersFragment.newInstance("param1", "param2", cardId, originalOwnerId);
                 }
 
                 if (selectedFragment != null) {
@@ -69,38 +127,35 @@ public class CardActivity extends AppCompatActivity {
                 return true;
             });
 
-            // Set the default selected item (e.g., main fragment)
+            // Set the default selected item
             bottomNavigationView.setSelectedItemId(R.id.nav_main);
         } else {
-            Log.e("CardActivity", "BottomNavigationView is null. Check your layout file.");
+            Log.e(TAG, "BottomNavigationView is null. Check your layout file.");
         }
     }
 
-    /**
-     * Loads a fragment into the fragment container.
-     *
-     * @param fragment       The fragment to load.
-     * @param addToBackStack Whether to add the transaction to the back stack.
-     */
     private void loadFragment(Fragment fragment, boolean addToBackStack) {
-        FragmentManager fragmentManager = getSupportFragmentManager();
-        FragmentTransaction transaction = fragmentManager.beginTransaction();
-        transaction.replace(R.id.fragment_container, fragment);
-        if (addToBackStack) {
-            transaction.addToBackStack(null);
+        try {
+            FragmentManager fragmentManager = getSupportFragmentManager();
+            FragmentTransaction transaction = fragmentManager.beginTransaction();
+
+            // Use fragment tag for better management
+            String fragmentTag = fragment.getClass().getSimpleName();
+            transaction.replace(R.id.fragment_container, fragment, fragmentTag);
+
+            if (addToBackStack) {
+                transaction.addToBackStack(fragmentTag);
+            }
+            transaction.commit();
+        } catch (IllegalStateException e) {
+            Log.e(TAG, "Error loading fragment", e);
         }
-        transaction.commit();
     }
 
     public void onCardDeleted(String cardId) {
-        // Option 1: If you want to refresh the entire HomeFragment
-        getSupportFragmentManager().beginTransaction()
-                .replace(R.id.fragment_container, new HomeFragment())
-                .commit();
-
-        // OR Option 2: If you want to notify the existing fragment
+        // Notify all fragments that might need to handle the deletion
         Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
-        if (fragment != null && fragment instanceof HomeFragment) {
+        if (fragment instanceof HomeFragment) {
             ((HomeFragment) fragment).onCardDeleted(cardId);
         }
 
@@ -108,34 +163,26 @@ public class CardActivity extends AppCompatActivity {
         finish();
     }
 
-
     public void reloadHomeFragmentData() {
         try {
-            // First try to find by container ID
             Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
-
-            // If not found by ID, try finding by tag (more reliable when fragments are added with tags)
-            if (fragment == null) {
-                fragment = getSupportFragmentManager().findFragmentByTag("HomeFragment");
-            }
-
-            // If we found the fragment and it's the right type
             if (fragment instanceof HomeFragment) {
-                // Post the reload to ensure it runs on UI thread
-                Fragment finalFragment = fragment;
-                fragment.getView().post(() -> {
+                runOnUiThread(() -> {
                     try {
-                        ((HomeFragment) finalFragment).reloadData();
+                        ((HomeFragment) fragment).reloadData();
                     } catch (Exception e) {
-                        Log.e("CardActivity", "Error reloading HomeFragment data", e);
+                        Log.e(TAG, "Error reloading HomeFragment data", e);
                     }
                 });
-            } else {
-                Log.d("CardActivity", "HomeFragment not found in fragment manager");
             }
         } catch (IllegalStateException e) {
-            Log.e("CardActivity", "Fragment manager not ready", e);
+            Log.e(TAG, "Fragment manager not ready", e);
         }
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        Log.d(TAG, "onDestroy");
+    }
 }

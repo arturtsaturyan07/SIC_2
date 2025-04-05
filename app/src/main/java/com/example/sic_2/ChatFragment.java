@@ -38,7 +38,7 @@ public class ChatFragment extends Fragment {
     private String currentUserId;
 
     // Factory method to create a new instance of ChatFragment
-    public static ChatFragment newInstance(String cardId) {
+    public static ChatFragment newInstance(String cardId, String originalOwnerId) {
         ChatFragment fragment = new ChatFragment();
         Bundle args = new Bundle();
         args.putString(ARG_CARD_ID, cardId); // Pass the cardId as an argument

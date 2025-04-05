@@ -28,19 +28,22 @@ public class ParametersFragment extends Fragment {
     private String mParam2;
     private String cardId;
     private String currentUserId;
+    private String originalOwnerId;
 
     private DatabaseReference database;
+    private DatabaseReference sharedCardsRef;
 
     public ParametersFragment() {
         // Required empty public constructor
     }
 
-    public static ParametersFragment newInstance(String param1, String param2, String cardId) {
+    public static ParametersFragment newInstance(String param1, String param2, String cardId, String originalOwnerId) {
         ParametersFragment fragment = new ParametersFragment();
         Bundle args = new Bundle();
         args.putString(ARG_PARAM1, param1);
         args.putString(ARG_PARAM2, param2);
-        args.putString("cardId", cardId); // Pass cardId to the fragment
+        args.putString("cardId", cardId);
+        args.putString("originalOwnerId", originalOwnerId);
         fragment.setArguments(args);
         return fragment;
     }
@@ -51,11 +54,13 @@ public class ParametersFragment extends Fragment {
         if (getArguments() != null) {
             mParam1 = getArguments().getString(ARG_PARAM1);
             mParam2 = getArguments().getString(ARG_PARAM2);
-            cardId = getArguments().getString("cardId"); // Retrieve cardId
+            cardId = getArguments().getString("cardId");
+            originalOwnerId = getArguments().getString("originalOwnerId");
         }
 
         // Initialize Firebase
         database = FirebaseDatabase.getInstance().getReference("cards");
+        sharedCardsRef = FirebaseDatabase.getInstance().getReference("sharedCards");
         currentUserId = FirebaseAuth.getInstance().getCurrentUser() != null
                 ? FirebaseAuth.getInstance().getCurrentUser().getUid()
                 : null;
@@ -64,12 +69,16 @@ public class ParametersFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
         View view = inflater.inflate(R.layout.fragment_parameters, container, false);
 
         // Initialize buttons
         @SuppressLint({"MissingInflatedId", "LocalSuppress"}) Button shareButton = view.findViewById(R.id.shareButton);
         @SuppressLint({"MissingInflatedId", "LocalSuppress"}) Button deleteButton = view.findViewById(R.id.deleteButton);
+
+        // Hide share button if this is a shared card (not owned by current user)
+        if (originalOwnerId != null && !originalOwnerId.equals(currentUserId)) {
+            shareButton.setVisibility(View.GONE);
+        }
 
         // Set click listeners
         shareButton.setOnClickListener(v -> showShareDialog());
@@ -78,11 +87,7 @@ public class ParametersFragment extends Fragment {
         return view;
     }
 
-    /**
-     * Shows a dialog to share the card with another user.
-     */
     private void showShareDialog() {
-        // Create a dialog with an EditText for the recipient's user ID
         androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(requireContext());
         builder.setTitle("Share Card");
 
@@ -103,23 +108,20 @@ public class ParametersFragment extends Fragment {
         builder.show();
     }
 
-    /**
-     * Shares the card with another user by updating the sharedCards node in Firebase.
-     */
     private void shareCardWithUser(String recipientUserId) {
         if (recipientUserId == null || recipientUserId.isEmpty() || cardId == null || cardId.isEmpty()) {
             Toast.makeText(requireContext(), "Invalid user ID or card ID", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Reference to the card in the current user's cards
-        DatabaseReference cardRef = database.child(currentUserId).child(cardId);
+        // Check if we're sharing our own card or someone else's
+        String ownerId = originalOwnerId != null ? originalOwnerId : currentUserId;
+
+        // Reference to the original card
+        DatabaseReference cardRef = database.child(ownerId).child(cardId);
 
         // Reference to the sharedCards node for the recipient user
-        DatabaseReference sharedCardsRef = FirebaseDatabase.getInstance()
-                .getReference("sharedCards")
-                .child(recipientUserId)
-                .child(cardId);
+        DatabaseReference recipientSharedCardsRef = sharedCardsRef.child(recipientUserId).child(cardId);
 
         // Fetch the card data
         cardRef.addListenerForSingleValueEvent(new ValueEventListener() {
@@ -130,15 +132,16 @@ public class ParametersFragment extends Fragment {
                     if (card != null) {
                         // Create a map to store the shared card data
                         Map<String, Object> shareData = new HashMap<>();
-                        shareData.put("sharedBy", currentUserId); // ID of the user sharing the card
-                        shareData.put("title", card.getTitle()); // Card title
-                        shareData.put("description", card.getDescription()); // Card description
-                        shareData.put("priority", card.getPriority()); // Card priority
-                        shareData.put("authorId", card.getAuthorId()); // Original author ID
-                        shareData.put("timestamp", System.currentTimeMillis()); // Timestamp of sharing
+                        shareData.put("id", card.getId());
+                        shareData.put("title", card.getTitle());
+                        shareData.put("description", card.getDescription());
+                        shareData.put("priority", card.getPriority());
+                        shareData.put("authorId", ownerId); // Original owner ID
+                        shareData.put("sharedBy", currentUserId); // Who shared it
+                        shareData.put("timestamp", System.currentTimeMillis());
 
                         // Save the shared card data to the recipient's sharedCards node
-                        sharedCardsRef.setValue(shareData)
+                        recipientSharedCardsRef.setValue(shareData)
                                 .addOnCompleteListener(task -> {
                                     if (task.isSuccessful()) {
                                         Toast.makeText(requireContext(), "Card shared successfully", Toast.LENGTH_SHORT).show();
@@ -147,7 +150,7 @@ public class ParametersFragment extends Fragment {
                                     }
                                 });
                     } else {
-                        Toast.makeText(requireContext(), "Card data is missing", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(requireContext(), "Card data is invalid", Toast.LENGTH_SHORT).show();
                     }
                 } else {
                     Toast.makeText(requireContext(), "Card not found", Toast.LENGTH_SHORT).show();
@@ -161,43 +164,53 @@ public class ParametersFragment extends Fragment {
         });
     }
 
-    /**
-     * Deletes the card from Firebase (both main cards and shared cards) and notifies the HomeFragment to update the UI.
-     */
     private void deleteCard() {
         if (cardId == null || database == null || currentUserId == null) {
             Toast.makeText(requireContext(), "Invalid card or user", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Reference to the card in the current user's cards
+        // If this is a shared card (not owned by current user), just remove from sharedCards
+        if (originalOwnerId != null && !originalOwnerId.equals(currentUserId)) {
+            sharedCardsRef.child(currentUserId).child(cardId).removeValue()
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful() && isAdded()) {
+                            if (getActivity() instanceof CardActivity) {
+                                ((CardActivity) getActivity()).onCardDeleted(cardId);
+                                ((CardActivity) getActivity()).reloadHomeFragmentData();
+                            }
+                            requireActivity().finish();
+                            Toast.makeText(requireContext(), "Shared card removed", Toast.LENGTH_SHORT).show();
+                        } else if (isAdded()) {
+                            Toast.makeText(requireContext(), "Failed to remove shared card", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+            return;
+        }
+
+        // If this is our own card, delete from our cards and all sharedCards references
         DatabaseReference cardRef = database.child(currentUserId).child(cardId);
 
-        // Reference to the sharedCards node
-        DatabaseReference sharedCardsRef = FirebaseDatabase.getInstance().getReference("sharedCards");
-
-        // Delete the card from the current user's cards
+        // First delete the main card
         cardRef.removeValue().addOnCompleteListener(task -> {
             if (task.isSuccessful() && isAdded()) {
-                // Delete the card from all sharedCards nodes
+                // Then delete all shared references to this card
                 sharedCardsRef.addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
                     public void onDataChange(@NonNull DataSnapshot snapshot) {
                         for (DataSnapshot userSnapshot : snapshot.getChildren()) {
                             String userId = userSnapshot.getKey();
                             if (userId != null) {
-                                // Delete the card from the sharedCards node of each user
                                 sharedCardsRef.child(userId).child(cardId).removeValue();
                             }
                         }
 
-                        // Notify the HomeFragment to remove the card from the RecyclerView
+                        // Notify the HomeFragment
                         if (getActivity() instanceof CardActivity) {
                             ((CardActivity) getActivity()).onCardDeleted(cardId);
-                            ((CardActivity) getActivity()).reloadHomeFragmentData(); // Reload data in HomeFragment
+                            ((CardActivity) getActivity()).reloadHomeFragmentData();
                         }
 
-                        // Close the CardActivity and return to the HomeFragment
                         requireActivity().finish();
                         Toast.makeText(requireContext(), "Card deleted", Toast.LENGTH_SHORT).show();
                     }
