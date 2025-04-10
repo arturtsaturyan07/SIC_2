@@ -6,7 +6,6 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -16,13 +15,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import androidx.core.view.GravityCompat;
-import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.fragment.app.Fragment;
 import androidx.preference.PreferenceManager;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
-import com.google.android.material.navigation.NavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DatabaseError;
@@ -36,8 +32,6 @@ import java.util.Map;
 import java.util.Objects;
 
 public class MainActivity extends AppCompatActivity {
-    private DrawerLayout drawerLayout;
-    private NavigationView navigationView;
     private BottomNavigationView bottomNavigationView;
     private FirebaseAuth auth;
     private DatabaseReference usersRef;
@@ -77,15 +71,7 @@ public class MainActivity extends AppCompatActivity {
 
         applyDarkMode();
         initializeViews();
-        setupDrawerNavigation();
         setupBottomNavigationView();
-
-        ImageView btnOpenDrawer = findViewById(R.id.btnOpenDrawer);
-        btnOpenDrawer.setOnClickListener(view -> {
-            if (!drawerLayout.isDrawerOpen(GravityCompat.START)) {
-                drawerLayout.openDrawer(GravityCompat.START);
-            }
-        });
 
         loadFragment(new HomeFragment());
     }
@@ -157,27 +143,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initializeViews() {
-        drawerLayout = findViewById(R.id.drawer_layout);
-        navigationView = findViewById(R.id.navigation_view);
         bottomNavigationView = findViewById(R.id.bottom_navigation);
-        cardContainer = findViewById(R.id.card_container); // Initialize cardContainer
-    }
-
-    private void setupDrawerNavigation() {
-        navigationView.setNavigationItemSelectedListener(item -> {
-            int itemId = item.getItemId();
-            Fragment selectedFragment = getFragmentById(itemId);
-            if (selectedFragment != null) {
-                loadFragment(selectedFragment);
-            } else if (itemId == R.id.add_button) {
-                startActivity(new Intent(MainActivity.this, UserSearchActivity.class));
-            } else if (itemId == R.id.nav_logout) {
-                logout();
-            }
-
-            drawerLayout.closeDrawer(GravityCompat.START);
-            return true;
-        });
+        cardContainer = findViewById(R.id.card_container);
     }
 
     private Fragment getFragmentById(int id) {
@@ -245,11 +212,5 @@ public class MainActivity extends AppCompatActivity {
         });
 
         cardContainer.addView(cardView);
-    }
-
-    private void logout() {
-        FirebaseAuth.getInstance().signOut();
-        Toast.makeText(MainActivity.this, "Logged out successfully", Toast.LENGTH_SHORT).show();
-        redirectToLogin();
     }
 }
