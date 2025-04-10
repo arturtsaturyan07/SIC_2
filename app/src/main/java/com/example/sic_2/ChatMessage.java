@@ -1,13 +1,13 @@
 package com.example.sic_2;
 
 public class ChatMessage {
-    private String id;
+    private String id; // Message ID field
     private String senderId;
     private String message;
     private long timestamp;
 
+    // Default constructor required for Firebase
     public ChatMessage() {
-        // Default constructor required for Firebase
     }
 
     public ChatMessage(String senderId, String message, long timestamp) {
@@ -16,7 +16,7 @@ public class ChatMessage {
         this.timestamp = timestamp;
     }
 
-    // Add getters and setters for all fields including ID
+    // Getter and Setter for ID
     public String getId() {
         return id;
     }
@@ -25,15 +25,30 @@ public class ChatMessage {
         this.id = id;
     }
 
+    // Getter and Setter for senderId
     public String getSenderId() {
         return senderId;
     }
 
+    public void setSenderId(String senderId) {
+        this.senderId = senderId;
+    }
+
+    // Getter and Setter for message
     public String getMessage() {
         return message;
     }
 
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
+    // Getter and Setter for timestamp
     public long getTimestamp() {
         return timestamp;
+    }
+
+    public void setTimestamp(long timestamp) {
+        this.timestamp = timestamp;
     }
 }
