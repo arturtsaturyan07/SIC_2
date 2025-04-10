@@ -97,11 +97,18 @@ public class ParametersFragment extends Fragment {
 
         builder.setPositiveButton("Share", (dialog, which) -> {
             String recipientUserId = userIdInput.getText().toString().trim();
-            if (!recipientUserId.isEmpty()) {
-                shareCardWithUser(recipientUserId);
-            } else {
+            if (recipientUserId.isEmpty()) {
                 Toast.makeText(requireContext(), "User ID cannot be empty", Toast.LENGTH_SHORT).show();
+                return;
             }
+
+            // Check if user is trying to share with themselves
+            if (recipientUserId.equals(currentUserId)) {
+                Toast.makeText(requireContext(), "You can't share a card with yourself", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            shareCardWithUser(recipientUserId);
         });
 
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
