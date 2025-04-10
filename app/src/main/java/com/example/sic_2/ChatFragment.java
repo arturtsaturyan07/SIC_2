@@ -21,6 +21,7 @@ import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -144,30 +145,48 @@ public class ChatFragment extends Fragment {
     }
 
     private void sendMessage(String message) {
-        if (currentUserId == null) {
-            showToast("Please sign in first");
-            return;
-        }
-
         String messageId = chatRef.push().getKey();
-        if (messageId == null) {
-            showToast("Failed to create message");
-            return;
-        }
+        if (messageId == null) return;
 
-        ChatMessage chatMessage = new ChatMessage(
-                currentUserId,
-                message,
-                System.currentTimeMillis()
-        );
+        ChatMessage chatMessage = new ChatMessage(currentUserId, message, System.currentTimeMillis());
 
         chatRef.child(messageId).setValue(chatMessage)
-                .addOnCompleteListener(task -> {
-                    if (!task.isSuccessful()) {
-                        showToast("Failed to send message");
-                        Log.e(TAG, "Message send failed", task.getException());
-                    }
+                .addOnSuccessListener(aVoid -> {
+                    // Send notification to other users in the chat
+                    sendNotificationsToChatParticipants(message);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to send message", e);
                 });
+    }
+
+    private void sendNotificationsToChatParticipants(String message) {
+        DatabaseReference cardRef = FirebaseDatabase.getInstance()
+                .getReference("cards")
+                .child(cardId);
+
+        cardRef.child("users").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                for (DataSnapshot userSnapshot : snapshot.getChildren()) {
+                    String userId = userSnapshot.getKey();
+                    if (userId != null && !userId.equals(currentUserId)) {
+                        NotificationFragment.sendNotification(
+                                requireContext(),
+                                cardId,
+                                "Chat Name", // Replace with actual chat name
+                                message,
+                                currentUserId
+                        );
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Failed to load chat participants", error.toException());
+            }
+        });
     }
 
     private void showToast(String message) {
