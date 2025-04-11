@@ -1,6 +1,7 @@
 package com.example.sic_2;
 
 import android.annotation.SuppressLint;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -97,9 +98,11 @@ public class ParametersFragment extends Fragment {
 
         builder.setPositiveButton("Share", (dialog, which) -> {
             String recipientUserId = userIdInput.getText().toString().trim();
-            if (recipientUserId.isEmpty()) {
-                Toast.makeText(requireContext(), "User ID cannot be empty", Toast.LENGTH_SHORT).show();
-                return;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD) {
+                if (recipientUserId.isEmpty()) {
+                    Toast.makeText(requireContext(), "User ID cannot be empty", Toast.LENGTH_SHORT).show();
+                    return;
+                }
             }
 
             // Check if user is trying to share with themselves
@@ -116,9 +119,11 @@ public class ParametersFragment extends Fragment {
     }
 
     private void shareCardWithUser(String recipientUserId) {
-        if (recipientUserId == null || recipientUserId.isEmpty() || cardId == null || cardId.isEmpty()) {
-            Toast.makeText(requireContext(), "Invalid user ID or card ID", Toast.LENGTH_SHORT).show();
-            return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD) {
+            if (recipientUserId == null || recipientUserId.isEmpty() || cardId == null || cardId.isEmpty()) {
+                Toast.makeText(requireContext(), "Invalid user ID or card ID", Toast.LENGTH_SHORT).show();
+                return;
+            }
         }
 
         // Check if we're sharing our own card or someone else's
