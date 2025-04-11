@@ -27,7 +27,11 @@ public class HomeFragment extends Fragment {
     // Firebase
     private DatabaseReference database;
     private DatabaseReference sharedCardsRef;
+    private DatabaseReference allCardsRef;
+    private DatabaseReference campRequestsRef;
+    private DatabaseReference usersRef;
     private String userId;
+    private String userName;
 
     // Data
     private List<Card> cardList = new ArrayList<>();
@@ -39,6 +43,7 @@ public class HomeFragment extends Fragment {
         initializeViews(view);
         setupFirebase();
         setupListeners();
+        loadUserData();
         return view;
     }
 
@@ -56,8 +61,27 @@ public class HomeFragment extends Fragment {
             userId = auth.getCurrentUser().getUid();
             database = FirebaseDatabase.getInstance().getReference("cards").child(userId);
             sharedCardsRef = FirebaseDatabase.getInstance().getReference("sharedCards").child(userId);
+            allCardsRef = FirebaseDatabase.getInstance().getReference("allCards");
+            campRequestsRef = FirebaseDatabase.getInstance().getReference("campRequests");
+            usersRef = FirebaseDatabase.getInstance().getReference("users");
             loadData();
         }
+    }
+
+    private void loadUserData() {
+        usersRef.child(userId).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (snapshot.exists()) {
+                    userName = snapshot.child("name").getValue(String.class);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("HomeFragment", "Error loading user data", error.toException());
+            }
+        });
     }
 
     private void setupListeners() {
@@ -66,13 +90,19 @@ public class HomeFragment extends Fragment {
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextSubmit(String query) {
+                if (query.startsWith("#camp ")) {
+                    searchAllCards(query.substring(6).trim());
+                    return true;
+                }
                 filterCards(query);
                 return true;
             }
 
             @Override
             public boolean onQueryTextChange(String newText) {
-                filterCards(newText);
+                if (newText.isEmpty()) {
+                    filterCards("");
+                }
                 return true;
             }
         });
@@ -86,6 +116,7 @@ public class HomeFragment extends Fragment {
 
         loadUserCards();
         loadSharedCards();
+        setupCampRequestListener();
     }
 
     private void loadUserCards() {
@@ -121,13 +152,15 @@ public class HomeFragment extends Fragment {
                 if (getActivity() == null) return;
 
                 for (DataSnapshot data : snapshot.getChildren()) {
-                    String sharedBy = data.child("sharedBy").getValue(String.class);
                     Card card = data.getValue(Card.class);
-
-                    if (card != null && card.getId() != null && sharedBy != null) {
-                        verifyAndAddSharedCard(card, sharedBy);
+                    if (card != null && card.getId() != null) {
+                        if (!cardExists(card.getId())) {
+                            cardList.add(card);
+                            createAndAddCardView(card, true);
+                        }
                     }
                 }
+                updateEmptyState();
             }
 
             @Override
@@ -137,40 +170,152 @@ public class HomeFragment extends Fragment {
         });
     }
 
-    private void verifyAndAddSharedCard(Card card, String sharedBy) {
-        if (sharedBy == null || sharedBy.isEmpty() || card == null || card.getId() == null) {
-            Log.e("HomeFragment", "Invalid shared card data");
+    private void setupCampRequestListener() {
+        campRequestsRef.child(userId).orderByChild("status").equalTo("pending")
+                .addValueEventListener(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        for (DataSnapshot requestSnapshot : snapshot.getChildren()) {
+                            CampRequest request = requestSnapshot.getValue(CampRequest.class);
+                            if (request != null && request.getStatus().equals("pending")) {
+                                showCampRequestDialog(request);
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+                        Log.e("HomeFragment", "Error loading camp requests", error.toException());
+                    }
+                });
+    }
+
+    private void searchAllCards(String query) {
+        if (query.isEmpty()) return;
+
+        showLoadingIndicator(true);
+        allCardsRef.orderByChild("title").startAt(query).endAt(query + "\uf8ff")
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        List<Card> searchResults = new ArrayList<>();
+                        for (DataSnapshot cardSnapshot : snapshot.getChildren()) {
+                            Card card = cardSnapshot.getValue(Card.class);
+                            if (card != null && card.isCampCard() && !card.getAuthorId().equals(userId)) {
+                                searchResults.add(card);
+                            }
+                        }
+                        showLoadingIndicator(false);
+                        showSearchResultsDialog(searchResults);
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+                        showLoadingIndicator(false);
+                        Toast.makeText(getContext(), "Search failed: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    private void showSearchResultsDialog(List<Card> results) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+        builder.setTitle("Camp Cards Found");
+
+        if (results.isEmpty()) {
+            builder.setMessage("No camp cards found with this name");
+            builder.setPositiveButton("OK", null);
+        } else {
+            String[] cardTitles = new String[results.size()];
+            for (int i = 0; i < results.size(); i++) {
+                cardTitles[i] = results.get(i).getTitle() + " (by " + results.get(i).getAuthorId() + ")";
+            }
+
+            builder.setItems(cardTitles, (dialog, which) -> {
+                Card selectedCard = results.get(which);
+                sendCampRequest(selectedCard);
+            });
+        }
+
+        builder.show();
+    }
+
+    private void sendCampRequest(Card card) {
+        if (userId == null || userName == null) {
+            Toast.makeText(getContext(), "User information not available", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        DatabaseReference originalCardRef = FirebaseDatabase.getInstance()
-                .getReference("cards")
-                .child(sharedBy)
-                .child(card.getId());
+        String requestId = campRequestsRef.push().getKey();
+        if (requestId == null) {
+            Toast.makeText(getContext(), "Failed to create request", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
-        originalCardRef.addListenerForSingleValueEvent(new ValueEventListener() {
+        CampRequest request = new CampRequest(
+                requestId,
+                card.getId(),
+                card.getTitle(),
+                userId,
+                userName,
+                card.getAuthorId()
+        );
+
+        campRequestsRef.child(card.getAuthorId()).child(requestId).setValue(request)
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(getContext(), "Request sent to camp members", Toast.LENGTH_SHORT).show();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(getContext(), "Failed to send request", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    private void showCampRequestDialog(CampRequest request) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+        builder.setTitle("Camp Membership Request");
+        builder.setMessage(request.getRequesterName() + " wants to join your camp for card: " + request.getCardTitle());
+
+        builder.setPositiveButton("Accept", (dialog, which) -> {
+            request.setStatus("approved");
+            campRequestsRef.child(request.getOwnerId()).child(request.getRequestId()).setValue(request);
+
+            // Add user to camp members
+            allCardsRef.child(request.getCardId()).child("campMembers").child(request.getRequesterId()).setValue(true)
+                    .addOnSuccessListener(aVoid -> {
+                        shareCardWithUser(request.getCardId(), request.getRequesterId());
+                        Toast.makeText(getContext(), "Request approved", Toast.LENGTH_SHORT).show();
+                    });
+        });
+
+        builder.setNegativeButton("Reject", (dialog, which) -> {
+            request.setStatus("rejected");
+            campRequestsRef.child(request.getOwnerId()).child(request.getRequestId()).setValue(request);
+            Toast.makeText(getContext(), "Request rejected", Toast.LENGTH_SHORT).show();
+        });
+
+        builder.setCancelable(false);
+        builder.show();
+    }
+
+    private void shareCardWithUser(String cardId, String userId) {
+        allCardsRef.child(cardId).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (!isAdded()) return;
-                if (snapshot.exists()) {
-                    getActivity().runOnUiThread(() -> {
-                        if (!cardExists(card.getId())) {
-                            cardList.add(card);
-                            createAndAddCardView(card, true); // Mark as shared
-                            updateEmptyState();
-                        }
-                    });
-                } else {
-                    // Remove invalid shared card reference
-                    sharedCardsRef.child(card.getId()).removeValue()
-                            .addOnSuccessListener(aVoid -> Log.d("HomeFragment", "Removed invalid shared card"))
-                            .addOnFailureListener(e -> Log.e("HomeFragment", "Failed to remove shared card", e));
+                Card card = snapshot.getValue(Card.class);
+                if (card != null) {
+                    DatabaseReference sharedRef = FirebaseDatabase.getInstance()
+                            .getReference("sharedCards")
+                            .child(userId)
+                            .child(cardId);
+
+                    sharedRef.setValue(card)
+                            .addOnSuccessListener(aVoid -> Log.d("HomeFragment", "Card shared successfully"))
+                            .addOnFailureListener(e -> Log.e("HomeFragment", "Failed to share card", e));
                 }
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                Log.e("HomeFragment", "Error verifying shared card", error.toException());
+                Log.e("HomeFragment", "Error fetching card to share", error.toException());
             }
         });
     }
@@ -188,19 +333,24 @@ public class HomeFragment extends Fragment {
         final EditText descInput = new EditText(getContext());
         descInput.setHint("Description (Optional)");
 
+        final CheckBox campCheckbox = new CheckBox(getContext());
+        campCheckbox.setText("This is a camp card (shareable with others)");
+
         LinearLayout layout = new LinearLayout(getContext());
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setPadding(32, 16, 32, 16);
         layout.addView(titleInput);
         layout.addView(descInput);
+        layout.addView(campCheckbox);
 
         builder.setView(layout);
         builder.setPositiveButton("Create", (dialog, which) -> {
             String title = titleInput.getText().toString().trim();
             String description = descInput.getText().toString().trim();
+            boolean isCampCard = campCheckbox.isChecked();
 
             if (!title.isEmpty()) {
-                createNewCard(title, description);
+                createNewCard(title, description, isCampCard);
             } else {
                 Toast.makeText(getContext(), "Title cannot be empty", Toast.LENGTH_SHORT).show();
             }
@@ -209,7 +359,7 @@ public class HomeFragment extends Fragment {
         builder.show();
     }
 
-    private void createNewCard(String title, String description) {
+    private void createNewCard(String title, String description, boolean isCampCard) {
         String cardId = database.push().getKey();
         if (cardId == null) {
             Toast.makeText(getContext(), "Failed to create card ID", Toast.LENGTH_SHORT).show();
@@ -217,12 +367,19 @@ public class HomeFragment extends Fragment {
         }
 
         Card card = new Card(cardId, title, description, "Medium", userId, System.currentTimeMillis());
+        card.setCampCard(isCampCard);
+
         database.child(cardId).setValue(card)
                 .addOnSuccessListener(aVoid -> {
                     cardList.add(card);
                     createAndAddCardView(card, false);
                     updateEmptyState();
                     Toast.makeText(getContext(), "Card created", Toast.LENGTH_SHORT).show();
+
+                    if (isCampCard) {
+                        allCardsRef.child(cardId).setValue(card)
+                                .addOnFailureListener(e -> Log.e("HomeFragment", "Failed to save camp card globally", e));
+                    }
                 })
                 .addOnFailureListener(e -> {
                     Toast.makeText(getContext(), "Failed to create card", Toast.LENGTH_SHORT).show();
@@ -240,7 +397,11 @@ public class HomeFragment extends Fragment {
             TextView recDesc = cardView.findViewById(R.id.recDesc);
 
             // Set card details
-            recTitle.setText(isShared ? "[Shared] " + card.getTitle() : card.getTitle());
+            String titleText = card.getTitle();
+            if (isShared) titleText = "[Shared] " + titleText;
+            if (card.isCampCard()) titleText = "🏕 " + titleText;
+
+            recTitle.setText(titleText);
             recDesc.setText(card.getDescription());
             recPriority.setText(card.getPriority());
             recImage.setImageResource(R.drawable.uploadimg);
@@ -266,6 +427,7 @@ public class HomeFragment extends Fragment {
 
         Intent intent = new Intent(getContext(), CardActivity.class);
         intent.putExtra("cardId", card.getId());
+        intent.putExtra("isCampCard", card.isCampCard());
         if (isShared) {
             intent.putExtra("originalOwnerId", card.getAuthorId());
         }
@@ -274,6 +436,8 @@ public class HomeFragment extends Fragment {
 
     private void filterCards(String query) {
         if (!isAdded()) return;
+
+        clearNoResultsMessage();
 
         if (query.isEmpty()) {
             for (View cardView : cardViewsMap.values()) {
@@ -297,14 +461,24 @@ public class HomeFragment extends Fragment {
             }
         }
 
+        updateEmptyState();
+
         if (visibleCount == 0) {
             showNoResultsMessage();
         }
     }
 
+    private void clearNoResultsMessage() {
+        TextView noResultsView = cardContainer.findViewWithTag("no_results");
+        if (noResultsView != null) {
+            cardContainer.removeView(noResultsView);
+        }
+    }
+
     private void showNoResultsMessage() {
         TextView noResults = new TextView(getContext());
-        noResults.setText("No matching cards found");
+        noResults.setTag("no_results");
+        noResults.setText("No cards found matching '" + searchView.getQuery() + "'");
         noResults.setTextSize(16);
         noResults.setTextColor(ContextCompat.getColor(getContext(), android.R.color.darker_gray));
         noResults.setGravity(Gravity.CENTER);
