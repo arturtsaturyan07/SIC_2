@@ -13,6 +13,7 @@ import androidx.appcompat.widget.SearchView;
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 import com.google.android.material.imageview.ShapeableImageView;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.*;
 import java.util.*;
 
@@ -74,14 +75,42 @@ public class HomeFragment extends Fragment {
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (snapshot.exists()) {
                     userName = snapshot.child("name").getValue(String.class);
+                    if (userName == null || userName.isEmpty()) {
+                        // If name doesn't exist, use email as fallback
+                        String email = snapshot.child("email").getValue(String.class);
+                        userName = email != null ? email.split("@")[0] : "Anonymous";
+
+                        // Save the generated name back to Firebase
+                        usersRef.child(userId).child("name").setValue(userName);
+                    }
+                } else {
+                    // Create user profile if it doesn't exist
+                    createUserProfile();
                 }
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
                 Log.e("HomeFragment", "Error loading user data", error.toException());
+                userName = "Anonymous";
             }
         });
+    }
+
+    private void createUserProfile() {
+        FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (firebaseUser != null) {
+            String email = firebaseUser.getEmail();
+            userName = email != null ? email.split("@")[0] : "Anonymous";
+
+            Map<String, Object> user = new HashMap<>();
+            user.put("name", userName);
+            user.put("email", email != null ? email : "");
+
+            usersRef.child(userId).setValue(user)
+                    .addOnSuccessListener(aVoid -> Log.d("HomeFragment", "User profile created"))
+                    .addOnFailureListener(e -> Log.e("HomeFragment", "Failed to create user profile", e));
+        }
     }
 
     private void setupListeners() {
@@ -146,18 +175,20 @@ public class HomeFragment extends Fragment {
     }
 
     private void loadSharedCards() {
-        sharedCardsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+        sharedCardsRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (getActivity() == null) return;
+                if (!isAdded()) return;
 
                 for (DataSnapshot data : snapshot.getChildren()) {
-                    Card card = data.getValue(Card.class);
-                    if (card != null && card.getId() != null) {
-                        if (!cardExists(card.getId())) {
+                    try {
+                        Card card = data.getValue(Card.class);
+                        if (card != null && card.getId() != null && !cardExists(card.getId())) {
                             cardList.add(card);
-                            createAndAddCardView(card, true);
+                            createAndAddCardView(card, true); // Mark as shared
                         }
+                    } catch (Exception e) {
+                        Log.e("HomeFragment", "Error parsing shared card", e);
                     }
                 }
                 updateEmptyState();
@@ -240,10 +271,13 @@ public class HomeFragment extends Fragment {
     }
 
     private void sendCampRequest(Card card) {
-        if (userId == null || userName == null) {
-            Toast.makeText(getContext(), "User information not available", Toast.LENGTH_SHORT).show();
+        if (userId == null) {
+            Toast.makeText(getContext(), "Please wait while we load your account", Toast.LENGTH_SHORT).show();
             return;
         }
+
+        // Use a default name if not loaded yet
+        String requestName = userName != null ? userName : "Anonymous User";
 
         String requestId = campRequestsRef.push().getKey();
         if (requestId == null) {
@@ -256,7 +290,7 @@ public class HomeFragment extends Fragment {
                 card.getId(),
                 card.getTitle(),
                 userId,
-                userName,
+                requestName,
                 card.getAuthorId()
         );
 
@@ -275,14 +309,17 @@ public class HomeFragment extends Fragment {
         builder.setMessage(request.getRequesterName() + " wants to join your camp for card: " + request.getCardTitle());
 
         builder.setPositiveButton("Accept", (dialog, which) -> {
+            // Update request status first
             request.setStatus("approved");
-            campRequestsRef.child(request.getOwnerId()).child(request.getRequestId()).setValue(request);
-
-            // Add user to camp members
-            allCardsRef.child(request.getCardId()).child("campMembers").child(request.getRequesterId()).setValue(true)
+            campRequestsRef.child(request.getOwnerId()).child(request.getRequestId()).setValue(request)
                     .addOnSuccessListener(aVoid -> {
-                        shareCardWithUser(request.getCardId(), request.getRequesterId());
-                        Toast.makeText(getContext(), "Request approved", Toast.LENGTH_SHORT).show();
+                        // Then add to camp members and share the card
+                        allCardsRef.child(request.getCardId()).child("campMembers")
+                                .child(request.getRequesterId()).setValue(true)
+                                .addOnSuccessListener(aVoid1 -> {
+                                    shareCardWithUser(request.getCardId(), request.getRequesterId());
+                                    Toast.makeText(getContext(), "Request approved and card shared", Toast.LENGTH_SHORT).show();
+                                });
                     });
         });
 
@@ -300,24 +337,54 @@ public class HomeFragment extends Fragment {
         allCardsRef.child(cardId).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                Card card = snapshot.getValue(Card.class);
-                if (card != null) {
+                if (!isAdded()) return;
+
+                // Get the card as a Map to avoid serialization issues
+                Map<String, Object> cardData = (Map<String, Object>) snapshot.getValue();
+                if (cardData != null) {
+                    // Create a clean shared card data
+                    Map<String, Object> sharedCard = new HashMap<>();
+                    sharedCard.put("id", cardData.get("id"));
+                    sharedCard.put("title", cardData.get("title"));
+                    sharedCard.put("description", cardData.get("description"));
+                    sharedCard.put("priority", cardData.get("priority"));
+                    sharedCard.put("authorId", cardData.get("authorId"));
+                    sharedCard.put("timestamp", cardData.get("timestamp"));
+                    sharedCard.put("isCampCard", cardData.get("isCampCard"));
+                    sharedCard.put("sharedBy", FirebaseAuth.getInstance().getCurrentUser().getUid());
+
                     DatabaseReference sharedRef = FirebaseDatabase.getInstance()
                             .getReference("sharedCards")
                             .child(userId)
                             .child(cardId);
 
-                    sharedRef.setValue(card)
-                            .addOnSuccessListener(aVoid -> Log.d("HomeFragment", "Card shared successfully"))
-                            .addOnFailureListener(e -> Log.e("HomeFragment", "Failed to share card", e));
+                    sharedRef.setValue(sharedCard)
+                            .addOnSuccessListener(aVoid -> {
+                                Log.d("Sharing", "Card successfully shared");
+                                // Force refresh the recipient's card list
+                                sendRefreshSignal(userId);
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e("Sharing", "Failed to share card", e);
+                            });
                 }
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                Log.e("HomeFragment", "Error fetching card to share", error.toException());
+                Log.e("Sharing", "Error sharing card", error.toException());
             }
         });
+    }
+
+    private void sendRefreshSignal(String userId) {
+        // Implement your refresh notification logic here
+        // Could use FCM or a dedicated "notifications" node in Firebase
+    }
+
+    private void sendNotificationToUser(String userId, String message) {
+        // Implement your notification logic here (FCM, etc.)
+        Log.d("HomeFragment", "Notification sent to user: " + userId);
     }
 
     private void showCardCreationDialog() {
@@ -534,7 +601,23 @@ public class HomeFragment extends Fragment {
         super.onResume();
         if (userId != null) {
             loadData();
+            setupSharedCardsListener();
         }
+    }
+
+    private void setupSharedCardsListener() {
+        sharedCardsRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                // This will automatically update when new cards are shared
+                loadSharedCards();
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("HomeFragment", "Shared cards listener cancelled", error.toException());
+            }
+        });
     }
 
     public void reloadData() {
