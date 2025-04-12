@@ -76,15 +76,11 @@ public class HomeFragment extends Fragment {
                 if (snapshot.exists()) {
                     userName = snapshot.child("name").getValue(String.class);
                     if (userName == null || userName.isEmpty()) {
-                        // If name doesn't exist, use email as fallback
                         String email = snapshot.child("email").getValue(String.class);
                         userName = email != null ? email.split("@")[0] : "Anonymous";
-
-                        // Save the generated name back to Firebase
                         usersRef.child(userId).child("name").setValue(userName);
                     }
                 } else {
-                    // Create user profile if it doesn't exist
                     createUserProfile();
                 }
             }
@@ -169,7 +165,7 @@ public class HomeFragment extends Fragment {
             public void onCancelled(@NonNull DatabaseError error) {
                 Log.e("HomeFragment", "Error loading cards", error.toException());
                 showLoadingIndicator(false);
-                Toast.makeText(getContext(), "Failed to load cards", Toast.LENGTH_SHORT).show();
+                showToast("Failed to load cards");
             }
         });
     }
@@ -185,7 +181,7 @@ public class HomeFragment extends Fragment {
                         Card card = data.getValue(Card.class);
                         if (card != null && card.getId() != null && !cardExists(card.getId())) {
                             cardList.add(card);
-                            createAndAddCardView(card, true); // Mark as shared
+                            createAndAddCardView(card, true);
                         }
                     } catch (Exception e) {
                         Log.e("HomeFragment", "Error parsing shared card", e);
@@ -206,6 +202,8 @@ public class HomeFragment extends Fragment {
                 .addValueEventListener(new ValueEventListener() {
                     @Override
                     public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        if (!isAdded()) return;
+
                         for (DataSnapshot requestSnapshot : snapshot.getChildren()) {
                             CampRequest request = requestSnapshot.getValue(CampRequest.class);
                             if (request != null && request.getStatus().equals("pending")) {
@@ -243,45 +241,49 @@ public class HomeFragment extends Fragment {
                     @Override
                     public void onCancelled(@NonNull DatabaseError error) {
                         showLoadingIndicator(false);
-                        Toast.makeText(getContext(), "Search failed: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+                        showToast("Search failed: " + error.getMessage());
                     }
                 });
     }
 
     private void showSearchResultsDialog(List<Card> results) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
-        builder.setTitle("Camp Cards Found");
+        if (!isAdded() || getContext() == null) return;
 
-        if (results.isEmpty()) {
-            builder.setMessage("No camp cards found with this name");
-            builder.setPositiveButton("OK", null);
-        } else {
-            String[] cardTitles = new String[results.size()];
-            for (int i = 0; i < results.size(); i++) {
-                cardTitles[i] = results.get(i).getTitle() + " (by " + results.get(i).getAuthorId() + ")";
+        try {
+            AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
+            builder.setTitle("Camp Cards Found");
+
+            if (results.isEmpty()) {
+                builder.setMessage("No camp cards found with this name");
+                builder.setPositiveButton("OK", null);
+            } else {
+                String[] cardTitles = new String[results.size()];
+                for (int i = 0; i < results.size(); i++) {
+                    cardTitles[i] = results.get(i).getTitle() + " (by " + results.get(i).getAuthorId() + ")";
+                }
+
+                builder.setItems(cardTitles, (dialog, which) -> {
+                    Card selectedCard = results.get(which);
+                    sendCampRequest(selectedCard);
+                });
             }
 
-            builder.setItems(cardTitles, (dialog, which) -> {
-                Card selectedCard = results.get(which);
-                sendCampRequest(selectedCard);
-            });
+            builder.show();
+        } catch (IllegalStateException e) {
+            Log.e("HomeFragment", "Error showing search results dialog", e);
         }
-
-        builder.show();
     }
 
     private void sendCampRequest(Card card) {
         if (userId == null) {
-            Toast.makeText(getContext(), "Please wait while we load your account", Toast.LENGTH_SHORT).show();
+            showToast("Please wait while we load your account");
             return;
         }
 
-        // Use a default name if not loaded yet
         String requestName = userName != null ? userName : "Anonymous User";
-
         String requestId = campRequestsRef.push().getKey();
         if (requestId == null) {
-            Toast.makeText(getContext(), "Failed to create request", Toast.LENGTH_SHORT).show();
+            showToast("Failed to create request");
             return;
         }
 
@@ -296,41 +298,48 @@ public class HomeFragment extends Fragment {
 
         campRequestsRef.child(card.getAuthorId()).child(requestId).setValue(request)
                 .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(getContext(), "Request sent to camp members", Toast.LENGTH_SHORT).show();
+                    showToast("Request sent to camp members");
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(getContext(), "Failed to send request", Toast.LENGTH_SHORT).show();
+                    showToast("Failed to send request");
                 });
     }
 
     private void showCampRequestDialog(CampRequest request) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
-        builder.setTitle("Camp Membership Request");
-        builder.setMessage(request.getRequesterName() + " wants to join your camp for card: " + request.getCardTitle());
+        if (!isAdded() || getContext() == null) {
+            Log.w("HomeFragment", "Fragment not attached, skipping dialog");
+            return;
+        }
 
-        builder.setPositiveButton("Accept", (dialog, which) -> {
-            // Update request status first
-            request.setStatus("approved");
-            campRequestsRef.child(request.getOwnerId()).child(request.getRequestId()).setValue(request)
-                    .addOnSuccessListener(aVoid -> {
-                        // Then add to camp members and share the card
-                        allCardsRef.child(request.getCardId()).child("campMembers")
-                                .child(request.getRequesterId()).setValue(true)
-                                .addOnSuccessListener(aVoid1 -> {
-                                    shareCardWithUser(request.getCardId(), request.getRequesterId());
-                                    Toast.makeText(getContext(), "Request approved and card shared", Toast.LENGTH_SHORT).show();
-                                });
-                    });
-        });
+        try {
+            AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
+            builder.setTitle("Camp Membership Request");
+            builder.setMessage(request.getRequesterName() + " wants to join your camp for card: " + request.getCardTitle());
 
-        builder.setNegativeButton("Reject", (dialog, which) -> {
-            request.setStatus("rejected");
-            campRequestsRef.child(request.getOwnerId()).child(request.getRequestId()).setValue(request);
-            Toast.makeText(getContext(), "Request rejected", Toast.LENGTH_SHORT).show();
-        });
+            builder.setPositiveButton("Accept", (dialog, which) -> {
+                request.setStatus("approved");
+                campRequestsRef.child(request.getOwnerId()).child(request.getRequestId()).setValue(request)
+                        .addOnSuccessListener(aVoid -> {
+                            allCardsRef.child(request.getCardId()).child("campMembers")
+                                    .child(request.getRequesterId()).setValue(true)
+                                    .addOnSuccessListener(aVoid1 -> {
+                                        shareCardWithUser(request.getCardId(), request.getRequesterId());
+                                        showToast("Request approved and card shared");
+                                    });
+                        });
+            });
 
-        builder.setCancelable(false);
-        builder.show();
+            builder.setNegativeButton("Reject", (dialog, which) -> {
+                request.setStatus("rejected");
+                campRequestsRef.child(request.getOwnerId()).child(request.getRequestId()).setValue(request);
+                showToast("Request rejected");
+            });
+
+            builder.setCancelable(false);
+            builder.show();
+        } catch (IllegalStateException e) {
+            Log.e("HomeFragment", "Error showing camp request dialog", e);
+        }
     }
 
     private void shareCardWithUser(String cardId, String userId) {
@@ -339,10 +348,8 @@ public class HomeFragment extends Fragment {
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (!isAdded()) return;
 
-                // Get the card as a Map to avoid serialization issues
                 Map<String, Object> cardData = (Map<String, Object>) snapshot.getValue();
                 if (cardData != null) {
-                    // Create a clean shared card data
                     Map<String, Object> sharedCard = new HashMap<>();
                     sharedCard.put("id", cardData.get("id"));
                     sharedCard.put("title", cardData.get("title"));
@@ -361,7 +368,6 @@ public class HomeFragment extends Fragment {
                     sharedRef.setValue(sharedCard)
                             .addOnSuccessListener(aVoid -> {
                                 Log.d("Sharing", "Card successfully shared");
-                                // Force refresh the recipient's card list
                                 sendRefreshSignal(userId);
                             })
                             .addOnFailureListener(e -> {
@@ -379,57 +385,55 @@ public class HomeFragment extends Fragment {
 
     private void sendRefreshSignal(String userId) {
         // Implement your refresh notification logic here
-        // Could use FCM or a dedicated "notifications" node in Firebase
-    }
-
-    private void sendNotificationToUser(String userId, String message) {
-        // Implement your notification logic here (FCM, etc.)
-        Log.d("HomeFragment", "Notification sent to user: " + userId);
     }
 
     private void showCardCreationDialog() {
         if (!isAdded() || getContext() == null) return;
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
-        builder.setTitle("Create New Card");
+        try {
+            AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
+            builder.setTitle("Create New Card");
 
-        final EditText titleInput = new EditText(getContext());
-        titleInput.setHint("Title");
-        titleInput.setSingleLine();
+            final EditText titleInput = new EditText(requireContext());
+            titleInput.setHint("Title");
+            titleInput.setSingleLine();
 
-        final EditText descInput = new EditText(getContext());
-        descInput.setHint("Description (Optional)");
+            final EditText descInput = new EditText(requireContext());
+            descInput.setHint("Description (Optional)");
 
-        final CheckBox campCheckbox = new CheckBox(getContext());
-        campCheckbox.setText("This is a camp card (shareable with others)");
+            final CheckBox campCheckbox = new CheckBox(requireContext());
+            campCheckbox.setText("This is a camp card (shareable with others)");
 
-        LinearLayout layout = new LinearLayout(getContext());
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(32, 16, 32, 16);
-        layout.addView(titleInput);
-        layout.addView(descInput);
-        layout.addView(campCheckbox);
+            LinearLayout layout = new LinearLayout(requireContext());
+            layout.setOrientation(LinearLayout.VERTICAL);
+            layout.setPadding(32, 16, 32, 16);
+            layout.addView(titleInput);
+            layout.addView(descInput);
+            layout.addView(campCheckbox);
 
-        builder.setView(layout);
-        builder.setPositiveButton("Create", (dialog, which) -> {
-            String title = titleInput.getText().toString().trim();
-            String description = descInput.getText().toString().trim();
-            boolean isCampCard = campCheckbox.isChecked();
+            builder.setView(layout);
+            builder.setPositiveButton("Create", (dialog, which) -> {
+                String title = titleInput.getText().toString().trim();
+                String description = descInput.getText().toString().trim();
+                boolean isCampCard = campCheckbox.isChecked();
 
-            if (!title.isEmpty()) {
-                createNewCard(title, description, isCampCard);
-            } else {
-                Toast.makeText(getContext(), "Title cannot be empty", Toast.LENGTH_SHORT).show();
-            }
-        });
-        builder.setNegativeButton("Cancel", null);
-        builder.show();
+                if (!title.isEmpty()) {
+                    createNewCard(title, description, isCampCard);
+                } else {
+                    showToast("Title cannot be empty");
+                }
+            });
+            builder.setNegativeButton("Cancel", null);
+            builder.show();
+        } catch (IllegalStateException e) {
+            Log.e("HomeFragment", "Error showing card creation dialog", e);
+        }
     }
 
     private void createNewCard(String title, String description, boolean isCampCard) {
         String cardId = database.push().getKey();
         if (cardId == null) {
-            Toast.makeText(getContext(), "Failed to create card ID", Toast.LENGTH_SHORT).show();
+            showToast("Failed to create card ID");
             return;
         }
 
@@ -441,7 +445,7 @@ public class HomeFragment extends Fragment {
                     cardList.add(card);
                     createAndAddCardView(card, false);
                     updateEmptyState();
-                    Toast.makeText(getContext(), "Card created", Toast.LENGTH_SHORT).show();
+                    showToast("Card created");
 
                     if (isCampCard) {
                         allCardsRef.child(cardId).setValue(card)
@@ -449,7 +453,7 @@ public class HomeFragment extends Fragment {
                     }
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(getContext(), "Failed to create card", Toast.LENGTH_SHORT).show();
+                    showToast("Failed to create card");
                 });
     }
 
@@ -457,13 +461,12 @@ public class HomeFragment extends Fragment {
         if (!isAdded() || getContext() == null) return;
 
         try {
-            View cardView = LayoutInflater.from(getContext()).inflate(R.layout.rec_card, cardContainer, false);
+            View cardView = LayoutInflater.from(requireContext()).inflate(R.layout.rec_card, cardContainer, false);
             ShapeableImageView recImage = cardView.findViewById(R.id.recImage);
             TextView recTitle = cardView.findViewById(R.id.recTitle);
             TextView recPriority = cardView.findViewById(R.id.recPriority);
             TextView recDesc = cardView.findViewById(R.id.recDesc);
 
-            // Set card details
             String titleText = card.getTitle();
             if (isShared) titleText = "[Shared] " + titleText;
             if (card.isCampCard()) titleText = "🏕 " + titleText;
@@ -473,15 +476,12 @@ public class HomeFragment extends Fragment {
             recPriority.setText(card.getPriority());
             recImage.setImageResource(R.drawable.uploadimg);
 
-            // Highlight shared cards visually
             if (isShared) {
-                cardView.setBackgroundColor(ContextCompat.getColor(getContext(), R.color.shared_card_bg));
+                cardView.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.shared_card_bg));
             }
 
-            // Set click listener to open card details
             cardView.setOnClickListener(v -> openCardDetails(card, isShared));
 
-            // Add the card view to the container
             cardContainer.addView(cardView);
             cardViewsMap.put(card.getId(), cardView);
         } catch (Exception e) {
@@ -492,7 +492,7 @@ public class HomeFragment extends Fragment {
     private void openCardDetails(Card card, boolean isShared) {
         if (!isAdded()) return;
 
-        Intent intent = new Intent(getContext(), CardActivity.class);
+        Intent intent = new Intent(requireContext(), CardActivity.class);
         intent.putExtra("cardId", card.getId());
         intent.putExtra("isCampCard", card.isCampCard());
         if (isShared) {
@@ -543,11 +543,13 @@ public class HomeFragment extends Fragment {
     }
 
     private void showNoResultsMessage() {
-        TextView noResults = new TextView(getContext());
+        if (!isAdded() || getContext() == null) return;
+
+        TextView noResults = new TextView(requireContext());
         noResults.setTag("no_results");
         noResults.setText("No cards found matching '" + searchView.getQuery() + "'");
         noResults.setTextSize(16);
-        noResults.setTextColor(ContextCompat.getColor(getContext(), android.R.color.darker_gray));
+        noResults.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.darker_gray));
         noResults.setGravity(Gravity.CENTER);
         noResults.setPadding(0, 32, 0, 0);
         cardContainer.addView(noResults);
@@ -596,6 +598,11 @@ public class HomeFragment extends Fragment {
         progressBar.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
+    private void showToast(String message) {
+        if (!isAdded() || getContext() == null) return;
+        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
+    }
+
     @Override
     public void onResume() {
         super.onResume();
@@ -609,7 +616,6 @@ public class HomeFragment extends Fragment {
         sharedCardsRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                // This will automatically update when new cards are shared
                 loadSharedCards();
             }
 

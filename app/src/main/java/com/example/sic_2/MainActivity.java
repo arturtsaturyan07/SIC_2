@@ -16,16 +16,17 @@ import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentTransaction;
 import androidx.preference.PreferenceManager;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
-import com.google.firebase.database.DataSnapshot;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -43,6 +44,9 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // Initialize views first
+        initializeViews();
 
         auth = FirebaseAuth.getInstance();
         user = auth.getCurrentUser();
@@ -70,10 +74,17 @@ public class MainActivity extends AppCompatActivity {
         }
 
         applyDarkMode();
-        initializeViews();
         setupBottomNavigationView();
 
-        loadFragment(new HomeFragment());
+        // Load default fragment
+        if (savedInstanceState == null) {
+            loadFragment(new HomeFragment());
+        }
+    }
+
+    private void initializeViews() {
+        bottomNavigationView = findViewById(R.id.bottom_navigation);
+        cardContainer = findViewById(R.id.card_container);
     }
 
     private void initializeFirebase(boolean isGuest, Intent intent) {
@@ -82,14 +93,15 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        String email_ = intent.getStringExtra("email");
-        String name_ = RegisterActivity.name_;
-        String surname_ = intent.getStringExtra("surname");
-
-        if (email_ == null) email_ = user.getEmail();
-
         usersRef = FirebaseDatabase.getInstance().getReference("users");
-        checkIfUserExists(email_, name_, surname_);
+
+        // Get user info from intent or Firebase user
+        String email = intent.getStringExtra("email");
+        if (email == null && user != null) {
+            email = user.getEmail();
+        }
+
+        checkIfUserExists(email);
     }
 
     private void redirectToLogin() {
@@ -104,13 +116,13 @@ public class MainActivity extends AppCompatActivity {
                 AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
     }
 
-    private void checkIfUserExists(String email, String name, String surname) {
+    private void checkIfUserExists(String email) {
         usersRef.child(userId).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                 if (!dataSnapshot.exists()) {
                     Log.d("Firebase", "User does not exist, creating...");
-                    createUser(email, name, surname);
+                    createUser(email);
                 } else {
                     Log.d("Firebase", "User already exists in database.");
                 }
@@ -123,40 +135,38 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void createUser(String email, String name, String surname) {
-        name = Objects.requireNonNullElse(name, Objects.requireNonNullElse(user.getDisplayName(), "Unknown"));
-        surname = Objects.requireNonNullElse(surname, "Unknown");
-        email = Objects.requireNonNullElse(email, "no-email@example.com");
+    private void createUser(String email) {
+        String name = user.getDisplayName();
+        if (name == null || name.isEmpty()) {
+            name = "User";
+        }
 
-        User newUser = new User(userId, name, surname, email);
-        String finalName = name;
-        String finalSurname = surname;
-        String finalEmail = email;
+        User newUser = new User(userId, name, "", email != null ? email : "no-email@example.com");
         usersRef.child(userId).setValue(newUser)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
-                        Log.d("Firebase", "User created successfully: " + finalName + " " + finalSurname + " " + finalEmail);
+                        Log.d("Firebase", "User created successfully");
                     } else {
                         Log.e("Firebase", "User creation failed", task.getException());
                     }
                 });
     }
 
-    private void initializeViews() {
-        bottomNavigationView = findViewById(R.id.bottom_navigation);
-        cardContainer = findViewById(R.id.card_container);
-    }
-
-    private Fragment getFragmentById(int id) {
-        if (id == R.id.home) return new HomeFragment();
-        if (id == R.id.notification) return new NotificationFragment();
-        if (id == R.id.settings) return new SettingsFragment();
-        return null;
-    }
-
     private void setupBottomNavigationView() {
         bottomNavigationView.setOnItemSelectedListener(item -> {
-            Fragment selectedFragment = getFragmentById(item.getItemId());
+            Fragment selectedFragment = null;
+            int itemId = item.getItemId();
+
+            if (itemId == R.id.home) {
+                selectedFragment = new HomeFragment();
+            } else if (itemId == R.id.notification) {
+                selectedFragment = new NotificationFragment();
+            } else if (itemId == R.id.profile) {
+                selectedFragment = new ProfileFragment();
+            } else if (itemId == R.id.settings) {
+                selectedFragment = new SettingsFragment();
+            }
+
             if (selectedFragment != null) {
                 loadFragment(selectedFragment);
                 return true;
@@ -166,25 +176,26 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadFragment(Fragment fragment) {
-        getSupportFragmentManager().beginTransaction()
-                .replace(R.id.container, fragment)
-                .commit();
+        FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+        transaction.replace(R.id.container, fragment);
+        transaction.commit();
     }
 
     private void loadUserCards() {
-        String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
-        DatabaseReference cardsRef = FirebaseDatabase.getInstance().getReference("cards");
+        if (userId == null) return;
 
+        DatabaseReference cardsRef = FirebaseDatabase.getInstance().getReference("cards");
         cardsRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (cardContainer == null) return;
+
+                cardContainer.removeAllViews();
                 for (DataSnapshot cardSnapshot : snapshot.getChildren()) {
                     DataSnapshot usersSnapshot = cardSnapshot.child("users");
-
-                    if (usersSnapshot.hasChild(userId) && usersSnapshot.child(userId).getValue(Boolean.class)) {
+                    if (usersSnapshot.hasChild(userId) && Boolean.TRUE.equals(usersSnapshot.child(userId).getValue(Boolean.class))) {
                         String cardId = cardSnapshot.getKey();
                         String message = cardSnapshot.child("message").getValue(String.class);
-
                         if (message != null) {
                             addCardToUI(cardId, message);
                         }
@@ -200,6 +211,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void addCardToUI(String cardId, String message) {
+        if (cardContainer == null) return;
+
         TextView cardView = new TextView(this);
         cardView.setText(message);
         cardView.setPadding(16, 16, 16, 16);

@@ -8,7 +8,6 @@ import android.util.Log;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -20,7 +19,7 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
-import com.google.firebase.firestore.FirebaseFirestore;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -28,13 +27,11 @@ import java.util.Objects;
 public class LoginActivity extends AppCompatActivity {
 
     TextInputEditText etLoginEmail;
-    public static String email_;
     TextInputEditText etLoginPassword;
-    TextView tvRegisterHere;
+    TextView tvRegisterHere;  // Changed from tvLoginHere to match XML
     Button btnLogin;
     Button btnGuestMode;
     FirebaseAuth mAuth;
-    FirebaseFirestore db;
     private DatabaseReference usersRef;
 
     @Override
@@ -42,14 +39,14 @@ public class LoginActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
+        // Initialize views - IDs now match your XML
         etLoginEmail = findViewById(R.id.etLoginEmail);
         etLoginPassword = findViewById(R.id.etLoginPass);
-        tvRegisterHere = findViewById(R.id.tvRegisterHere);
+        tvRegisterHere = findViewById(R.id.tvRegisterHere); // Correct ID
         btnLogin = findViewById(R.id.btnLogin);
         btnGuestMode = findViewById(R.id.btnGuestMode);
 
         mAuth = FirebaseAuth.getInstance();
-        db = FirebaseFirestore.getInstance();
         usersRef = FirebaseDatabase.getInstance().getReference("users");
 
         btnLogin.setOnClickListener(view -> loginUser());
@@ -60,7 +57,6 @@ public class LoginActivity extends AppCompatActivity {
     private void loginUser() {
         String email = Objects.requireNonNull(etLoginEmail.getText()).toString();
         String password = Objects.requireNonNull(etLoginPassword.getText()).toString();
-        email_ = email;
 
         if (TextUtils.isEmpty(email)) {
             etLoginEmail.setError("Email cannot be empty");
@@ -82,7 +78,8 @@ public class LoginActivity extends AppCompatActivity {
                     FirebaseUser user = mAuth.getCurrentUser();
                     if (user != null) {
                         if (user.isEmailVerified()) {
-                            createUserProfileIfNeeded(user);
+                            verifyUserProfile(user);
+                            progressDialog.dismiss();
                             Toast.makeText(LoginActivity.this, "User logged in successfully", Toast.LENGTH_SHORT).show();
                             startActivity(new Intent(LoginActivity.this, MainActivity.class));
                             finish();
@@ -110,30 +107,24 @@ public class LoginActivity extends AppCompatActivity {
         }
     }
 
-    private void createUserProfileIfNeeded(FirebaseUser firebaseUser) {
-        String userId = firebaseUser.getUid();
-        String email = firebaseUser.getEmail();
-        String name = email != null ? email.split("@")[0] : "Anonymous";
-
-        usersRef.child(userId).addListenerForSingleValueEvent(new ValueEventListener() {
+    private void verifyUserProfile(FirebaseUser user) {
+        usersRef.child(user.getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (!snapshot.exists()) {
-                    // User profile doesn't exist, create one
-                    Map<String, Object> user = new HashMap<>();
-                    user.put("name", name);
-                    user.put("email", email != null ? email : "");
-                    user.put("timestamp", System.currentTimeMillis());
+                    // Create basic profile if missing
+                    Map<String, Object> userProfile = new HashMap<>();
+                    userProfile.put("name", user.getDisplayName() != null ? user.getDisplayName() : "User");
+                    userProfile.put("email", user.getEmail());
+                    userProfile.put("timestamp", System.currentTimeMillis());
 
-                    usersRef.child(userId).setValue(user)
-                            .addOnSuccessListener(aVoid -> Log.d("LoginActivity", "User profile created"))
-                            .addOnFailureListener(e -> Log.e("LoginActivity", "Failed to create user profile", e));
+                    usersRef.child(user.getUid()).setValue(userProfile);
                 }
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                Log.e("LoginActivity", "Error checking user profile", error.toException());
+                Log.e("LoginActivity", "Error verifying user profile", error.toException());
             }
         });
     }
@@ -159,7 +150,6 @@ public class LoginActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        // Clean up any listeners if needed
         super.onDestroy();
     }
 }

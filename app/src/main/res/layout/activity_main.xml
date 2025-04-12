@@ -14,38 +14,19 @@
         android:layout_height="match_parent">
 
         <!-- Content Frame -->
-        <androidx.constraintlayout.widget.ConstraintLayout
+        <FrameLayout
             android:id="@+id/container"
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
-
-            <!--            <androidx.appcompat.widget.SearchView-->
-<!--                android:id="@+id/search"-->
-<!--                android:layout_width="match_parent"-->
-<!--                android:layout_height="56dp"-->
-<!--                android:background="@drawable/lavender_border"-->
-<!--                android:focusable="true"-->
-<!--                app:closeIcon="@drawable/baseline_clear_24"-->
-<!--                app:iconifiedByDefault="false"-->
-<!--                app:queryHint="Search..."-->
-<!--                app:searchHintIcon="@null"-->
-<!--                app:searchIcon="@drawable/baseline_clear_24"-->
-<!--                app:layout_constraintTop_toBottomOf="@id/btnOpenDrawer"-->
-<!--                android:layout_marginTop="16dp" />-->
-
-            <!-- CardView Container -->
+            android:layout_height="match_parent"
+            android:layout_above="@id/bottom_navigation">
 
             <LinearLayout
                 android:id="@+id/card_container"
                 android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_marginTop="10dp"
+                android:layout_height="match_parent"
                 android:orientation="vertical"
-                app:layout_constraintTop_toBottomOf="@id/search"
-                app:layout_constraintBottom_toTopOf="@id/bottom_navigation"
-                android:scrollbars="vertical"
-                tools:ignore="NotSibling" />
-        </androidx.constraintlayout.widget.ConstraintLayout>
+                android:padding="16dp"/>
+        </FrameLayout>
 
         <com.google.android.material.bottomnavigation.BottomNavigationView
             android:id="@+id/bottom_navigation"
