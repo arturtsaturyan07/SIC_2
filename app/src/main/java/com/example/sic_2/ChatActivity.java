@@ -19,7 +19,9 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ChatActivity extends AppCompatActivity {
 
@@ -27,8 +29,10 @@ public class ChatActivity extends AppCompatActivity {
     private ChatAdapter chatAdapter;
     private List<ChatMessage> chatMessages;
     private DatabaseReference chatRef;
+    private DatabaseReference usersRef;
     private String cardId;
     private String currentUserId;
+    private Map<String, String> userNames = new HashMap<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,21 +52,24 @@ public class ChatActivity extends AppCompatActivity {
         }
 
         chatMessages = new ArrayList<>();
-        // In ChatFragment.java
-        chatAdapter = new ChatAdapter(chatMessages, currentUserId);
+        chatAdapter = new ChatAdapter(chatMessages, currentUserId, userNames);
         chatRecyclerView = findViewById(R.id.chat_recycler_view);
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         chatRecyclerView.setAdapter(chatAdapter);
 
-        // Reference to the chat messages for the current card
+        // Firebase references
         chatRef = FirebaseDatabase.getInstance()
                 .getReference("chats")
                 .child(cardId)
                 .child("messages");
 
-        loadChatMessages();
+        usersRef = FirebaseDatabase.getInstance().getReference("users");
 
-        // Send button functionality
+        loadChatMessages();
+        setupUI();
+    }
+
+    private void setupUI() {
         Button sendButton = findViewById(R.id.send_button);
         EditText messageInput = findViewById(R.id.message_input);
 
@@ -70,7 +77,7 @@ public class ChatActivity extends AppCompatActivity {
             String message = messageInput.getText().toString().trim();
             if (!message.isEmpty()) {
                 sendMessage(message);
-                messageInput.setText(""); // Clear input
+                messageInput.setText("");
             } else {
                 showToast("Message cannot be empty");
             }
@@ -85,11 +92,19 @@ public class ChatActivity extends AppCompatActivity {
                 for (DataSnapshot messageSnapshot : snapshot.getChildren()) {
                     ChatMessage chatMessage = messageSnapshot.getValue(ChatMessage.class);
                     if (chatMessage != null) {
+                        chatMessage.setId(messageSnapshot.getKey());
                         chatMessages.add(chatMessage);
+
+                        // Fetch sender name if not already cached
+                        if (!userNames.containsKey(chatMessage.getSenderId())) {
+                            fetchUserName(chatMessage.getSenderId());
+                        }
                     }
                 }
                 chatAdapter.notifyDataSetChanged();
-                chatRecyclerView.scrollToPosition(chatMessages.size() - 1); // Scroll to bottom
+                if (!chatMessages.isEmpty()) {
+                    chatRecyclerView.scrollToPosition(chatMessages.size() - 1);
+                }
             }
 
             @Override
@@ -100,6 +115,49 @@ public class ChatActivity extends AppCompatActivity {
         });
     }
 
+    private void fetchUserName(String userId) {
+        usersRef.child(userId).child("name").addListenerForSingleValueEvent(
+                new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        String name = snapshot.getValue(String.class);
+                        if (name != null && !name.isEmpty()) {
+                            userNames.put(userId, name);
+                            chatAdapter.notifyDataSetChanged();
+                        } else {
+                            // Fallback to email if name not available
+                            fetchUserEmail(userId);
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+                        Log.e("FirebaseError", "Failed to fetch user name: " + error.getMessage());
+                    }
+                }
+        );
+    }
+
+    private void fetchUserEmail(String userId) {
+        usersRef.child(userId).child("email").addListenerForSingleValueEvent(
+                new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        String email = snapshot.getValue(String.class);
+                        if (email != null) {
+                            userNames.put(userId, email.split("@")[0]);
+                            chatAdapter.notifyDataSetChanged();
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+                        Log.e("FirebaseError", "Failed to fetch user email: " + error.getMessage());
+                    }
+                }
+        );
+    }
+
     private void sendMessage(String message) {
         if (currentUserId == null || cardId == null) {
             showToast("User authentication failed");
@@ -108,7 +166,12 @@ public class ChatActivity extends AppCompatActivity {
 
         String messageId = chatRef.push().getKey();
         if (messageId != null) {
-            ChatMessage chatMessage = new ChatMessage(currentUserId, message, System.currentTimeMillis());
+            ChatMessage chatMessage = new ChatMessage(
+                    currentUserId,
+                    message,
+                    System.currentTimeMillis()
+            );
+
             chatRef.child(messageId).setValue(chatMessage)
                     .addOnCompleteListener(task -> {
                         if (!task.isSuccessful()) {
@@ -121,5 +184,11 @@ public class ChatActivity extends AppCompatActivity {
 
     private void showToast(String message) {
         Toast.makeText(ChatActivity.this, message, Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Clean up listeners if needed
     }
 }

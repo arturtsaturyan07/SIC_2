@@ -8,9 +8,9 @@
         android:title="Notifications"
         android:icon="@drawable/baseline_circle_notifications_24" />
     <item
-        android:id="@+id/add_button"
-        android:title="Add"
-        android:icon="@drawable/circle" /> <!-- Use your icon for the add button -->
+        android:id="@+id/profile"
+        android:title="Profile"
+        android:icon="@drawable/baseline_account_circle_24" /> <!-- Use your icon for the add button -->
     <item
         android:id="@+id/settings"
         android:title="Settings"

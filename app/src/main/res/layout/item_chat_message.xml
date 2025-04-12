@@ -3,65 +3,94 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="8dp">
+    android:padding="4dp">
 
-    <!-- Container for other users' messages (left-aligned) -->
+    <!-- Other User's Message -->
     <LinearLayout
         android:id="@+id/message_container_other"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@drawable/bg_other_user_message"
         android:orientation="vertical"
-        android:layout_gravity="start"
-        android:visibility="gone"
-        android:padding="12dp">
+        android:paddingEnd="60dp">
 
         <TextView
-            android:id="@+id/message_text_other"
+            android:id="@+id/sender_name_other"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Message"
-            android:textColor="@android:color/white"
-            android:textSize="16sp" />
-
-        <TextView
-            android:id="@+id/time_text_other"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="00:00"
-            android:textColor="#CCCCCC"
+            android:layout_marginStart="8dp"
+            android:layout_marginBottom="2dp"
+            android:textColor="@color/gray"
             android:textSize="12sp" />
 
+        <LinearLayout
+            android:id="@+id/message_bubble_other"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="12dp"
+            android:background="@drawable/bubble_incoming"
+            android:elevation="2dp">
+
+            <TextView
+                android:id="@+id/message_text_other"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/black"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/time_text_other"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_gravity="bottom"
+                android:textColor="@color/gray"
+                android:textSize="10sp" />
+        </LinearLayout>
     </LinearLayout>
 
-    <!-- Container for current user's messages (right-aligned) -->
+    <!-- Current User's Message -->
     <LinearLayout
         android:id="@+id/message_container_me"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@drawable/bg_current_user_message"
         android:orientation="vertical"
-        android:layout_gravity="end"
-        android:visibility="gone"
-        android:padding="12dp">
+        android:gravity="end"
+        android:paddingStart="60dp">
 
         <TextView
-            android:id="@+id/message_text_me"
+            android:id="@+id/sender_name_me"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Message"
-            android:textColor="@android:color/white"
-            android:textSize="16sp" />
-
-        <TextView
-            android:id="@+id/time_text_me"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="00:00"
-            android:textColor="#CCCCCC"
+            android:layout_marginEnd="8dp"
+            android:layout_marginBottom="2dp"
+            android:textColor="@color/gray"
             android:textSize="12sp" />
 
+        <LinearLayout
+            android:id="@+id/message_bubble_me"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="12dp"
+            android:background="@drawable/bubble_outgoing"
+            android:elevation="2dp">
+
+            <TextView
+                android:id="@+id/message_text_me"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/time_text_me"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_gravity="bottom"
+                android:textColor="@color/black"
+                android:textSize="10sp" />
+        </LinearLayout>
     </LinearLayout>
 </LinearLayout>

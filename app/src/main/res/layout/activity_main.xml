@@ -35,19 +35,6 @@
 
             <!-- CardView Container -->
 
-            <ImageView
-                android:id="@+id/btnOpenDrawer"
-                android:layout_width="30dp"
-                android:layout_height="29dp"
-                android:layout_margin="16dp"
-                android:layout_marginStart="@dimen/material_emphasis_medium"
-                android:layout_marginTop="2dp"
-                android:contentDescription="Open Drawer"
-                android:src="@drawable/baseline_calendar_view_day_24"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                tools:ignore="HardcodedText" />
-
             <LinearLayout
                 android:id="@+id/card_container"
                 android:layout_width="match_parent"

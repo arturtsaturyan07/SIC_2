@@ -24,7 +24,9 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ChatFragment extends Fragment {
 
@@ -36,9 +38,11 @@ public class ChatFragment extends Fragment {
     private ChatAdapter chatAdapter;
     private List<ChatMessage> chatMessages;
     private DatabaseReference chatRef;
+    private DatabaseReference usersRef;
     private String cardId;
     private String currentUserId;
     private ChildEventListener chatListener;
+    private Map<String, String> userNames = new HashMap<>(); // Cache for user names
 
     public static ChatFragment newInstance(String cardId, String originalOwnerId) {
         ChatFragment fragment = new ChatFragment();
@@ -80,7 +84,7 @@ public class ChatFragment extends Fragment {
     private void setupViews(View view) {
         chatRecyclerView = view.findViewById(R.id.chat_recycler_view);
         chatMessages = new ArrayList<>();
-        chatAdapter = new ChatAdapter(chatMessages, currentUserId);
+        chatAdapter = new ChatAdapter(chatMessages, currentUserId, userNames);
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         chatRecyclerView.setAdapter(chatAdapter);
 
@@ -99,7 +103,7 @@ public class ChatFragment extends Fragment {
     }
 
     private void setupFirebase() {
-        // Initialize Firebase reference based on your database structure
+        usersRef = FirebaseDatabase.getInstance().getReference("users");
         chatRef = FirebaseDatabase.getInstance()
                 .getReference("cards")
                 .child(cardId)
@@ -111,11 +115,15 @@ public class ChatFragment extends Fragment {
             public void onChildAdded(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {
                 ChatMessage message = snapshot.getValue(ChatMessage.class);
                 if (message != null) {
-                    // Set the message ID from the snapshot key
                     message.setId(snapshot.getKey());
                     chatMessages.add(message);
                     chatAdapter.notifyItemInserted(chatMessages.size() - 1);
                     chatRecyclerView.smoothScrollToPosition(chatMessages.size() - 1);
+
+                    // Fetch sender name if not already cached
+                    if (!userNames.containsKey(message.getSenderId())) {
+                        fetchUserName(message.getSenderId());
+                    }
                 }
             }
 
@@ -142,6 +150,44 @@ public class ChatFragment extends Fragment {
         };
 
         chatRef.addChildEventListener(chatListener);
+
+        // Pre-load current user's name
+        fetchUserName(currentUserId);
+    }
+
+    private void fetchUserName(String userId) {
+        usersRef.child(userId).child("name").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                String name = snapshot.getValue(String.class);
+                if (name != null && !name.isEmpty()) {
+                    userNames.put(userId, name);
+                    chatAdapter.notifyDataSetChanged();
+                } else {
+                    // Fallback to email if name not available
+                    usersRef.child(userId).child("email").addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(@NonNull DataSnapshot emailSnapshot) {
+                            String email = emailSnapshot.getValue(String.class);
+                            if (email != null) {
+                                userNames.put(userId, email.split("@")[0]);
+                                chatAdapter.notifyDataSetChanged();
+                            }
+                        }
+
+                        @Override
+                        public void onCancelled(@NonNull DatabaseError error) {
+                            Log.e(TAG, "Failed to fetch user email", error.toException());
+                        }
+                    });
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Failed to fetch user name", error.toException());
+            }
+        });
     }
 
     private void sendMessage(String message) {
@@ -152,7 +198,6 @@ public class ChatFragment extends Fragment {
 
         chatRef.child(messageId).setValue(chatMessage)
                 .addOnSuccessListener(aVoid -> {
-                    // Send notification to other users in the chat
                     sendNotificationsToChatParticipants(message);
                 })
                 .addOnFailureListener(e -> {
@@ -174,8 +219,10 @@ public class ChatFragment extends Fragment {
                         NotificationFragment.sendNotification(
                                 requireContext(),
                                 cardId,
-                                "Chat Name", // Replace with actual chat name
-                                message,
+                                "New message in chat",
+                                userNames.containsKey(currentUserId)
+                                        ? userNames.get(currentUserId) + ": " + message
+                                        : "Someone: " + message,
                                 currentUserId
                         );
                     }
