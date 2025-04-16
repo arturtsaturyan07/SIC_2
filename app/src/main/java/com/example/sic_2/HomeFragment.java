@@ -207,7 +207,10 @@ public class HomeFragment extends Fragment {
                         for (DataSnapshot requestSnapshot : snapshot.getChildren()) {
                             CampRequest request = requestSnapshot.getValue(CampRequest.class);
                             if (request != null && request.getStatus().equals("pending")) {
-                                showCampRequestDialog(request);
+                                // Only show dialog if current user is the card owner
+                                if (request.getOwnerId().equals(userId)) {
+                                    showCampRequestDialog(request);
+                                }
                             }
                         }
                     }
@@ -297,19 +300,12 @@ public class HomeFragment extends Fragment {
         );
 
         campRequestsRef.child(card.getAuthorId()).child(requestId).setValue(request)
-                .addOnSuccessListener(aVoid -> {
-                    showToast("Request sent to camp members");
-                })
-                .addOnFailureListener(e -> {
-                    showToast("Failed to send request");
-                });
+                .addOnSuccessListener(aVoid -> showToast("Request sent to camp members"))
+                .addOnFailureListener(e -> showToast("Failed to send request"));
     }
 
     private void showCampRequestDialog(CampRequest request) {
-        if (!isAdded() || getContext() == null) {
-            Log.w("HomeFragment", "Fragment not attached, skipping dialog");
-            return;
-        }
+        if (!isAdded() || getContext() == null) return;
 
         try {
             AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
@@ -452,9 +448,7 @@ public class HomeFragment extends Fragment {
                                 .addOnFailureListener(e -> Log.e("HomeFragment", "Failed to save camp card globally", e));
                     }
                 })
-                .addOnFailureListener(e -> {
-                    showToast("Failed to create card");
-                });
+                .addOnFailureListener(e -> showToast("Failed to create card"));
     }
 
     private void createAndAddCardView(Card card, boolean isShared) {
