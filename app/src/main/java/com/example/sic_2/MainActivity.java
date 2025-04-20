@@ -163,9 +163,7 @@ public class MainActivity extends AppCompatActivity {
                 selectedFragment = new NotificationFragment();
             } else if (itemId == R.id.profile) {
                 selectedFragment = new ProfileFragment();
-            } else if (itemId == R.id.settings) {
-                selectedFragment = new SettingsFragment();
-            }
+            } //else if (itemId == R.id.settings) {selectedFragment = new SettingsFragment();}
 
             if (selectedFragment != null) {
                 loadFragment(selectedFragment);

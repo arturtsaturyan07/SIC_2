@@ -55,6 +55,11 @@ dependencies {
     implementation(libs.firebase.inappmessaging)
     implementation(libs.firebase.appcheck.playintegrity)
 
+
+    implementation ("de.hdodenhof:circleimageview:3.1.0")
+    implementation ("androidx.cardview:cardview:1.0.0")
+
+
     // Google Play Services Auth
     implementation("com.google.android.gms:play-services-auth:20.4.0") // Use a specific version
 
