@@ -50,13 +50,13 @@ public class SettingsFragment extends PreferenceFragmentCompat {
         }
 
         // Logout preference
-        Preference logoutPref = findPreference("logout");
-        if (logoutPref != null) {
-            logoutPref.setOnPreferenceClickListener(preference -> {
-                logout();
-                return true;
-            });
-        }
+//        Preference logoutPref = findPreference("logout");
+//        if (logoutPref != null) {
+//            logoutPref.setOnPreferenceClickListener(preference -> {
+//                logout();
+//                return true;
+//            });
+//        }
     }
 
     private void copyToClipboard(String text) {
@@ -65,10 +65,10 @@ public class SettingsFragment extends PreferenceFragmentCompat {
         clipboard.setPrimaryClip(clip);
     }
 
-    private void logout() {
-        FirebaseAuth.getInstance().signOut();
-        Toast.makeText(getContext(), "Logged out successfully", Toast.LENGTH_SHORT).show();
-        startActivity(new Intent(getActivity(), LoginActivity.class));
-        requireActivity().finish();
-    }
+//    private void logout() {
+//        FirebaseAuth.getInstance().signOut();
+//        Toast.makeText(getContext(), "Logged out successfully", Toast.LENGTH_SHORT).show();
+//        startActivity(new Intent(getActivity(), LoginActivity.class));
+//        requireActivity().finish();
+//    }
 }

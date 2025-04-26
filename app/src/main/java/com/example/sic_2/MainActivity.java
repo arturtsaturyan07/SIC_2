@@ -1,5 +1,10 @@
 package com.example.sic_2;
 
+import android.Manifest;
+import android.app.ActivityManager;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -14,10 +19,17 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentTransaction;
 import androidx.preference.PreferenceManager;
+import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.PeriodicWorkRequest;
+import androidx.work.WorkManager;
+import androidx.work.Worker;
+import androidx.work.WorkerParameters;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
@@ -29,10 +41,14 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
+    private static final int REQUEST_CODE_NOTIFICATIONS = 0;
     private BottomNavigationView bottomNavigationView;
     private FirebaseAuth auth;
     private DatabaseReference usersRef;
@@ -47,14 +63,23 @@ public class MainActivity extends AppCompatActivity {
 
         // Initialize views first
         initializeViews();
+        requestNotificationPermission();
+
+        if (getIntent() != null && getIntent().getBooleanExtra("open_chat", false)) {
+            String cardId = getIntent().getStringExtra("cardId");
+            if (cardId != null) {
+                // Open the chat fragment directly
+                openChatFragment(cardId);
+            }
+        }
 
         auth = FirebaseAuth.getInstance();
         user = auth.getCurrentUser();
 
         // Request notification permissions for Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, "android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, new String[]{"android.permission.POST_NOTIFICATIONS"}, 1);
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1);
             }
         }
 
@@ -87,6 +112,14 @@ public class MainActivity extends AppCompatActivity {
         cardContainer = findViewById(R.id.card_container);
     }
 
+    private void openChatFragment(String cardId) {
+        // Implement logic to open your chat fragment with the given cardId
+        ChatFragment fragment = ChatFragment.newInstance(cardId, "");
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.container, fragment)
+                .addToBackStack(null)
+                .commit();
+    }
     private void initializeFirebase(boolean isGuest, Intent intent) {
         if (isGuest) {
             Log.d("GuestMode", "Skipping Firebase user check for guest mode.");
@@ -163,7 +196,7 @@ public class MainActivity extends AppCompatActivity {
                 selectedFragment = new NotificationFragment();
             } else if (itemId == R.id.profile) {
                 selectedFragment = new ProfileFragment();
-            } //else if (itemId == R.id.settings) {selectedFragment = new SettingsFragment();}
+            }
 
             if (selectedFragment != null) {
                 loadFragment(selectedFragment);
@@ -223,5 +256,73 @@ public class MainActivity extends AppCompatActivity {
         });
 
         cardContainer.addView(cardView);
+    }
+
+    private void requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+
+                Log.d("MainActivity", "Requesting POST_NOTIFICATIONS permission");
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                        REQUEST_CODE_NOTIFICATIONS);
+            } else {
+                Log.d("MainActivity", "Permission already granted");
+                scheduleNotificationWorker();
+            }
+        } else {
+            Log.d("MainActivity", "Permission not required (API < 33)");
+            scheduleNotificationWorker();
+        }
+    }
+
+//    private void scheduleNotificationWorker() {
+//        Log.d("MainActivity", "Scheduling worker");
+//
+//        PeriodicWorkRequest workRequest =
+//                new PeriodicWorkRequest.Builder(HiWorker.class, 15, TimeUnit.MINUTES)
+//                        .build();
+//
+//        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+//                "HiNotificationWork",
+//                ExistingPeriodicWorkPolicy.KEEP,
+//                workRequest
+//        );
+//    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == REQUEST_CODE_NOTIFICATIONS) {
+            if (grantResults.length > 0 && grantResults[0] ==
+                    PackageManager.PERMISSION_GRANTED) {
+                Log.d("MainActivity", "Permission granted by user");
+                scheduleNotificationWorker();
+            } else {
+                Log.w("MainActivity", "Permission denied by user");
+                Toast.makeText(this,
+                        "Notifications permission denied.",
+                        Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    // In MainActivity.java
+    private void scheduleNotificationWorker() {
+        Log.d("MainActivity", "Scheduling worker");
+
+        PeriodicWorkRequest workRequest =
+                new PeriodicWorkRequest.Builder(HiWorker.class, 1, TimeUnit.HOURS) // Check every hour
+                        .setInitialDelay(10, TimeUnit.SECONDS) // Start after 10 seconds
+                        .build();
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                "ChatNotificationWork",
+                ExistingPeriodicWorkPolicy.REPLACE, // Replace existing work
+                workRequest
+        );
     }
 }

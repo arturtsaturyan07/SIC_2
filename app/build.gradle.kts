@@ -65,6 +65,7 @@ dependencies {
 
     implementation (libs.firebase.messaging)
 
+
     // Navigation Components
     implementation(libs.navigation.fragment.ktx)
     implementation(libs.navigation.ui.ktx)
@@ -72,6 +73,11 @@ dependencies {
 
     implementation (libs.com.google.firebase.firebase.storage)
     implementation (libs.com.google.firebase.firebase.database2)
+
+    implementation (libs.work.runtime)
+    implementation ("com.google.guava:guava:32.1.3-android")
+    implementation (libs.picasso)
+
 
     // ImageKit
     //implementation (libs.github.imagekit.android)

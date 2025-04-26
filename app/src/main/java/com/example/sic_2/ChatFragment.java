@@ -39,10 +39,12 @@ public class ChatFragment extends Fragment {
     private List<ChatMessage> chatMessages;
     private DatabaseReference chatRef;
     private DatabaseReference usersRef;
+    private DatabaseReference tokensRef;
+    private DatabaseReference userChatsRef;
     private String cardId;
     private String currentUserId;
     private ChildEventListener chatListener;
-    private Map<String, String> userNames = new HashMap<>(); // Cache for user names
+    private Map<String, String> userNames = new HashMap<>();
 
     public static ChatFragment newInstance(String cardId, String originalOwnerId) {
         ChatFragment fragment = new ChatFragment();
@@ -81,6 +83,12 @@ public class ChatFragment extends Fragment {
         return view;
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        markChatAsRead();
+    }
+
     private void setupViews(View view) {
         chatRecyclerView = view.findViewById(R.id.chat_recycler_view);
         chatMessages = new ArrayList<>();
@@ -104,12 +112,20 @@ public class ChatFragment extends Fragment {
 
     private void setupFirebase() {
         usersRef = FirebaseDatabase.getInstance().getReference("users");
+        tokensRef = FirebaseDatabase.getInstance().getReference("fcmTokens");
+        userChatsRef = FirebaseDatabase.getInstance().getReference("user_chats");
         chatRef = FirebaseDatabase.getInstance()
                 .getReference("cards")
                 .child(cardId)
                 .child("chats")
                 .child("messages");
 
+        setupChatListener();
+        fetchUserName(currentUserId);
+        markChatAsRead();
+    }
+
+    private void setupChatListener() {
         chatListener = new ChildEventListener() {
             @Override
             public void onChildAdded(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {
@@ -120,27 +136,25 @@ public class ChatFragment extends Fragment {
                     chatAdapter.notifyItemInserted(chatMessages.size() - 1);
                     chatRecyclerView.smoothScrollToPosition(chatMessages.size() - 1);
 
-                    // Fetch sender name if not already cached
                     if (!userNames.containsKey(message.getSenderId())) {
                         fetchUserName(message.getSenderId());
+                    }
+
+                    // Update last message for all participants
+                    if (!message.getSenderId().equals(currentUserId)) {
+                        updateLastMessage(message.getMessage(), message.getSenderId());
                     }
                 }
             }
 
             @Override
-            public void onChildChanged(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {
-                // Handle message updates if needed
-            }
+            public void onChildChanged(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
 
             @Override
-            public void onChildRemoved(@NonNull DataSnapshot snapshot) {
-                // Handle message removal if needed
-            }
+            public void onChildRemoved(@NonNull DataSnapshot snapshot) {}
 
             @Override
-            public void onChildMoved(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {
-                // Handle message reordering if needed
-            }
+            public void onChildMoved(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
@@ -150,9 +164,6 @@ public class ChatFragment extends Fragment {
         };
 
         chatRef.addChildEventListener(chatListener);
-
-        // Pre-load current user's name
-        fetchUserName(currentUserId);
     }
 
     private void fetchUserName(String userId) {
@@ -164,7 +175,6 @@ public class ChatFragment extends Fragment {
                     userNames.put(userId, name);
                     chatAdapter.notifyDataSetChanged();
                 } else {
-                    // Fallback to email if name not available
                     usersRef.child(userId).child("email").addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
                         public void onDataChange(@NonNull DataSnapshot emailSnapshot) {
@@ -198,6 +208,7 @@ public class ChatFragment extends Fragment {
 
         chatRef.child(messageId).setValue(chatMessage)
                 .addOnSuccessListener(aVoid -> {
+                    // Send notifications to all other chat participants
                     sendNotificationsToChatParticipants(message);
                 })
                 .addOnFailureListener(e -> {
@@ -216,15 +227,7 @@ public class ChatFragment extends Fragment {
                 for (DataSnapshot userSnapshot : snapshot.getChildren()) {
                     String userId = userSnapshot.getKey();
                     if (userId != null && !userId.equals(currentUserId)) {
-                        NotificationFragment.sendNotification(
-                                requireContext(),
-                                cardId,
-                                "New message in chat",
-                                userNames.containsKey(currentUserId)
-                                        ? userNames.get(currentUserId) + ": " + message
-                                        : "Someone: " + message,
-                                currentUserId
-                        );
+                        sendNotificationToUser(userId, message);
                     }
                 }
             }
@@ -235,6 +238,78 @@ public class ChatFragment extends Fragment {
             }
         });
     }
+
+    private void sendNotificationToUser(String userId, String message) {
+        // Get the recipient's FCM token
+        tokensRef.child(userId).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                String token = snapshot.getValue(String.class);
+                if (token != null) {
+                    // Prepare notification data
+                    String title = "New message in chat";
+                    String body = userNames.containsKey(currentUserId)
+                            ? userNames.get(currentUserId) + ": " + message
+                            : "Someone: " + message;
+
+                    // Create notification data payload
+                    Map<String, String> notificationData = new HashMap<>();
+                    notificationData.put("title", title);
+                    notificationData.put("body", body);
+                    notificationData.put("cardId", cardId);
+                    notificationData.put("senderId", currentUserId);
+
+                    // Send notification via FCM
+                    FCMNotificationSender.sendNotification(token, notificationData);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Failed to get FCM token for user: " + userId, error.toException());
+            }
+        });
+    }
+
+    private void updateLastMessage(String message, String senderId) {
+        DatabaseReference cardRef = FirebaseDatabase.getInstance()
+                .getReference("cards")
+                .child(cardId);
+
+        cardRef.child("users").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                for (DataSnapshot userSnapshot : snapshot.getChildren()) {
+                    String userId = userSnapshot.getKey();
+                    if (userId != null) {
+                        Map<String, Object> chatUpdate = new HashMap<>();
+                        chatUpdate.put("lastMessage", message);
+                        chatUpdate.put("senderId", senderId);
+                        chatUpdate.put("cardId", cardId);
+                        chatUpdate.put("timestamp", System.currentTimeMillis());
+                        chatUpdate.put("read", userId.equals(currentUserId));
+
+                        userChatsRef.child(userId).child(cardId).updateChildren(chatUpdate);
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Failed to update last message", error.toException());
+            }
+        });
+    }
+
+    private void markChatAsRead() {
+        if (cardId == null || currentUserId == null) return;
+
+        userChatsRef.child(currentUserId).child(cardId).child("read").setValue(true);
+    }
+
+
+
+
 
     private void showToast(String message) {
         if (isAdded() && getContext() != null) {

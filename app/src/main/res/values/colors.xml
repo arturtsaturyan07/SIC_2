@@ -34,4 +34,8 @@
     <color name="gray">#FF808080</color>        <!-- Regular gray for sender names -->
     <color name="medium_gray">#FFA0A0A0</color> <!-- Medium gray for other elements -->
 
+    <color name="colorPrimaryLight">#F3E5F5</color>
+
+    <color name="colorAccentDark">#018786</color>
+
 </resources>

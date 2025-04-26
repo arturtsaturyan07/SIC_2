@@ -13,10 +13,10 @@
         android:summary="Fetching user ID..."
         app:selectable="true"/>
 
-    <Preference
-        android:key="logout"
-        android:title="Logout"
-        android:icon="@android:drawable/ic_lock_power_off"
-        app:selectable="true"/>
+<!--    <Preference-->
+<!--        android:key="logout"-->
+<!--        android:title="Logout"-->
+<!--        android:icon="@android:drawable/ic_lock_power_off"-->
+<!--        app:selectable="true"/>-->
 
 </PreferenceScreen>

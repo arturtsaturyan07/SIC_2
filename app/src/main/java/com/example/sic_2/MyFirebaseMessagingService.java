@@ -5,92 +5,75 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.media.RingtoneManager;
-import android.net.Uri;
 import android.os.Build;
+
+import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 
-import java.util.HashMap;
 import java.util.Map;
 
 public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
     @Override
-    public void onMessageReceived(RemoteMessage remoteMessage) {
-        // Check if the message contains a notification payload
-        if (remoteMessage.getNotification() != null) {
-            String title = remoteMessage.getNotification().getTitle();
-            String message = remoteMessage.getNotification().getBody();
+    public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
+        super.onMessageReceived(remoteMessage);
 
-            // Display the notification
-            sendNotification(title, message);
-        }
+        Map<String, String> data = remoteMessage.getData();
+        if (data != null) {
+            String title = data.get("title");
+            String body = data.get("body");
+            String cardId = data.get("cardId");
 
-        // Check if the message contains a data payload
-        if (remoteMessage.getData().size() > 0) {
-            // Handle data payload (if needed)
-            String senderId = remoteMessage.getData().get("senderId");
-            String message = remoteMessage.getData().get("message");
-
-            // Save the notification to Firebase (optional)
-            saveNotificationToFirebase(senderId, message);
+            if (title != null && body != null) {
+                showNotification(title, body, cardId);
+            }
         }
     }
 
-    private void sendNotification(String title, String message) {
-        Intent intent = new Intent(this, MainActivity.class); // Open MainActivity when clicked
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE);
+    private void showNotification(String title, String body, String cardId) {
+        createNotificationChannel();
 
-        String channelId = "fcm_default_channel"; // Notification channel ID
-        Uri defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+        // Create an Intent for the activity you want to start
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.putExtra("open_chat", true);
+        intent.putExtra("cardId", cardId);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this,
+                0,
+                intent,
+                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE
+        );
 
         NotificationCompat.Builder notificationBuilder =
-                new NotificationCompat.Builder(this, channelId)
-                        .setSmallIcon(R.drawable.baseline_circle_notifications_24) // Set your notification icon
+                new NotificationCompat.Builder(this, "chat_channel")
+                        .setSmallIcon(R.drawable.baseline_circle_notifications_24)
                         .setContentTitle(title)
-                        .setContentText(message)
+                        .setContentText(body)
                         .setAutoCancel(true)
-                        .setSound(defaultSoundUri)
                         .setContentIntent(pendingIntent);
 
         NotificationManager notificationManager =
                 (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
-        // Create a notification channel for Android Oreo and above
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    channelId,
-                    "Channel human readable title",
-                    NotificationManager.IMPORTANCE_DEFAULT);
-            notificationManager.createNotificationChannel(channel);
-        }
-
-        notificationManager.notify(0, notificationBuilder.build());
+        notificationManager.notify((int) System.currentTimeMillis(), notificationBuilder.build());
     }
 
-    private void saveNotificationToFirebase(String senderId, String message) {
-        // Save the notification to Firebase Realtime Database
-        String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
-        DatabaseReference notificationsRef = FirebaseDatabase.getInstance()
-                .getReference("notifications")
-                .child(userId);
-
-        String notificationId = notificationsRef.push().getKey();
-        if (notificationId != null) {
-            Map<String, Object> notificationData = new HashMap<>();
-            notificationData.put("message", message);
-            notificationData.put("senderId", senderId);
-            notificationData.put("timestamp", System.currentTimeMillis());
-            notificationData.put("isRead", false);
-
-            notificationsRef.child(notificationId).setValue(notificationData);
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    "chat_channel",
+                    "Chat Notifications",
+                    NotificationManager.IMPORTANCE_DEFAULT
+            );
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
         }
     }
 }
