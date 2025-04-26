@@ -1,6 +1,5 @@
 package com.example.sic_2;
 
-import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -20,6 +19,10 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 
+import com.cloudinary.Transformation;
+import com.cloudinary.android.MediaManager;
+import com.cloudinary.android.callback.ErrorInfo;
+import com.cloudinary.android.callback.UploadCallback;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.auth.AuthCredential;
@@ -27,9 +30,9 @@ import com.google.firebase.auth.EmailAuthProvider;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.UserProfileChangeRequest;
-import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.StorageReference;
-import com.google.firebase.storage.UploadTask;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
@@ -42,6 +45,7 @@ public class ProfileFragment extends Fragment {
     private Uri imageUri;
     private FirebaseAuth mAuth;
     private FirebaseUser currentUser;
+    private boolean cloudinaryInitialized = false;
 
     public ProfileFragment() {
         // Required empty public constructor
@@ -49,6 +53,27 @@ public class ProfileFragment extends Fragment {
 
     public static ProfileFragment newInstance() {
         return new ProfileFragment();
+    }
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        initCloudinary();
+    }
+
+    private void initCloudinary() {
+        try {
+            Map<String, String> config = new HashMap<>();
+            config.put("cloud_name", "your_cloud_name");
+            config.put("api_key", "your_api_key");
+            config.put("api_secret", "your_api_secret");
+            MediaManager.init(requireContext(), config);
+            cloudinaryInitialized = true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            cloudinaryInitialized = false;
+            Toast.makeText(getContext(), "Cloudinary initialization failed", Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
@@ -351,17 +376,60 @@ public class ProfileFragment extends Fragment {
     }
 
     private void uploadProfileImage() {
-        if (imageUri == null || currentUser == null) return;
+        if (imageUri == null || currentUser == null) {
+            showToast("No image selected");
+            return;
+        }
 
-        StorageReference storageRef = FirebaseStorage.getInstance().getReference();
-        StorageReference profileImagesRef = storageRef.child("profile_images/" + currentUser.getUid() + ".jpg");
+        if (!cloudinaryInitialized) {
+            showToast("Image upload service not available");
+            return;
+        }
 
-        profileImagesRef.putFile(imageUri)
-                .addOnSuccessListener(taskSnapshot ->
-                        profileImagesRef.getDownloadUrl().addOnSuccessListener(uri ->
-                                updateProfilePicture(uri)))
-                .addOnFailureListener(e ->
-                        showToast("Failed to upload image: " + e.getMessage()));
+        String publicId = "profile_" + currentUser.getUid() + "_" + System.currentTimeMillis();
+
+        MediaManager.get()
+                .upload(imageUri)
+                .unsigned("your_upload_preset") // Replace with your upload preset
+                .option("public_id", publicId)
+                .option("folder", "user_profiles")
+                .option("transformation", new Transformation()
+                        .width(200)
+                        .height(200)
+                        .crop("fill")
+                        .gravity("face"))
+                .callback(new UploadCallback() {
+                    @Override
+                    public void onStart(String requestId) {
+                        showToast("Uploading image...");
+                    }
+
+                    @Override
+                    public void onProgress(String requestId, long bytes, long totalBytes) {
+                        // Upload progress
+                    }
+
+                    @Override
+                    public void onSuccess(String requestId, Map resultData) {
+                        String secureUrl = (String) resultData.get("secure_url");
+                        if (secureUrl != null) {
+                            updateProfilePicture(Uri.parse(secureUrl));
+                        } else {
+                            showToast("Upload failed: no URL returned");
+                        }
+                    }
+
+                    @Override
+                    public void onError(String requestId, ErrorInfo error) {
+                        showToast("Upload failed: " + error.getDescription());
+                    }
+
+                    @Override
+                    public void onReschedule(String requestId, ErrorInfo error) {
+                        showToast("Upload rescheduled");
+                    }
+                })
+                .dispatch();
     }
 
     private void updateProfilePicture(Uri uri) {
@@ -372,9 +440,10 @@ public class ProfileFragment extends Fragment {
         currentUser.updateProfile(profileUpdates)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
-                        showToast("Profile image updated");
+                        profileImage.setImageURI(uri);
+                        showToast("Profile picture updated");
                     } else {
-                        showToast("Failed to update profile image");
+                        showToast("Failed to update profile");
                     }
                 });
     }

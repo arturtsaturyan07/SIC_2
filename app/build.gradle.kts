@@ -70,6 +70,8 @@ dependencies {
     implementation(libs.navigation.fragment.ktx)
     implementation(libs.navigation.ui.ktx)
 
+    implementation ("com.github.bumptech.glide:glide:4.13.0")
+
 
     implementation (libs.com.google.firebase.firebase.storage)
     implementation (libs.com.google.firebase.firebase.database2)

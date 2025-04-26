@@ -6,12 +6,22 @@ public class ChatMessage {
     private String message;
     private long timestamp;
 
+    private String senderName;
+    private boolean read;
+
     // Default constructor required for Firebase
     public ChatMessage() {
     }
 
     public ChatMessage(String senderId, String message, long timestamp) {
         this.senderId = senderId;
+        this.message = message;
+        this.timestamp = timestamp;
+    }
+
+    public ChatMessage(String senderId, String senderName, String message, long timestamp) {
+        this.senderId = senderId;
+        this.senderName = senderName;
         this.message = message;
         this.timestamp = timestamp;
     }
@@ -51,4 +61,8 @@ public class ChatMessage {
     public void setTimestamp(long timestamp) {
         this.timestamp = timestamp;
     }
+
+    public String getSenderName(){return senderName;}
+    public void setSenderName(String senderName){this.senderName = senderName;}
+
 }

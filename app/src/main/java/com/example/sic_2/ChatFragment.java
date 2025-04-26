@@ -16,6 +16,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -65,14 +66,45 @@ public class ChatFragment extends Fragment {
             Log.d(TAG, "Card ID: " + cardId + ", Owner ID: " + originalOwnerId);
         }
 
-        currentUserId = FirebaseAuth.getInstance().getCurrentUser() != null
-                ? FirebaseAuth.getInstance().getCurrentUser().getUid()
-                : null;
-
-        if (currentUserId == null) {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser != null) {
+            currentUserId = currentUser.getUid();
+            // Ensure user's name is stored in database
+            storeUserName(currentUser);
+        } else {
             showToast("Please sign in first");
             requireActivity().finish();
         }
+    }
+
+    private void storeUserName(FirebaseUser user) {
+        DatabaseReference userRef = FirebaseDatabase.getInstance()
+                .getReference("users")
+                .child(user.getUid());
+
+        // Check if name already exists
+        userRef.child("name").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (!snapshot.exists()) {
+                    // If name doesn't exist, store it
+                    String displayName = user.getDisplayName();
+                    if (displayName != null && !displayName.isEmpty()) {
+                        userRef.child("name").setValue(displayName);
+                    } else {
+                        // Use email prefix if no display name
+                        String emailPrefix = user.getEmail() != null ?
+                                user.getEmail().split("@")[0] : "User";
+                        userRef.child("name").setValue(emailPrefix);
+                    }
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Failed to check user name", error.toException());
+            }
+        });
     }
 
     @Override
@@ -174,7 +206,15 @@ public class ChatFragment extends Fragment {
                 if (name != null && !name.isEmpty()) {
                     userNames.put(userId, name);
                     chatAdapter.notifyDataSetChanged();
+
+                    // Update any existing messages with this sender's name
+                    for (int i = 0; i < chatMessages.size(); i++) {
+                        if (chatMessages.get(i).getSenderId().equals(userId)) {
+                            chatAdapter.notifyItemChanged(i);
+                        }
+                    }
                 } else {
+                    // Fallback to email if name doesn't exist
                     usersRef.child(userId).child("email").addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
                         public void onDataChange(@NonNull DataSnapshot emailSnapshot) {
@@ -204,15 +244,23 @@ public class ChatFragment extends Fragment {
         String messageId = chatRef.push().getKey();
         if (messageId == null) return;
 
-        ChatMessage chatMessage = new ChatMessage(currentUserId, message, System.currentTimeMillis());
+        // Create message with sender's name included
+        String senderName = userNames.containsKey(currentUserId) ?
+                userNames.get(currentUserId) : "You";
+        ChatMessage chatMessage = new ChatMessage(
+                currentUserId,
+                senderName,
+                message,
+                System.currentTimeMillis()
+        );
 
         chatRef.child(messageId).setValue(chatMessage)
                 .addOnSuccessListener(aVoid -> {
-                    // Send notifications to all other chat participants
                     sendNotificationsToChatParticipants(message);
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Failed to send message", e);
+                    showToast("Failed to send message");
                 });
     }
 
@@ -240,26 +288,23 @@ public class ChatFragment extends Fragment {
     }
 
     private void sendNotificationToUser(String userId, String message) {
-        // Get the recipient's FCM token
         tokensRef.child(userId).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 String token = snapshot.getValue(String.class);
                 if (token != null) {
-                    // Prepare notification data
                     String title = "New message in chat";
-                    String body = userNames.containsKey(currentUserId)
-                            ? userNames.get(currentUserId) + ": " + message
-                            : "Someone: " + message;
+                    String senderName = userNames.containsKey(currentUserId) ?
+                            userNames.get(currentUserId) : "Someone";
+                    String body = senderName + ": " + message;
 
-                    // Create notification data payload
                     Map<String, String> notificationData = new HashMap<>();
                     notificationData.put("title", title);
                     notificationData.put("body", body);
                     notificationData.put("cardId", cardId);
                     notificationData.put("senderId", currentUserId);
+                    notificationData.put("senderName", senderName);
 
-                    // Send notification via FCM
                     FCMNotificationSender.sendNotification(token, notificationData);
                 }
             }
@@ -282,9 +327,13 @@ public class ChatFragment extends Fragment {
                 for (DataSnapshot userSnapshot : snapshot.getChildren()) {
                     String userId = userSnapshot.getKey();
                     if (userId != null) {
+                        String senderName = userNames.containsKey(senderId) ?
+                                userNames.get(senderId) : "Someone";
+
                         Map<String, Object> chatUpdate = new HashMap<>();
                         chatUpdate.put("lastMessage", message);
                         chatUpdate.put("senderId", senderId);
+                        chatUpdate.put("senderName", senderName);
                         chatUpdate.put("cardId", cardId);
                         chatUpdate.put("timestamp", System.currentTimeMillis());
                         chatUpdate.put("read", userId.equals(currentUserId));
@@ -306,10 +355,6 @@ public class ChatFragment extends Fragment {
 
         userChatsRef.child(currentUserId).child(cardId).child("read").setValue(true);
     }
-
-
-
-
 
     private void showToast(String message) {
         if (isAdded() && getContext() != null) {
