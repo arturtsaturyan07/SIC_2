@@ -81,6 +81,10 @@ dependencies {
     implementation (libs.picasso)
 
 
+    implementation ("de.hdodenhof:circleimageview:3.1.0")
+    implementation ("com.github.bumptech.glide:glide:4.12.0")
+
+
     // ImageKit
     //implementation (libs.github.imagekit.android)
 

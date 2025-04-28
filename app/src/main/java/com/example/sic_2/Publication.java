@@ -5,16 +5,21 @@ public class Publication {
     private String content;
     private String imageUrl;
     private long timestamp;
+    private String userProfileImageUrl;
 
     public Publication() {
         // Required for Firebase
     }
 
-    public Publication(String userId, String content, String imageUrl, long timestamp) {
+    public Publication(String userId, String content, String imageUrl, long timestamp, String userProfileImageUrl) {
         this.userId = userId;
         this.content = content;
         this.imageUrl = imageUrl;
         this.timestamp = timestamp;
+        this.userProfileImageUrl = userProfileImageUrl;
+    }
+
+    public Publication(String currentUserId, String content, String imageUrl, long l) {
     }
 
     // Getters and setters
@@ -48,5 +53,13 @@ public class Publication {
 
     public void setTimestamp(long timestamp) {
         this.timestamp = timestamp;
+    }
+
+    public String getUserProfileImageUrl() {
+        return userProfileImageUrl;
+    }
+
+    public void setUserProfileImageUrl(String userProfileImageUrl) {
+        this.userProfileImageUrl = userProfileImageUrl;
     }
 }

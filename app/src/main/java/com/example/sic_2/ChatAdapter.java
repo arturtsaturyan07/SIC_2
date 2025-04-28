@@ -10,22 +10,29 @@ import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
+
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import de.hdodenhof.circleimageview.CircleImageView;
+
 public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder> {
 
     private List<ChatMessage> chatMessages;
     private String currentUserId;
     private Map<String, String> userNames;
+    private Map<String, String> userProfilePics;
 
-    public ChatAdapter(List<ChatMessage> chatMessages, String currentUserId, Map<String, String> userNames) {
+    public ChatAdapter(List<ChatMessage> chatMessages, String currentUserId,
+                       Map<String, String> userNames, Map<String, String> userProfilePics) {
         this.chatMessages = chatMessages;
         this.currentUserId = currentUserId;
         this.userNames = userNames;
+        this.userProfilePics = userProfilePics;
     }
 
     @NonNull
@@ -48,10 +55,9 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
 
         if (senderId.equals(currentUserId)) {
             // Current user's message
-            holder.messageContainerMe.setVisibility(View.VISIBLE);
             holder.messageContainerOther.setVisibility(View.GONE);
+            holder.messageContainerMe.setVisibility(View.VISIBLE);
 
-            // Set message content
             holder.senderNameMe.setText("You");
             holder.messageTextMe.setText(chatMessage.getMessage());
             holder.timeTextMe.setText(formattedTime);
@@ -63,13 +69,26 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             ));
         } else {
             // Other user's message
-            holder.messageContainerOther.setVisibility(View.VISIBLE);
             holder.messageContainerMe.setVisibility(View.GONE);
+            holder.messageContainerOther.setVisibility(View.VISIBLE);
 
-            // Set message content with sender name
             holder.senderNameOther.setText(senderName);
             holder.messageTextOther.setText(chatMessage.getMessage());
             holder.timeTextOther.setText(formattedTime);
+
+            // Load profile picture
+            String profileImageUrl = chatMessage.getProfileImageUrl() != null ?
+                    chatMessage.getProfileImageUrl() :
+                    userProfilePics.get(senderId);
+
+            if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
+                Glide.with(holder.itemView.getContext())
+                        .load(profileImageUrl)
+                        .placeholder(R.drawable.default_profile)
+                        .into(holder.profileImageOther);
+            } else {
+                holder.profileImageOther.setImageResource(R.drawable.default_profile);
+            }
 
             // Styling for received messages
             holder.messageBubbleOther.setBackground(ContextCompat.getDrawable(
@@ -84,14 +103,27 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
         return chatMessages.size();
     }
 
+    public void updateMessages(List<ChatMessage> newMessages) {
+        this.chatMessages = newMessages;
+        notifyDataSetChanged();
+    }
+
     public void updateUserNames(Map<String, String> newUserNames) {
+        this.userNames.clear();
         this.userNames.putAll(newUserNames);
         notifyDataSetChanged();
     }
 
-    static class ChatViewHolder extends RecyclerView.ViewHolder {
+    public void updateUserProfilePics(Map<String, String> newProfilePics) {
+        this.userProfilePics.clear();
+        this.userProfilePics.putAll(newProfilePics);
+        notifyDataSetChanged();
+    }
+
+    public static class ChatViewHolder extends RecyclerView.ViewHolder {
         // Other user's message components
         LinearLayout messageContainerOther;
+        CircleImageView profileImageOther;
         TextView senderNameOther;
         LinearLayout messageBubbleOther;
         TextView messageTextOther;
@@ -108,6 +140,7 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             super(itemView);
             // Other user's views
             messageContainerOther = itemView.findViewById(R.id.message_container_other);
+            profileImageOther = itemView.findViewById(R.id.profile_image_other);
             senderNameOther = itemView.findViewById(R.id.sender_name_other);
             messageBubbleOther = itemView.findViewById(R.id.message_bubble_other);
             messageTextOther = itemView.findViewById(R.id.message_text_other);

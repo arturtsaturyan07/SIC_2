@@ -17,6 +17,8 @@ import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
 
 import java.util.List;
 
+import de.hdodenhof.circleimageview.CircleImageView;
+
 public class PublicationsAdapter extends RecyclerView.Adapter<PublicationsAdapter.PublicationViewHolder> {
 
     private List<Publication> publicationsList;
@@ -42,6 +44,16 @@ public class PublicationsAdapter extends RecyclerView.Adapter<PublicationsAdapte
         Publication publication = publicationsList.get(position);
 
         holder.contentTextView.setText(publication.getContent());
+
+        // Load profile picture
+        if (publication.getUserProfileImageUrl() != null && !publication.getUserProfileImageUrl().isEmpty()) {
+            Glide.with(context)
+                    .load(publication.getUserProfileImageUrl())
+                    .placeholder(R.drawable.default_profile)
+                    .into(holder.profileImageView);
+        } else {
+            holder.profileImageView.setImageResource(R.drawable.default_profile);
+        }
 
         if (publication.getImageUrl() != null && !publication.getImageUrl().isEmpty()) {
             holder.imageView.setVisibility(View.VISIBLE);
@@ -70,11 +82,13 @@ public class PublicationsAdapter extends RecyclerView.Adapter<PublicationsAdapte
     public static class PublicationViewHolder extends RecyclerView.ViewHolder {
         TextView contentTextView;
         ImageView imageView;
+        CircleImageView profileImageView;
 
         public PublicationViewHolder(@NonNull View itemView) {
             super(itemView);
             contentTextView = itemView.findViewById(R.id.publication_content);
             imageView = itemView.findViewById(R.id.publication_image);
+            profileImageView = itemView.findViewById(R.id.profile_image_view);
         }
     }
 

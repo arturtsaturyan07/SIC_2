@@ -46,6 +46,7 @@ public class ChatFragment extends Fragment {
     private String currentUserId;
     private ChildEventListener chatListener;
     private Map<String, String> userNames = new HashMap<>();
+    private Map<String, String> userProfilePics = new HashMap<>();
 
     public static ChatFragment newInstance(String cardId, String originalOwnerId) {
         ChatFragment fragment = new ChatFragment();
@@ -69,40 +70,41 @@ public class ChatFragment extends Fragment {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser != null) {
             currentUserId = currentUser.getUid();
-            // Ensure user's name is stored in database
-            storeUserName(currentUser);
+            storeUserInfo(currentUser);
         } else {
             showToast("Please sign in first");
             requireActivity().finish();
         }
     }
 
-    private void storeUserName(FirebaseUser user) {
+    private void storeUserInfo(FirebaseUser user) {
         DatabaseReference userRef = FirebaseDatabase.getInstance()
                 .getReference("users")
                 .child(user.getUid());
 
         // Check if name already exists
-        userRef.child("name").addListenerForSingleValueEvent(new ValueEventListener() {
+        userRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (!snapshot.exists()) {
-                    // If name doesn't exist, store it
+                if (!snapshot.hasChild("name")) {
                     String displayName = user.getDisplayName();
                     if (displayName != null && !displayName.isEmpty()) {
                         userRef.child("name").setValue(displayName);
                     } else {
-                        // Use email prefix if no display name
                         String emailPrefix = user.getEmail() != null ?
                                 user.getEmail().split("@")[0] : "User";
                         userRef.child("name").setValue(emailPrefix);
                     }
                 }
+
+                if (!snapshot.hasChild("profileImageUrl") && user.getPhotoUrl() != null) {
+                    userRef.child("profileImageUrl").setValue(user.getPhotoUrl().toString());
+                }
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                Log.e(TAG, "Failed to check user name", error.toException());
+                Log.e(TAG, "Failed to check user info", error.toException());
             }
         });
     }
@@ -124,7 +126,7 @@ public class ChatFragment extends Fragment {
     private void setupViews(View view) {
         chatRecyclerView = view.findViewById(R.id.chat_recycler_view);
         chatMessages = new ArrayList<>();
-        chatAdapter = new ChatAdapter(chatMessages, currentUserId, userNames);
+        chatAdapter = new ChatAdapter(chatMessages, currentUserId, userNames, userProfilePics);
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         chatRecyclerView.setAdapter(chatAdapter);
 
@@ -153,7 +155,7 @@ public class ChatFragment extends Fragment {
                 .child("messages");
 
         setupChatListener();
-        fetchUserName(currentUserId);
+        fetchUserInfo(currentUserId);
         markChatAsRead();
     }
 
@@ -169,12 +171,7 @@ public class ChatFragment extends Fragment {
                     chatRecyclerView.smoothScrollToPosition(chatMessages.size() - 1);
 
                     if (!userNames.containsKey(message.getSenderId())) {
-                        fetchUserName(message.getSenderId());
-                    }
-
-                    // Update last message for all participants
-                    if (!message.getSenderId().equals(currentUserId)) {
-                        updateLastMessage(message.getMessage(), message.getSenderId());
+                        fetchUserInfo(message.getSenderId());
                     }
                 }
             }
@@ -198,44 +195,32 @@ public class ChatFragment extends Fragment {
         chatRef.addChildEventListener(chatListener);
     }
 
-    private void fetchUserName(String userId) {
-        usersRef.child(userId).child("name").addListenerForSingleValueEvent(new ValueEventListener() {
+    private void fetchUserInfo(String userId) {
+        usersRef.child(userId).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                String name = snapshot.getValue(String.class);
+                String name = snapshot.child("name").getValue(String.class);
+                String profileImageUrl = snapshot.child("profileImageUrl").getValue(String.class);
+
                 if (name != null && !name.isEmpty()) {
                     userNames.put(userId, name);
-                    chatAdapter.notifyDataSetChanged();
-
-                    // Update any existing messages with this sender's name
-                    for (int i = 0; i < chatMessages.size(); i++) {
-                        if (chatMessages.get(i).getSenderId().equals(userId)) {
-                            chatAdapter.notifyItemChanged(i);
-                        }
-                    }
                 } else {
-                    // Fallback to email if name doesn't exist
-                    usersRef.child(userId).child("email").addListenerForSingleValueEvent(new ValueEventListener() {
-                        @Override
-                        public void onDataChange(@NonNull DataSnapshot emailSnapshot) {
-                            String email = emailSnapshot.getValue(String.class);
-                            if (email != null) {
-                                userNames.put(userId, email.split("@")[0]);
-                                chatAdapter.notifyDataSetChanged();
-                            }
-                        }
-
-                        @Override
-                        public void onCancelled(@NonNull DatabaseError error) {
-                            Log.e(TAG, "Failed to fetch user email", error.toException());
-                        }
-                    });
+                    String email = snapshot.child("email").getValue(String.class);
+                    if (email != null) {
+                        userNames.put(userId, email.split("@")[0]);
+                    }
                 }
+
+                if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
+                    userProfilePics.put(userId, profileImageUrl);
+                }
+
+                chatAdapter.notifyDataSetChanged();
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                Log.e(TAG, "Failed to fetch user name", error.toException());
+                Log.e(TAG, "Failed to fetch user info", error.toException());
             }
         });
     }
@@ -244,20 +229,19 @@ public class ChatFragment extends Fragment {
         String messageId = chatRef.push().getKey();
         if (messageId == null) return;
 
-        // Create message with sender's name included
-        String senderName = userNames.containsKey(currentUserId) ?
-                userNames.get(currentUserId) : "You";
+        String senderName = userNames.getOrDefault(currentUserId, "You");
+        String profileImageUrl = userProfilePics.getOrDefault(currentUserId, "");
+
         ChatMessage chatMessage = new ChatMessage(
                 currentUserId,
                 senderName,
                 message,
-                System.currentTimeMillis()
+                System.currentTimeMillis(),
+                profileImageUrl
         );
 
         chatRef.child(messageId).setValue(chatMessage)
-                .addOnSuccessListener(aVoid -> {
-                    sendNotificationsToChatParticipants(message);
-                })
+                .addOnSuccessListener(aVoid -> sendNotificationsToChatParticipants(message))
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Failed to send message", e);
                     showToast("Failed to send message");
@@ -294,8 +278,7 @@ public class ChatFragment extends Fragment {
                 String token = snapshot.getValue(String.class);
                 if (token != null) {
                     String title = "New message in chat";
-                    String senderName = userNames.containsKey(currentUserId) ?
-                            userNames.get(currentUserId) : "Someone";
+                    String senderName = userNames.getOrDefault(currentUserId, "Someone");
                     String body = senderName + ": " + message;
 
                     Map<String, String> notificationData = new HashMap<>();
@@ -316,43 +299,8 @@ public class ChatFragment extends Fragment {
         });
     }
 
-    private void updateLastMessage(String message, String senderId) {
-        DatabaseReference cardRef = FirebaseDatabase.getInstance()
-                .getReference("cards")
-                .child(cardId);
-
-        cardRef.child("users").addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                for (DataSnapshot userSnapshot : snapshot.getChildren()) {
-                    String userId = userSnapshot.getKey();
-                    if (userId != null) {
-                        String senderName = userNames.containsKey(senderId) ?
-                                userNames.get(senderId) : "Someone";
-
-                        Map<String, Object> chatUpdate = new HashMap<>();
-                        chatUpdate.put("lastMessage", message);
-                        chatUpdate.put("senderId", senderId);
-                        chatUpdate.put("senderName", senderName);
-                        chatUpdate.put("cardId", cardId);
-                        chatUpdate.put("timestamp", System.currentTimeMillis());
-                        chatUpdate.put("read", userId.equals(currentUserId));
-
-                        userChatsRef.child(userId).child(cardId).updateChildren(chatUpdate);
-                    }
-                }
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                Log.e(TAG, "Failed to update last message", error.toException());
-            }
-        });
-    }
-
     private void markChatAsRead() {
         if (cardId == null || currentUserId == null) return;
-
         userChatsRef.child(currentUserId).child(cardId).child("read").setValue(true);
     }
 

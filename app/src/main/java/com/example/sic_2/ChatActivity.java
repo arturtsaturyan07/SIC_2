@@ -33,6 +33,8 @@ public class ChatActivity extends AppCompatActivity {
     private String cardId;
     private String currentUserId;
     private Map<String, String> userNames = new HashMap<>();
+    private Map<String, String> userProfilePics = new HashMap<>();
+    private ValueEventListener chatListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,8 +53,14 @@ public class ChatActivity extends AppCompatActivity {
             return;
         }
 
+        if (currentUserId == null) {
+            showToast("User not authenticated");
+            finish();
+            return;
+        }
+
         chatMessages = new ArrayList<>();
-        chatAdapter = new ChatAdapter(chatMessages, currentUserId, userNames);
+        chatAdapter = new ChatAdapter(chatMessages, currentUserId, userNames, userProfilePics);
         chatRecyclerView = findViewById(R.id.chat_recycler_view);
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         chatRecyclerView.setAdapter(chatAdapter);
@@ -85,7 +93,7 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void loadChatMessages() {
-        chatRef.addValueEventListener(new ValueEventListener() {
+        chatListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 chatMessages.clear();
@@ -95,9 +103,19 @@ public class ChatActivity extends AppCompatActivity {
                         chatMessage.setId(messageSnapshot.getKey());
                         chatMessages.add(chatMessage);
 
-                        // Fetch sender name if not already cached
+                        // Update sender name if available in message
+                        if (chatMessage.getSenderName() != null && !chatMessage.getSenderName().isEmpty()) {
+                            userNames.put(chatMessage.getSenderId(), chatMessage.getSenderName());
+                        }
+
+                        // Update profile image if available in message
+                        if (chatMessage.getProfileImageUrl() != null && !chatMessage.getProfileImageUrl().isEmpty()) {
+                            userProfilePics.put(chatMessage.getSenderId(), chatMessage.getProfileImageUrl());
+                        }
+
+                        // Fetch additional user details if not already cached
                         if (!userNames.containsKey(chatMessage.getSenderId())) {
-                            fetchUserName(chatMessage.getSenderId());
+                            fetchUserDetails(chatMessage.getSenderId());
                         }
                     }
                 }
@@ -112,47 +130,43 @@ public class ChatActivity extends AppCompatActivity {
                 Log.e("FirebaseError", "Error loading chat messages: " + error.getMessage());
                 showToast("Failed to load chat messages");
             }
-        });
+        };
+        chatRef.addValueEventListener(chatListener);
     }
 
-    private void fetchUserName(String userId) {
-        usersRef.child(userId).child("name").addListenerForSingleValueEvent(
+    private void fetchUserDetails(String userId) {
+        usersRef.child(userId).addListenerForSingleValueEvent(
                 new ValueEventListener() {
                     @Override
                     public void onDataChange(@NonNull DataSnapshot snapshot) {
-                        String name = snapshot.getValue(String.class);
-                        if (name != null && !name.isEmpty()) {
-                            userNames.put(userId, name);
-                            chatAdapter.notifyDataSetChanged();
-                        } else {
-                            // Fallback to email if name not available
-                            fetchUserEmail(userId);
-                        }
-                    }
+                        if (snapshot.exists()) {
+                            // Get user name
+                            String name = snapshot.child("name").getValue(String.class);
+                            if (name == null || name.isEmpty()) {
+                                // Fallback to email if name not available
+                                String email = snapshot.child("email").getValue(String.class);
+                                if (email != null) {
+                                    name = email.split("@")[0];
+                                }
+                            }
 
-                    @Override
-                    public void onCancelled(@NonNull DatabaseError error) {
-                        Log.e("FirebaseError", "Failed to fetch user name: " + error.getMessage());
-                    }
-                }
-        );
-    }
+                            if (name != null) {
+                                userNames.put(userId, name);
+                            }
 
-    private void fetchUserEmail(String userId) {
-        usersRef.child(userId).child("email").addListenerForSingleValueEvent(
-                new ValueEventListener() {
-                    @Override
-                    public void onDataChange(@NonNull DataSnapshot snapshot) {
-                        String email = snapshot.getValue(String.class);
-                        if (email != null) {
-                            userNames.put(userId, email.split("@")[0]);
+                            // Get profile picture URL
+                            String profilePicUrl = snapshot.child("profileImageUrl").getValue(String.class);
+                            if (profilePicUrl != null) {
+                                userProfilePics.put(userId, profilePicUrl);
+                            }
+
                             chatAdapter.notifyDataSetChanged();
                         }
                     }
 
                     @Override
                     public void onCancelled(@NonNull DatabaseError error) {
-                        Log.e("FirebaseError", "Failed to fetch user email: " + error.getMessage());
+                        Log.e("FirebaseError", "Failed to fetch user details: " + error.getMessage());
                     }
                 }
         );
@@ -166,10 +180,16 @@ public class ChatActivity extends AppCompatActivity {
 
         String messageId = chatRef.push().getKey();
         if (messageId != null) {
+            // Get current user's name and profile image from cache
+            String senderName = userNames.getOrDefault(currentUserId, "You");
+            String profileImageUrl = userProfilePics.get(currentUserId);
+
             ChatMessage chatMessage = new ChatMessage(
                     currentUserId,
+                    senderName,
                     message,
-                    System.currentTimeMillis()
+                    System.currentTimeMillis(),
+                    profileImageUrl
             );
 
             chatRef.child(messageId).setValue(chatMessage)
@@ -189,6 +209,9 @@ public class ChatActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Clean up listeners if needed
+        // Clean up listeners
+        if (chatRef != null && chatListener != null) {
+            chatRef.removeEventListener(chatListener);
+        }
     }
 }
