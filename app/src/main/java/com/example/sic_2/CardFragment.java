@@ -73,9 +73,7 @@ public class CardFragment extends Fragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.d(TAG, "onCreate");
-
         initializeCloudinary();
-
         if (getArguments() != null) {
             cardId = getArguments().getString(ARG_CARD_ID);
             Log.d(TAG, "Card ID: " + cardId);
@@ -86,13 +84,14 @@ public class CardFragment extends Fragment {
     private void initializeCloudinary() {
         try {
             Map<String, String> config = new HashMap<>();
-            config.put("cloud_name", "disiijbpp");
-            config.put("api_key", "265226997838638");
-            config.put("api_secret", "RsPtut3zPunRm-8Hwh8zRqQ8uG8");
+            config.put("cloud_name", "your_cloud_name"); // Replace with your actual Cloud Name
+            config.put("api_key", "your_api_key");       // Replace with your actual API Key
+            config.put("api_secret", "your_api_secret"); // Replace with your actual API Secret
             MediaManager.init(requireContext(), config);
             Log.d(TAG, "Cloudinary initialized successfully");
         } catch (Exception e) {
             Log.e(TAG, "Cloudinary initialization failed", e);
+            Toast.makeText(requireContext(), "Cloudinary initialization failed", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -109,14 +108,12 @@ public class CardFragment extends Fragment {
         currentUserId = FirebaseAuth.getInstance().getCurrentUser() != null
                 ? FirebaseAuth.getInstance().getCurrentUser().getUid()
                 : null;
-
         if (cardId == null || cardId.isEmpty()) {
             showToast("Card ID is missing");
             Log.e(TAG, "Card ID is missing");
             requireActivity().finish();
             return;
         }
-
         if (currentUserId == null) {
             showToast("Please sign in first");
             Log.e(TAG, "User not authenticated");
@@ -129,10 +126,8 @@ public class CardFragment extends Fragment {
         publicationsRecyclerView = view.findViewById(R.id.publications_recycler_view);
         Button addPublicationButton = view.findViewById(R.id.add_publication_button);
         addPhotoButton = view.findViewById(R.id.add_photo_button);
-
         setupRecyclerView();
         setupButtonListeners(addPublicationButton);
-
         progressDialog = new ProgressDialog(requireContext());
         progressDialog.setCancelable(false);
     }
@@ -158,11 +153,9 @@ public class CardFragment extends Fragment {
     private void showAddPublicationDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
         builder.setTitle("Add New Post");
-
         final android.widget.EditText input = new android.widget.EditText(requireContext());
         input.setHint("What's on your mind?");
         builder.setView(input);
-
         builder.setPositiveButton("Post", (dialog, which) -> {
             String content = input.getText().toString().trim();
             if (!content.isEmpty()) {
@@ -177,22 +170,17 @@ public class CardFragment extends Fragment {
 
     private void loadPublications() {
         Log.d(TAG, "Loading publications for card: " + cardId);
-
-        // Clear existing listener if any
         if (publicationsListener != null) {
             postsRef.removeEventListener(publicationsListener);
         }
-
         postsRef = FirebaseDatabase.getInstance()
                 .getReference("posts")
                 .child(cardId);
-
         publicationsListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 publicationsList.clear();
                 Log.d(TAG, "Found " + snapshot.getChildrenCount() + " publications");
-
                 if (snapshot.exists()) {
                     for (DataSnapshot postSnapshot : snapshot.getChildren()) {
                         try {
@@ -218,20 +206,16 @@ public class CardFragment extends Fragment {
                 showToast("Failed to load posts: " + error.getMessage());
             }
         };
-
         postsRef.orderByChild("timestamp").addValueEventListener(publicationsListener);
     }
 
     private void createPublication(String content, String imageUrl) {
         Log.d(TAG, "Creating new publication");
-
         DatabaseReference newPostRef = FirebaseDatabase.getInstance()
                 .getReference("posts")
                 .child(cardId)
                 .push();
-
         Publication publication = new Publication(currentUserId, content, imageUrl, System.currentTimeMillis());
-
         newPostRef.setValue(publication)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
@@ -276,7 +260,6 @@ public class CardFragment extends Fragment {
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
         String imageFileName = "JPEG_" + timeStamp + "_";
         File storageDir = requireContext().getExternalFilesDir(Environment.DIRECTORY_PICTURES);
-
         try {
             File imageFile = File.createTempFile(imageFileName, ".jpg", storageDir);
             Log.d(TAG, "Image file created: " + imageFile.getAbsolutePath());
@@ -296,7 +279,6 @@ public class CardFragment extends Fragment {
                 imageUri = data.getData();
                 Log.d(TAG, "Image selected from gallery: " + imageUri);
             }
-
             if (imageUri != null) {
                 Log.d(TAG, "Starting image upload");
                 uploadImageToCloudinary();
@@ -309,10 +291,8 @@ public class CardFragment extends Fragment {
             showToast("No image selected");
             return;
         }
-
         progressDialog.setMessage("Uploading image...");
         progressDialog.show();
-
         try {
             MediaManager.get().upload(imageUri)
                     .option("folder", CLOUDINARY_FOLDER)
@@ -385,8 +365,6 @@ public class CardFragment extends Fragment {
     public void onDestroyView() {
         super.onDestroyView();
         Log.d(TAG, "onDestroyView");
-
-        // Clean up Firebase listener
         if (postsRef != null && publicationsListener != null) {
             postsRef.removeEventListener(publicationsListener);
         }
