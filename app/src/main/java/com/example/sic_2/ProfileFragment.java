@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,8 +17,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentManager;
-import androidx.fragment.app.FragmentTransaction;
 
 import com.cloudinary.Transformation;
 import com.cloudinary.android.MediaManager;
@@ -39,7 +38,7 @@ import de.hdodenhof.circleimageview.CircleImageView;
 public class ProfileFragment extends Fragment {
 
     private static final int PICK_IMAGE_REQUEST = 1;
-
+    private static final String TAG = "ProfileFragment";
     private CircleImageView profileImage;
     private TextView tvUsername, tvEmail, tvAbout;
     private Uri imageUri;
@@ -47,9 +46,7 @@ public class ProfileFragment extends Fragment {
     private FirebaseUser currentUser;
     private boolean cloudinaryInitialized = false;
 
-    public ProfileFragment() {
-        // Required empty public constructor
-    }
+    public ProfileFragment() {}
 
     public static ProfileFragment newInstance() {
         return new ProfileFragment();
@@ -58,46 +55,43 @@ public class ProfileFragment extends Fragment {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        initCloudinary();
+        mAuth = FirebaseAuth.getInstance();
+        currentUser = mAuth.getCurrentUser();
+        initializeCloudinary();
     }
 
-    private void initCloudinary() {
+    private void initializeCloudinary() {
+        if (cloudinaryInitialized) return;
+
         try {
-            Map<String, String> config = new HashMap<>();
-            config.put("cloud_name", "your_cloud_name");
-            config.put("api_key", "your_api_key");
-            config.put("api_secret", "your_api_secret");
-            MediaManager.init(requireContext(), config);
+            MediaManager.get(); // will throw if not initialized
             cloudinaryInitialized = true;
-        } catch (Exception e) {
-            e.printStackTrace();
-            cloudinaryInitialized = false;
-            Toast.makeText(getContext(), "Cloudinary initialization failed", Toast.LENGTH_SHORT).show();
+        } catch (IllegalStateException e) {
+            if (getContext() == null) return;
+
+            Map<String, String> config = new HashMap<>();
+            config.put("cloud_name", "disiijbpp");
+            config.put("api_key", "265226997838638");
+            config.put("api_secret", "RsPtut3zPunRm-8Hwh8zRqQ8uG8");
+
+            MediaManager.init(getContext().getApplicationContext(), config);
+            cloudinaryInitialized = true;
         }
     }
 
+
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_profile, container, false);
         view.startAnimation(AnimationUtils.loadAnimation(getContext(), R.anim.fade_in));
 
-        // Initialize Firebase Auth
-        mAuth = FirebaseAuth.getInstance();
-        currentUser = mAuth.getCurrentUser();
-
-        // Initialize views
         profileImage = view.findViewById(R.id.profile_image);
         tvUsername = view.findViewById(R.id.tv_username);
         tvEmail = view.findViewById(R.id.tv_email);
         tvAbout = view.findViewById(R.id.tv_about);
 
-        // Load user data
         loadUserData();
-
-        // Set click listeners
         setClickListenersWithAnimation(view);
-
         return view;
     }
 
@@ -109,7 +103,6 @@ public class ProfileFragment extends Fragment {
                 R.id.layout_settings,
                 R.id.layout_logout
         };
-
         for (int id : clickableIds) {
             view.findViewById(id).setOnClickListener(v -> {
                 v.startAnimation(AnimationUtils.loadAnimation(getContext(), R.anim.ripple));
@@ -135,32 +128,22 @@ public class ProfileFragment extends Fragment {
     private void loadUserData() {
         if (currentUser != null) {
             String displayName = currentUser.getDisplayName();
-            tvUsername.setText(displayName != null && !displayName.isEmpty() ? displayName : "User");
+            tvUsername.setText(displayName != null ? displayName : "User");
             tvEmail.setText(currentUser.getEmail());
             tvAbout.setText("Tell us something about yourself...");
-
             if (currentUser.getPhotoUrl() != null) {
-                // Consider using Glide/Picasso here for better image loading
                 profileImage.setImageURI(currentUser.getPhotoUrl());
             }
         }
-    }
-
-    private void changeProfilePhoto() {
-        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-        intent.setType("image/*");
-        startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE_REQUEST);
     }
 
     private void showEditProfileDialog() {
         MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(requireContext());
         View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_edit_profile, null);
         builder.setView(dialogView);
-
         AlertDialog dialog = builder.create();
         dialog.show();
 
-        // Initialize dialog views
         CircleImageView dialogProfileImage = dialogView.findViewById(R.id.dialog_profile_image);
         TextInputEditText etFirstName = dialogView.findViewById(R.id.et_first_name);
         TextInputEditText etLastName = dialogView.findViewById(R.id.et_last_name);
@@ -170,7 +153,6 @@ public class ProfileFragment extends Fragment {
         Button btnSave = dialogView.findViewById(R.id.btn_save_profile);
         Button btnCancel = dialogView.findViewById(R.id.btn_cancel_profile);
 
-        // Set current values
         if (currentUser != null) {
             String displayName = currentUser.getDisplayName();
             if (displayName != null) {
@@ -180,7 +162,6 @@ public class ProfileFragment extends Fragment {
             }
             etEmail.setText(currentUser.getEmail());
             etAbout.setText(tvAbout.getText().toString());
-
             if (currentUser.getPhotoUrl() != null) {
                 dialogProfileImage.setImageURI(currentUser.getPhotoUrl());
             }
@@ -191,9 +172,7 @@ public class ProfileFragment extends Fragment {
             dialog.dismiss();
         });
 
-        btnSave.setOnClickListener(v -> validateAndUpdateProfile(
-                etFirstName, etLastName, etEmail, etAbout, dialog));
-
+        btnSave.setOnClickListener(v -> validateAndUpdateProfile(etFirstName, etLastName, etEmail, etAbout, dialog));
         btnCancel.setOnClickListener(v -> dialog.dismiss());
     }
 
@@ -208,12 +187,10 @@ public class ProfileFragment extends Fragment {
             etFirstName.setError("First name is required");
             return;
         }
-
         if (TextUtils.isEmpty(email)) {
             etEmail.setError("Email is required");
             return;
         }
-
         if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
             etEmail.setError("Enter a valid email");
             return;
@@ -226,11 +203,9 @@ public class ProfileFragment extends Fragment {
     private void updateProfile(String fullName, String email, String about) {
         if (currentUser == null) return;
 
-        // Update display name
         UserProfileChangeRequest profileUpdates = new UserProfileChangeRequest.Builder()
                 .setDisplayName(fullName)
                 .build();
-
         currentUser.updateProfile(profileUpdates)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
@@ -242,7 +217,6 @@ public class ProfileFragment extends Fragment {
                     }
                 });
 
-        // Update email if changed
         if (!email.equals(currentUser.getEmail())) {
             currentUser.updateEmail(email)
                     .addOnCompleteListener(task -> {
@@ -260,7 +234,6 @@ public class ProfileFragment extends Fragment {
         MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(requireContext());
         View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_change_password, null);
         builder.setView(dialogView);
-
         AlertDialog dialog = builder.create();
         dialog.show();
 
@@ -270,16 +243,12 @@ public class ProfileFragment extends Fragment {
         Button btnChangePassword = dialogView.findViewById(R.id.btn_change_password);
         Button btnCancel = dialogView.findViewById(R.id.btn_cancel);
 
-        btnChangePassword.setOnClickListener(v -> validateAndChangePassword(
-                etCurrentPassword, etNewPassword, etConfirmPassword, dialog));
-
+        btnChangePassword.setOnClickListener(v -> validateAndChangePassword(etCurrentPassword, etNewPassword, etConfirmPassword, dialog));
         btnCancel.setOnClickListener(v -> dialog.dismiss());
     }
 
-    private void validateAndChangePassword(TextInputEditText etCurrentPassword,
-                                           TextInputEditText etNewPassword,
-                                           TextInputEditText etConfirmPassword,
-                                           AlertDialog dialog) {
+    private void validateAndChangePassword(TextInputEditText etCurrentPassword, TextInputEditText etNewPassword,
+                                           TextInputEditText etConfirmPassword, AlertDialog dialog) {
         String currentPassword = etCurrentPassword.getText().toString().trim();
         String newPassword = etNewPassword.getText().toString().trim();
         String confirmPassword = etConfirmPassword.getText().toString().trim();
@@ -288,17 +257,14 @@ public class ProfileFragment extends Fragment {
             etCurrentPassword.setError("Current password is required");
             return;
         }
-
         if (TextUtils.isEmpty(newPassword)) {
             etNewPassword.setError("New password is required");
             return;
         }
-
         if (newPassword.length() < 6) {
-            etNewPassword.setError("Password must be at least 6 characters");
+            etNewPassword.setError("At least 6 characters required");
             return;
         }
-
         if (!newPassword.equals(confirmPassword)) {
             etConfirmPassword.setError("Passwords don't match");
             return;
@@ -312,7 +278,6 @@ public class ProfileFragment extends Fragment {
         if (currentUser == null || currentUser.getEmail() == null) return;
 
         AuthCredential credential = EmailAuthProvider.getCredential(currentUser.getEmail(), currentPassword);
-
         currentUser.reauthenticate(credential)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
@@ -325,48 +290,20 @@ public class ProfileFragment extends Fragment {
                                     }
                                 });
                     } else {
-                        showToast("Authentication failed. Wrong current password.");
+                        showToast("Wrong current password");
                     }
                 });
     }
 
-    private void openSettingsWithTransition() {
-        FragmentManager fragmentManager = getParentFragmentManager();
-        FragmentTransaction transaction = fragmentManager.beginTransaction();
-        transaction.setCustomAnimations(
-                R.anim.slide_in_right,
-                R.anim.slide_out_left,
-                R.anim.slide_in_left,
-                R.anim.slide_out_right
-        );
-        transaction.replace(R.id.container, new SettingsFragment());
-        transaction.addToBackStack(null);
-        transaction.commit();
-    }
-
-    private void logout() {
-        new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Logout")
-                .setMessage("Are you sure you want to logout?")
-                .setPositiveButton("Logout", (dialog, which) -> {
-                    FirebaseAuth.getInstance().signOut();
-                    showToast("Logged out successfully");
-                    startActivity(new Intent(getActivity(), LoginActivity.class)
-                            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
-                    requireActivity().finish();
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
-    }
-
-    private void showToast(String message) {
-        Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
+    private void changeProfilePhoto() {
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        intent.setType("image/*");
+        startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE_REQUEST);
     }
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-
         if (requestCode == PICK_IMAGE_REQUEST && resultCode == getActivity().RESULT_OK
                 && data != null && data.getData() != null) {
             imageUri = data.getData();
@@ -376,28 +313,15 @@ public class ProfileFragment extends Fragment {
     }
 
     private void uploadProfileImage() {
-        if (imageUri == null || currentUser == null) {
-            showToast("No image selected");
+        if (!cloudinaryInitialized || imageUri == null) {
+            showToast("Image upload service not ready");
             return;
         }
 
-        if (!cloudinaryInitialized) {
-            showToast("Image upload service not available");
-            return;
-        }
-
-        String publicId = "profile_" + currentUser.getUid() + "_" + System.currentTimeMillis();
-
-        MediaManager.get()
-                .upload(imageUri)
-                .unsigned("your_upload_preset") // Replace with your upload preset
-                .option("public_id", publicId)
-                .option("folder", "user_profiles")
-                .option("transformation", new Transformation()
-                        .width(200)
-                        .height(200)
-                        .crop("fill")
-                        .gravity("face"))
+        MediaManager.get().upload(imageUri)
+                .option("folder", "profile_pics/")
+                .option("resource_type", "image")
+                .option("transformation", new Transformation().width(300).height(300).crop("fill"))
                 .callback(new UploadCallback() {
                     @Override
                     public void onStart(String requestId) {
@@ -405,18 +329,12 @@ public class ProfileFragment extends Fragment {
                     }
 
                     @Override
-                    public void onProgress(String requestId, long bytes, long totalBytes) {
-                        // Upload progress
-                    }
+                    public void onProgress(String requestId, long bytes, long totalBytes) {}
 
                     @Override
                     public void onSuccess(String requestId, Map resultData) {
-                        String secureUrl = (String) resultData.get("secure_url");
-                        if (secureUrl != null) {
-                            updateProfilePicture(Uri.parse(secureUrl));
-                        } else {
-                            showToast("Upload failed: no URL returned");
-                        }
+                        String imageUrl = (String) resultData.get("secure_url");
+                        updateProfilePhotoUrl(imageUrl);
                     }
 
                     @Override
@@ -425,26 +343,40 @@ public class ProfileFragment extends Fragment {
                     }
 
                     @Override
-                    public void onReschedule(String requestId, ErrorInfo error) {
-                        showToast("Upload rescheduled");
-                    }
-                })
-                .dispatch();
+                    public void onReschedule(String requestId, ErrorInfo error) {}
+                }).dispatch();
     }
 
-    private void updateProfilePicture(Uri uri) {
-        UserProfileChangeRequest profileUpdates = new UserProfileChangeRequest.Builder()
-                .setPhotoUri(uri)
+    private void updateProfilePhotoUrl(String imageUrl) {
+        if (currentUser == null) return;
+
+        UserProfileChangeRequest request = new UserProfileChangeRequest.Builder()
+                .setPhotoUri(Uri.parse(imageUrl))
                 .build();
 
-        currentUser.updateProfile(profileUpdates)
+        currentUser.updateProfile(request)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
-                        profileImage.setImageURI(uri);
-                        showToast("Profile picture updated");
+                        showToast("Profile image updated");
+                        profileImage.setImageURI(Uri.parse(imageUrl));
                     } else {
-                        showToast("Failed to update profile");
+                        showToast("Failed to update profile image");
                     }
                 });
+    }
+
+    private void openSettingsWithTransition() {
+        // Optional method - define your settings fragment/activity here
+        showToast("Settings coming soon");
+    }
+
+    private void logout() {
+        mAuth.signOut();
+        startActivity(new Intent(getContext(), LoginActivity.class));
+        requireActivity().finish();
+    }
+
+    private void showToast(String message) {
+        Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
     }
 }

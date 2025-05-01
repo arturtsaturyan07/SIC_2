@@ -63,8 +63,6 @@ public class ChatFragment extends Fragment {
 
         if (getArguments() != null) {
             cardId = getArguments().getString(ARG_CARD_ID);
-            String originalOwnerId = getArguments().getString(ARG_OWNER_ID);
-            Log.d(TAG, "Card ID: " + cardId + ", Owner ID: " + originalOwnerId);
         }
 
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
@@ -78,11 +76,8 @@ public class ChatFragment extends Fragment {
     }
 
     private void storeUserInfo(FirebaseUser user) {
-        DatabaseReference userRef = FirebaseDatabase.getInstance()
-                .getReference("users")
-                .child(user.getUid());
+        DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("users").child(user.getUid());
 
-        // Check if name already exists
         userRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
@@ -91,8 +86,7 @@ public class ChatFragment extends Fragment {
                     if (displayName != null && !displayName.isEmpty()) {
                         userRef.child("name").setValue(displayName);
                     } else {
-                        String emailPrefix = user.getEmail() != null ?
-                                user.getEmail().split("@")[0] : "User";
+                        String emailPrefix = user.getEmail() != null ? user.getEmail().split("@")[0] : "User";
                         userRef.child("name").setValue(emailPrefix);
                     }
                 }
@@ -148,11 +142,7 @@ public class ChatFragment extends Fragment {
         usersRef = FirebaseDatabase.getInstance().getReference("users");
         tokensRef = FirebaseDatabase.getInstance().getReference("fcmTokens");
         userChatsRef = FirebaseDatabase.getInstance().getReference("user_chats");
-        chatRef = FirebaseDatabase.getInstance()
-                .getReference("cards")
-                .child(cardId)
-                .child("chats")
-                .child("messages");
+        chatRef = FirebaseDatabase.getInstance().getReference("cards").child(cardId).child("chats").child("messages");
 
         setupChatListener();
         fetchUserInfo(currentUserId);
@@ -169,24 +159,16 @@ public class ChatFragment extends Fragment {
                     chatMessages.add(message);
                     chatAdapter.notifyItemInserted(chatMessages.size() - 1);
                     chatRecyclerView.smoothScrollToPosition(chatMessages.size() - 1);
-
                     if (!userNames.containsKey(message.getSenderId())) {
                         fetchUserInfo(message.getSenderId());
                     }
                 }
             }
 
-            @Override
-            public void onChildChanged(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
-
-            @Override
-            public void onChildRemoved(@NonNull DataSnapshot snapshot) {}
-
-            @Override
-            public void onChildMoved(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
+            @Override public void onChildChanged(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
+            @Override public void onChildRemoved(@NonNull DataSnapshot snapshot) {}
+            @Override public void onChildMoved(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
+            @Override public void onCancelled(@NonNull DatabaseError error) {
                 Log.e(TAG, "Chat listener cancelled: " + error.getMessage());
                 showToast("Failed to load messages");
             }
@@ -233,11 +215,7 @@ public class ChatFragment extends Fragment {
         String profileImageUrl = userProfilePics.getOrDefault(currentUserId, "");
 
         ChatMessage chatMessage = new ChatMessage(
-                currentUserId,
-                senderName,
-                message,
-                System.currentTimeMillis(),
-                profileImageUrl
+                currentUserId, senderName, message, System.currentTimeMillis(), profileImageUrl
         );
 
         chatRef.child(messageId).setValue(chatMessage)
@@ -249,9 +227,7 @@ public class ChatFragment extends Fragment {
     }
 
     private void sendNotificationsToChatParticipants(String message) {
-        DatabaseReference cardRef = FirebaseDatabase.getInstance()
-                .getReference("cards")
-                .child(cardId);
+        DatabaseReference cardRef = FirebaseDatabase.getInstance().getReference("cards").child(cardId);
 
         cardRef.child("users").addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
