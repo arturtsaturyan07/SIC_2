@@ -1,9 +1,11 @@
 package com.example.sic_2;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.ActivityManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -43,6 +45,7 @@ import java.util.concurrent.TimeUnit;
 public class MainActivity extends AppCompatActivity {
 
     private static final int REQUEST_CODE_NOTIFICATIONS = 0;
+
     private BottomNavigationView bottomNavigationView;
     private FirebaseAuth auth;
     private DatabaseReference usersRef;
@@ -55,13 +58,17 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // Show app-started notification
+        createNotificationChannel();
+        showAppStartedNotification();
+
         // Initialize views
         initializeViews();
 
         // Request notification permissions for Android 13+
         requestNotificationPermission();
 
-        // Handle intent to open chat fragment directly
+        // Handle deep link to open chat fragment
         Intent intent = getIntent();
         if (intent != null && intent.getBooleanExtra("open_chat", false)) {
             String cardId = intent.getStringExtra("cardId");
@@ -74,7 +81,7 @@ public class MainActivity extends AppCompatActivity {
         auth = FirebaseAuth.getInstance();
         user = auth.getCurrentUser();
 
-        // Check if the app is in guest mode
+        // Check guest mode
         boolean isGuest = intent.getBooleanExtra("guest_mode", false);
         if (user == null && !isGuest) {
             redirectToLogin();
@@ -99,6 +106,34 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            CharSequence name = "App Notifications";
+            String description = "Notifications for App Events";
+            int importance = NotificationManager.IMPORTANCE_DEFAULT;
+            NotificationChannel channel = new NotificationChannel("app_channel_id", name, importance);
+            channel.setDescription(description);
+
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            if (notificationManager != null) {
+                notificationManager.createNotificationChannel(channel);
+            }
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private void showAppStartedNotification() {
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "app_channel_id")
+                .setSmallIcon(R.drawable.baseline_circle_notifications_24)
+                .setContentTitle("SIC App Running")
+                .setContentText("Your app is now active.")
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setAutoCancel(false); // Prevent swiping away
+
+        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
+        notificationManager.notify(1, builder.build());
+    }
+
     private void initializeViews() {
         bottomNavigationView = findViewById(R.id.bottom_navigation);
         cardContainer = findViewById(R.id.card_container);
@@ -117,15 +152,11 @@ public class MainActivity extends AppCompatActivity {
             Log.d("GuestMode", "Skipping Firebase user check for guest mode.");
             return;
         }
-
         usersRef = FirebaseDatabase.getInstance().getReference("users");
-
-        // Get user info from intent or Firebase user
         String email = intent.getStringExtra("email");
         if (email == null && user != null) {
             email = user.getEmail();
         }
-
         checkIfUserExists(email);
     }
 
@@ -143,7 +174,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void checkIfUserExists(String email) {
         if (userId == null) return;
-
         usersRef.child(userId).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
@@ -164,12 +194,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void createUser(String email) {
         if (user == null) return;
-
         String name = user.getDisplayName();
         if (name == null || name.isEmpty()) {
             name = "User";
         }
-
         User newUser = new User(userId, name, "", email != null ? email : "no-email@example.com");
         usersRef.child(userId).setValue(newUser)
                 .addOnCompleteListener(task -> {
@@ -208,7 +236,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadUserCards() {
         if (userId == null || cardContainer == null) return;
-
         DatabaseReference cardsRef = FirebaseDatabase.getInstance().getReference("cards");
         cardsRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
@@ -266,7 +293,6 @@ public class MainActivity extends AppCompatActivity {
                 new PeriodicWorkRequest.Builder(HiWorker.class, 1, TimeUnit.HOURS)
                         .setInitialDelay(10, TimeUnit.SECONDS)
                         .build();
-
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
                 "ChatNotificationWork",
                 ExistingPeriodicWorkPolicy.REPLACE,
