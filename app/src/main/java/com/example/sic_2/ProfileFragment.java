@@ -17,6 +17,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
 
 import com.cloudinary.Transformation;
 import com.cloudinary.android.MediaManager;
@@ -366,8 +368,17 @@ public class ProfileFragment extends Fragment {
     }
 
     private void openSettingsWithTransition() {
-        // Optional method - define your settings fragment/activity here
-        showToast("Settings coming soon");
+        FragmentManager fragmentManager = getParentFragmentManager();
+        FragmentTransaction transaction = fragmentManager.beginTransaction();
+        transaction.setCustomAnimations(
+                R.anim.slide_in_right,
+                R.anim.slide_out_left,
+                R.anim.slide_in_left,
+                R.anim.slide_out_right
+        );
+        transaction.replace(R.id.container, new SettingsFragment());
+        transaction.addToBackStack(null);
+        transaction.commit();
     }
 
     private void logout() {

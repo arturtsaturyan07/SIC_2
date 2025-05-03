@@ -47,6 +47,7 @@ sdk = "1.0.0"
 sdkVersion = "8.0.0"
 supabaseStorageAndroid = "0.1.0"
 workRuntime = "2.10.1"
+transportApi = "3.0.0"
 
 [libraries]
 appcompat-v131 = { module = "androidx.appcompat:appcompat", version.ref = "appcompatVersion" }
@@ -109,6 +110,7 @@ sdk = { module = "io.imagekit:sdk", version.ref = "sdk" }
 sdk-v800 = { module = "io.imagekit:sdk", version.ref = "sdkVersion" }
 supabase-storage-android = { module = "io.github.jan-supabase:supabase-storage-android", version.ref = "supabaseStorageAndroid" }
 work-runtime = { module = "androidx.work:work-runtime", version.ref = "workRuntime" }
+transport-api = { group = "com.google.android.datatransport", name = "transport-api", version.ref = "transportApi" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
