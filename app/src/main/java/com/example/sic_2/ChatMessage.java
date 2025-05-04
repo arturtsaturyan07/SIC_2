@@ -1,28 +1,35 @@
 package com.example.sic_2;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class ChatMessage {
+
     private String id;
     private String senderId;
     private String message;
     private long timestamp;
     private String senderName;
-    private boolean read;
     private String profileImageUrl;
 
-    // Default constructor required for Firebase
+    // Status fields as boolean for simplicity
+    private boolean delivered;
+    private boolean read;
+
     public ChatMessage() {
+        // Required empty constructor for Firebase
     }
 
-    public ChatMessage(String senderId, String senderName, String message, long timestamp, String profileImageUrl) {
+    public ChatMessage(String senderId, String name, String message, long timestamp, String profileImageUrl) {
         this.senderId = senderId;
-        this.senderName = senderName;
+        this.senderName = name;
         this.message = message;
         this.timestamp = timestamp;
         this.profileImageUrl = profileImageUrl;
         this.read = false;
+        this.delivered = false;
     }
 
-    // Getters and setters
     public String getId() {
         return id;
     }
@@ -63,6 +70,14 @@ public class ChatMessage {
         this.senderName = senderName;
     }
 
+    public String getProfileImageUrl() {
+        return profileImageUrl;
+    }
+
+    public void setProfileImageUrl(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
+    }
+
     public boolean isRead() {
         return read;
     }
@@ -71,11 +86,11 @@ public class ChatMessage {
         this.read = read;
     }
 
-    public String getProfileImageUrl() {
-        return profileImageUrl;
+    public boolean isDelivered() {
+        return delivered;
     }
 
-    public void setProfileImageUrl(String profileImageUrl) {
-        this.profileImageUrl = profileImageUrl;
+    public void setDelivered(boolean delivered) {
+        this.delivered = delivered;
     }
 }

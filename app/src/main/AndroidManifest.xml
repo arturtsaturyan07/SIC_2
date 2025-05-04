@@ -32,9 +32,6 @@
         android:theme="@style/Theme.MyApp"
         tools:targetApi="31">
         <activity
-            android:name=".Application"
-            android:exported="false" />
-        <activity
             android:name=".CampRequest"
             android:exported="false"
             tools:ignore="Instantiatable" />
@@ -42,26 +39,9 @@
             android:name=".FullScreenImageActivity"
             android:exported="false" />
         <activity
-            android:name=".PostViewHolder"
-            android:exported="false" />
-        <activity
             android:name=".ImageData"
             android:exported="false"
             tools:ignore="Instantiatable" />
-        <activity
-            android:name=".CloudinaryConfig"
-            android:exported="false" />
-        <activity
-            android:name=".CloudinaryHelper"
-            android:exported="false" />
-        <activity
-            android:name=".ImageKitClient"
-            android:exported="false"
-            tools:ignore="Instantiatable" />
-        <activity
-            android:name=".ImageKitService"
-            android:exported="false"
-            tools:ignore="Instantiatable" /> <!-- Activities -->
         <activity
             android:name=".SplashActivity"
             android:exported="true">
@@ -103,7 +83,7 @@
             android:exported="false" /> <!-- Services -->
         <service
             android:name=".MyFirebaseMessagingService"
-            android:exported="false">
+            android:exported="true">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>

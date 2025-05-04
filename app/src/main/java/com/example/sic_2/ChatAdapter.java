@@ -154,4 +154,43 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             timeTextMe = itemView.findViewById(R.id.time_text_me);
         }
     }
+
+    private void setupSentMessage(ChatViewHolder holder, ChatMessage chatMessage, String formattedTime) {
+        holder.messageContainerOther.setVisibility(View.GONE);
+        holder.messageContainerMe.setVisibility(View.VISIBLE);
+
+        holder.senderNameMe.setText("You");
+        holder.messageTextMe.setText(chatMessage.getMessage());
+        holder.timeTextMe.setText(formattedTime);
+
+        holder.messageBubbleMe.setBackground(ContextCompat.getDrawable(holder.itemView.getContext(), R.drawable.bubble_outgoing));
+    }
+
+    private void setupReceivedMessage(ChatViewHolder holder, ChatMessage chatMessage, String formattedTime) {
+        holder.messageContainerMe.setVisibility(View.GONE);
+        holder.messageContainerOther.setVisibility(View.VISIBLE);
+
+        String senderName = userNames.getOrDefault(chatMessage.getSenderId(), "User");
+        holder.senderNameOther.setText(senderName);
+        holder.messageTextOther.setText(chatMessage.getMessage());
+        holder.timeTextOther.setText(formattedTime);
+
+        String profileImageUrl = chatMessage.getProfileImageUrl() != null ?
+                chatMessage.getProfileImageUrl() :
+                userProfilePics.get(chatMessage.getSenderId());
+
+        if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
+            Glide.with(holder.itemView.getContext())
+                    .load(profileImageUrl)
+                    .placeholder(R.drawable.default_profile)
+                    .into(holder.profileImageOther);
+        } else {
+            holder.profileImageOther.setImageResource(R.drawable.default_profile);
+        }
+
+        holder.messageBubbleOther.setBackground(ContextCompat.getDrawable(
+                holder.itemView.getContext(),
+                R.drawable.bubble_incoming
+        ));
+    }
 }

@@ -13,6 +13,7 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -52,6 +53,8 @@ public class MainActivity extends AppCompatActivity {
     private FirebaseUser user;
     private String userId;
     private LinearLayout cardContainer;
+    private TextView badge;
+    private int unreadCount = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,6 +64,11 @@ public class MainActivity extends AppCompatActivity {
         // Show app-started notification
         createNotificationChannel();
         showAppStartedNotification();
+
+        badge = findViewById(R.id.badge);
+
+        // Load unread count from Firebase or local logic
+        loadUnreadMessageCount();
 
         // Initialize views
         initializeViews();
@@ -310,6 +318,63 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 Toast.makeText(this, "Notifications permission denied.", Toast.LENGTH_LONG).show();
             }
+        }
+    }
+
+    public void updateUnreadCount(int count) {
+        TextView badge = bottomNavigationView.findViewById(R.id.badge);
+        if (count > 0) {
+            badge.setVisibility(View.VISIBLE);
+            badge.setText(String.valueOf(count));
+        } else {
+            badge.setVisibility(View.GONE);
+        }
+    }
+
+    private void scheduleUnreadCheckWorker() {
+        PeriodicWorkRequest workRequest =
+                new PeriodicWorkRequest.Builder(UnreadMessageWorker.class, 15, TimeUnit.MINUTES)
+                        .setInitialDelay(10, TimeUnit.SECONDS)
+                        .build();
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                "UnreadMessageWorker",
+                ExistingPeriodicWorkPolicy.REPLACE,
+                workRequest
+        );
+    }
+
+    private void loadUnreadMessageCount() {
+        String currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        DatabaseReference userChatsRef = FirebaseDatabase.getInstance().getReference("user_chats").child(currentUserId);
+
+        userChatsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                int count = 0;
+                for (DataSnapshot chatSnapshot : snapshot.getChildren()) {
+                    Boolean isRead = chatSnapshot.child("read").getValue(Boolean.class);
+                    if (isRead == null || !isRead) {
+                        count++;
+                    }
+                }
+                updateBadge(count);
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("Firebase", "Failed to load unread counts", error.toException());
+            }
+        });
+    }
+
+    private void updateBadge(int count) {
+        unreadCount = count;
+        if (count > 0) {
+            badge.setVisibility(View.VISIBLE);
+            badge.setText(String.valueOf(count));
+        } else {
+            badge.setVisibility(View.GONE);
         }
     }
 }

@@ -26,7 +26,6 @@ import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class ChatFragment extends Fragment {
@@ -37,7 +36,7 @@ public class ChatFragment extends Fragment {
 
     private RecyclerView chatRecyclerView;
     private ChatAdapter chatAdapter;
-    private List<ChatMessage> chatMessages;
+    private ArrayList<ChatMessage> chatMessages;
     private DatabaseReference chatRef;
     private DatabaseReference usersRef;
     private DatabaseReference tokensRef;
@@ -48,11 +47,13 @@ public class ChatFragment extends Fragment {
     private Map<String, String> userNames = new HashMap<>();
     private Map<String, String> userProfilePics = new HashMap<>();
 
+    private boolean isInForeground = false;
+
     public static ChatFragment newInstance(String cardId, String originalOwnerId) {
-        ChatFragment fragment = new ChatFragment();
         Bundle args = new Bundle();
         args.putString(ARG_CARD_ID, cardId);
         args.putString(ARG_OWNER_ID, originalOwnerId);
+        ChatFragment fragment = new ChatFragment();
         fragment.setArguments(args);
         return fragment;
     }
@@ -60,7 +61,6 @@ public class ChatFragment extends Fragment {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         if (getArguments() != null) {
             cardId = getArguments().getString(ARG_CARD_ID);
         }
@@ -68,39 +68,10 @@ public class ChatFragment extends Fragment {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser != null) {
             currentUserId = currentUser.getUid();
-            storeUserInfo(currentUser);
         } else {
-            showToast("Please sign in first");
+            Toast.makeText(requireContext(), "Please sign in", Toast.LENGTH_SHORT).show();
             requireActivity().finish();
         }
-    }
-
-    private void storeUserInfo(FirebaseUser user) {
-        DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("users").child(user.getUid());
-
-        userRef.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (!snapshot.hasChild("name")) {
-                    String displayName = user.getDisplayName();
-                    if (displayName != null && !displayName.isEmpty()) {
-                        userRef.child("name").setValue(displayName);
-                    } else {
-                        String emailPrefix = user.getEmail() != null ? user.getEmail().split("@")[0] : "User";
-                        userRef.child("name").setValue(emailPrefix);
-                    }
-                }
-
-                if (!snapshot.hasChild("profileImageUrl") && user.getPhotoUrl() != null) {
-                    userRef.child("profileImageUrl").setValue(user.getPhotoUrl().toString());
-                }
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                Log.e(TAG, "Failed to check user info", error.toException());
-            }
-        });
     }
 
     @Override
@@ -114,7 +85,14 @@ public class ChatFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        isInForeground = true;
         markChatAsRead();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        isInForeground = false;
     }
 
     private void setupViews(View view) {
@@ -142,11 +120,15 @@ public class ChatFragment extends Fragment {
         usersRef = FirebaseDatabase.getInstance().getReference("users");
         tokensRef = FirebaseDatabase.getInstance().getReference("fcmTokens");
         userChatsRef = FirebaseDatabase.getInstance().getReference("user_chats");
-        chatRef = FirebaseDatabase.getInstance().getReference("cards").child(cardId).child("chats").child("messages");
+
+        chatRef = FirebaseDatabase.getInstance()
+                .getReference("cards")
+                .child(cardId)
+                .child("chats")
+                .child("messages");
 
         setupChatListener();
         fetchUserInfo(currentUserId);
-        markChatAsRead();
     }
 
     private void setupChatListener() {
@@ -156,9 +138,16 @@ public class ChatFragment extends Fragment {
                 ChatMessage message = snapshot.getValue(ChatMessage.class);
                 if (message != null) {
                     message.setId(snapshot.getKey());
+
+                    // Show notification only if not in foreground and not self-message
+                    if (!isInForeground && !message.getSenderId().equals(currentUserId)) {
+                        showUnreadNotification(message.getMessage(), message.getSenderId());
+                    }
+
                     chatMessages.add(message);
                     chatAdapter.notifyItemInserted(chatMessages.size() - 1);
                     chatRecyclerView.smoothScrollToPosition(chatMessages.size() - 1);
+
                     if (!userNames.containsKey(message.getSenderId())) {
                         fetchUserInfo(message.getSenderId());
                     }
@@ -168,12 +157,12 @@ public class ChatFragment extends Fragment {
             @Override public void onChildChanged(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
             @Override public void onChildRemoved(@NonNull DataSnapshot snapshot) {}
             @Override public void onChildMoved(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
-            @Override public void onCancelled(@NonNull DatabaseError error) {
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
                 Log.e(TAG, "Chat listener cancelled: " + error.getMessage());
                 showToast("Failed to load messages");
             }
         };
-
         chatRef.addChildEventListener(chatListener);
     }
 
@@ -183,7 +172,6 @@ public class ChatFragment extends Fragment {
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 String name = snapshot.child("name").getValue(String.class);
                 String profileImageUrl = snapshot.child("profileImageUrl").getValue(String.class);
-
                 if (name != null && !name.isEmpty()) {
                     userNames.put(userId, name);
                 } else {
@@ -192,11 +180,9 @@ public class ChatFragment extends Fragment {
                         userNames.put(userId, email.split("@")[0]);
                     }
                 }
-
                 if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
                     userProfilePics.put(userId, profileImageUrl);
                 }
-
                 chatAdapter.notifyDataSetChanged();
             }
 
@@ -215,7 +201,11 @@ public class ChatFragment extends Fragment {
         String profileImageUrl = userProfilePics.getOrDefault(currentUserId, "");
 
         ChatMessage chatMessage = new ChatMessage(
-                currentUserId, senderName, message, System.currentTimeMillis(), profileImageUrl
+                currentUserId,
+                senderName,
+                message,
+                System.currentTimeMillis(),
+                profileImageUrl
         );
 
         chatRef.child(messageId).setValue(chatMessage)
@@ -228,7 +218,6 @@ public class ChatFragment extends Fragment {
 
     private void sendNotificationsToChatParticipants(String message) {
         DatabaseReference cardRef = FirebaseDatabase.getInstance().getReference("cards").child(cardId);
-
         cardRef.child("users").addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
@@ -253,16 +242,15 @@ public class ChatFragment extends Fragment {
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 String token = snapshot.getValue(String.class);
                 if (token != null) {
-                    String title = "New message in chat";
-                    String senderName = userNames.getOrDefault(currentUserId, "Someone");
-                    String body = senderName + ": " + message;
+                    String title = userNames.getOrDefault(currentUserId, "Someone");
+                    String body = message.length() > 50 ? message.substring(0, 50) + "..." : message;
 
                     Map<String, String> notificationData = new HashMap<>();
                     notificationData.put("title", title);
                     notificationData.put("body", body);
                     notificationData.put("cardId", cardId);
                     notificationData.put("senderId", currentUserId);
-                    notificationData.put("senderName", senderName);
+                    notificationData.put("click_action", "OPEN_CHAT_ACTIVITY");
 
                     FCMNotificationSender.sendNotification(token, notificationData);
                 }
@@ -277,13 +265,32 @@ public class ChatFragment extends Fragment {
 
     private void markChatAsRead() {
         if (cardId == null || currentUserId == null) return;
-        userChatsRef.child(currentUserId).child(cardId).child("read").setValue(true);
+
+        DatabaseReference chatRef = userChatsRef.child(currentUserId).child(cardId);
+        chatRef.child("read").setValue(true);
+    }
+
+    private void showUnreadNotification(String message, String senderId) {
+        DatabaseReference senderRef = FirebaseDatabase.getInstance().getReference("users").child(senderId);
+        senderRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                String senderName = snapshot.child("name").getValue(String.class);
+                if (senderName == null) senderName = "User";
+
+                String title = senderName;
+                String body = message.length() > 50 ? message.substring(0, 50) + "..." : message;
+
+                NotificationHelper.showUnreadChatNotification(requireContext(), title, body, cardId.hashCode());
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {}
+        });
     }
 
     private void showToast(String message) {
-        if (isAdded() && getContext() != null) {
-            Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
-        }
+        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
     }
 
     @Override
