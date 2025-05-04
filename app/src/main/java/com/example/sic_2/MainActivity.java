@@ -85,6 +85,14 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+        if (intent.getBooleanExtra("open_chat", false)) {
+            String cardId = intent.getStringExtra("cardId");
+            getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.container, ChatFragment.newInstance(cardId, ""))
+                    .addToBackStack(null)
+                    .commit();
+        }
+
         // Initialize Firebase Authentication
         auth = FirebaseAuth.getInstance();
         user = auth.getCurrentUser();

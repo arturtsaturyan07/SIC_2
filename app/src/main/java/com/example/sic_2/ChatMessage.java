@@ -93,4 +93,6 @@ public class ChatMessage {
     public void setDelivered(boolean delivered) {
         this.delivered = delivered;
     }
+
+
 }

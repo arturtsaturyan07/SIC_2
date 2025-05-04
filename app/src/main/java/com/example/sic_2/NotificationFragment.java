@@ -5,8 +5,6 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -14,6 +12,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -26,47 +25,58 @@ import java.util.List;
 public class NotificationFragment extends Fragment {
 
     private RecyclerView recyclerView;
-    private List<ChatPreview> chatPreviews = new ArrayList<>();
-    private ChatPreviewAdapter adapter;
+    private NotificationAdapter adapter;
+    private List<UnreadChatPreview> unreadChats = new ArrayList<>();
     private DatabaseReference userChatsRef;
     private String currentUserId;
 
+    public NotificationFragment() {
+        // Required empty constructor
+    }
+
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_notification, container, false);
 
-        FirebaseAuth auth = FirebaseAuth.getInstance();
-        currentUserId = auth.getCurrentUser().getUid();
-
-        recyclerView = view.findViewById(R.id.recycler_view_notifications);
-        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-        adapter = new ChatPreviewAdapter(chatPreviews, getContext());
+        recyclerView = view.findViewById(R.id.notifications_recycler_view);
+        recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
+        adapter = new NotificationAdapter(unreadChats);
         recyclerView.setAdapter(adapter);
 
-        userChatsRef = FirebaseDatabase.getInstance()
-                .getReference("user_chats")
-                .child(currentUserId);
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser != null) {
+            currentUserId = currentUser.getUid();
+            userChatsRef = FirebaseDatabase.getInstance()
+                    .getReference("user_chats")
+                    .child(currentUserId);
 
-        loadUnreadChats();
+            loadUnreadChats();
+        }
 
         return view;
     }
 
     private void loadUnreadChats() {
-        userChatsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+        if (userChatsRef == null || currentUserId == null) return;
+
+        userChatsRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                chatPreviews.clear();
+                unreadChats.clear();
+
                 for (DataSnapshot chatSnapshot : snapshot.getChildren()) {
-                    Boolean isRead = (Boolean) chatSnapshot.child("read").getValue();
+                    Boolean isRead = chatSnapshot.child("read").getValue(Boolean.class);
                     if (isRead == null || !isRead) {
                         String cardId = chatSnapshot.getKey();
-                        String lastMessage = (String) chatSnapshot.child("lastMessage").getValue();
-                        long timestamp = (long) chatSnapshot.child("timestamp").getValue();
+                        String lastMessage = chatSnapshot.child("lastMessage").getValue(String.class);
+                        Long timestamp = chatSnapshot.child("timestamp").getValue(Long.class);
 
-                        chatPreviews.add(new ChatPreview(cardId, lastMessage, timestamp));
+                        if (cardId != null && lastMessage != null && timestamp != null) {
+                            unreadChats.add(new UnreadChatPreview(cardId, lastMessage, timestamp));
+                        }
                     }
                 }
+
                 adapter.notifyDataSetChanged();
             }
 

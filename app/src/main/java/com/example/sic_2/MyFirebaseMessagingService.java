@@ -6,74 +6,58 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
-
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
-
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 
-import java.util.Map;
-
 public class MyFirebaseMessagingService extends FirebaseMessagingService {
+
+    private static final String CHANNEL_ID = "chat_channel";
 
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
         super.onMessageReceived(remoteMessage);
 
-        Map<String, String> data = remoteMessage.getData();
-        if (data != null) {
-            String title = data.get("title");
-            String body = data.get("body");
-            String cardId = data.get("cardId");
+        String title = remoteMessage.getData().get("title");
+        String body = remoteMessage.getData().get("body");
+        String cardId = remoteMessage.getData().get("cardId");
 
-            if (title != null && body != null) {
-                showNotification(title, body, cardId);
-            }
-        }
+        showNotification(title, body, cardId);
     }
 
     private void showNotification(String title, String body, String cardId) {
-        createNotificationChannel();
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
-        // Create an Intent for the activity you want to start
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    "Chat Notifications",
+                    NotificationManager.IMPORTANCE_DEFAULT
+            );
+            notificationManager.createNotificationChannel(channel);
+        }
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.baseline_circle_notifications_24)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true);
+
         Intent intent = new Intent(this, MainActivity.class);
         intent.putExtra("open_chat", true);
         intent.putExtra("cardId", cardId);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 this,
                 0,
                 intent,
-                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
-        NotificationCompat.Builder notificationBuilder =
-                new NotificationCompat.Builder(this, "chat_channel")
-                        .setSmallIcon(R.drawable.baseline_circle_notifications_24)
-                        .setContentTitle(title)
-                        .setContentText(body)
-                        .setAutoCancel(true)
-                        .setContentIntent(pendingIntent);
+        builder.setContentIntent(pendingIntent);
 
-        NotificationManager notificationManager =
-                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-
-        notificationManager.notify((int) System.currentTimeMillis(), notificationBuilder.build());
-    }
-
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    "chat_channel",
-                    "Chat Notifications",
-                    NotificationManager.IMPORTANCE_DEFAULT
-            );
-            NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) {
-                manager.createNotificationChannel(channel);
-            }
-        }
+        notificationManager.notify(1, builder.build());
     }
 }

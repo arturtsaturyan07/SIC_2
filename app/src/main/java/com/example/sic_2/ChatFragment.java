@@ -47,7 +47,7 @@ public class ChatFragment extends Fragment {
     private Map<String, String> userNames = new HashMap<>();
     private Map<String, String> userProfilePics = new HashMap<>();
 
-    private boolean isInForeground = false;
+    private boolean isInForeground = false; // Tracks if user is in this chat
 
     public static ChatFragment newInstance(String cardId, String originalOwnerId) {
         Bundle args = new Bundle();
@@ -64,7 +64,6 @@ public class ChatFragment extends Fragment {
         if (getArguments() != null) {
             cardId = getArguments().getString(ARG_CARD_ID);
         }
-
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser != null) {
             currentUserId = currentUser.getUid();
@@ -87,6 +86,7 @@ public class ChatFragment extends Fragment {
         super.onResume();
         isInForeground = true;
         markChatAsRead();
+        markAllMessagesAsRead(); // Optional: Mark all messages as read
     }
 
     @Override
@@ -172,6 +172,7 @@ public class ChatFragment extends Fragment {
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 String name = snapshot.child("name").getValue(String.class);
                 String profileImageUrl = snapshot.child("profileImageUrl").getValue(String.class);
+
                 if (name != null && !name.isEmpty()) {
                     userNames.put(userId, name);
                 } else {
@@ -180,9 +181,11 @@ public class ChatFragment extends Fragment {
                         userNames.put(userId, email.split("@")[0]);
                     }
                 }
+
                 if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
                     userProfilePics.put(userId, profileImageUrl);
                 }
+
                 chatAdapter.notifyDataSetChanged();
             }
 
@@ -299,5 +302,46 @@ public class ChatFragment extends Fragment {
         if (chatRef != null && chatListener != null) {
             chatRef.removeEventListener(chatListener);
         }
+    }
+
+    private void markAllMessagesAsRead() {
+        DatabaseReference cardRef = FirebaseDatabase.getInstance()
+                .getReference("cards")
+                .child(cardId)
+                .child("chats")
+                .child("messages");
+
+        cardRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                for (DataSnapshot messageSnapshot : snapshot.getChildren()) {
+                    String messageId = messageSnapshot.getKey();
+
+                    // Avoid NullPointerException here
+                    Boolean isRead = messageSnapshot.child("read").child(currentUserId).getValue(Boolean.class);
+                    if (Boolean.TRUE.equals(isRead)) continue;
+
+                    updateMessageStatus(cardId, messageId, currentUserId, "read", true);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Failed to load messages to mark as read", error.toException());
+            }
+        });
+    }
+
+    private void updateMessageStatus(String cardId, String messageId, String userId, String statusType, boolean value) {
+        DatabaseReference msgRef = FirebaseDatabase.getInstance()
+                .getReference("cards")
+                .child(cardId)
+                .child("chats")
+                .child("messages")
+                .child(messageId);
+
+        Map<String, Object> update = new HashMap<>();
+        update.put(statusType + "." + userId, value);
+        msgRef.updateChildren(update);
     }
 }

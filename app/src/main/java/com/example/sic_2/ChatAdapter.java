@@ -7,7 +7,6 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
-import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
@@ -22,10 +21,10 @@ import de.hdodenhof.circleimageview.CircleImageView;
 
 public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder> {
 
-    private List<ChatMessage> chatMessages;
-    private String currentUserId;
-    private Map<String, String> userNames;
-    private Map<String, String> userProfilePics;
+    private final List<ChatMessage> chatMessages;
+    private final String currentUserId;
+    private final Map<String, String> userNames;
+    private final Map<String, String> userProfilePics;
 
     public ChatAdapter(List<ChatMessage> chatMessages, String currentUserId,
                        Map<String, String> userNames, Map<String, String> userProfilePics) {
@@ -47,54 +46,47 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
     public void onBindViewHolder(@NonNull ChatViewHolder holder, int position) {
         ChatMessage chatMessage = chatMessages.get(position);
         String senderId = chatMessage.getSenderId();
-        String senderName = userNames.containsKey(senderId) ? userNames.get(senderId) : "User";
+        boolean isSentByCurrentUser = senderId.equals(currentUserId);
 
-        // Format the timestamp
+        // Format timestamp
         SimpleDateFormat sdf = new SimpleDateFormat("HH:mm", Locale.getDefault());
         String formattedTime = sdf.format(new Date(chatMessage.getTimestamp()));
 
-        if (senderId.equals(currentUserId)) {
-            // Current user's message
-            holder.messageContainerOther.setVisibility(View.GONE);
-            holder.messageContainerMe.setVisibility(View.VISIBLE);
+        if (isSentByCurrentUser) {
+            // Show self message
+            holder.containerMe.setVisibility(View.VISIBLE);
+            holder.containerOther.setVisibility(View.GONE);
 
-            holder.senderNameMe.setText("You");
             holder.messageTextMe.setText(chatMessage.getMessage());
             holder.timeTextMe.setText(formattedTime);
 
-            // Styling for sent messages
-            holder.messageBubbleMe.setBackground(ContextCompat.getDrawable(
-                    holder.itemView.getContext(),
-                    R.drawable.bubble_outgoing
-            ));
-        } else {
-            // Other user's message
-            holder.messageContainerMe.setVisibility(View.GONE);
-            holder.messageContainerOther.setVisibility(View.VISIBLE);
+            // Set status indicator (✔️ / ✔️✔️)
+            if (chatMessage.isRead()) {
+                holder.statusIndicator.setText("✔️✔️");
+            } else if (chatMessage.isDelivered()) {
+                holder.statusIndicator.setText("✔️");
+            } else {
+                holder.statusIndicator.setText("");
+            }
 
-            holder.senderNameOther.setText(senderName);
+        } else {
+            // Show received message
+            holder.containerOther.setVisibility(View.VISIBLE);
+            holder.containerMe.setVisibility(View.GONE);
+
+            holder.senderNameOther.setText(userNames.getOrDefault(senderId, "User"));
             holder.messageTextOther.setText(chatMessage.getMessage());
             holder.timeTextOther.setText(formattedTime);
 
-            // Load profile picture
-            String profileImageUrl = chatMessage.getProfileImageUrl() != null ?
-                    chatMessage.getProfileImageUrl() :
-                    userProfilePics.get(senderId);
-
-            if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
+            String profileUrl = userProfilePics.get(senderId);
+            if (profileUrl != null && !profileUrl.isEmpty()) {
                 Glide.with(holder.itemView.getContext())
-                        .load(profileImageUrl)
+                        .load(profileUrl)
                         .placeholder(R.drawable.default_profile)
                         .into(holder.profileImageOther);
             } else {
                 holder.profileImageOther.setImageResource(R.drawable.default_profile);
             }
-
-            // Styling for received messages
-            holder.messageBubbleOther.setBackground(ContextCompat.getDrawable(
-                    holder.itemView.getContext(),
-                    R.drawable.bubble_incoming
-            ));
         }
     }
 
@@ -103,94 +95,36 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
         return chatMessages.size();
     }
 
-    public void updateMessages(List<ChatMessage> newMessages) {
-        this.chatMessages = newMessages;
-        notifyDataSetChanged();
-    }
+    static class ChatViewHolder extends RecyclerView.ViewHolder {
 
-    public void updateUserNames(Map<String, String> newUserNames) {
-        this.userNames.clear();
-        this.userNames.putAll(newUserNames);
-        notifyDataSetChanged();
-    }
+        // Sent by me
+        LinearLayout containerMe;
+        TextView messageTextMe;
+        TextView timeTextMe;
+        TextView statusIndicator;
 
-    public void updateUserProfilePics(Map<String, String> newProfilePics) {
-        this.userProfilePics.clear();
-        this.userProfilePics.putAll(newProfilePics);
-        notifyDataSetChanged();
-    }
-
-    public static class ChatViewHolder extends RecyclerView.ViewHolder {
-        // Other user's message components
-        LinearLayout messageContainerOther;
+        // Received from others
+        LinearLayout containerOther;
         CircleImageView profileImageOther;
         TextView senderNameOther;
-        LinearLayout messageBubbleOther;
         TextView messageTextOther;
         TextView timeTextOther;
 
-        // Current user's message components
-        LinearLayout messageContainerMe;
-        TextView senderNameMe;
-        LinearLayout messageBubbleMe;
-        TextView messageTextMe;
-        TextView timeTextMe;
-
         public ChatViewHolder(@NonNull View itemView) {
             super(itemView);
-            // Other user's views
-            messageContainerOther = itemView.findViewById(R.id.message_container_other);
-            profileImageOther = itemView.findViewById(R.id.profile_image_other);
-            senderNameOther = itemView.findViewById(R.id.sender_name_other);
-            messageBubbleOther = itemView.findViewById(R.id.message_bubble_other);
-            messageTextOther = itemView.findViewById(R.id.message_text_other);
-            timeTextOther = itemView.findViewById(R.id.time_text_other);
 
-            // Current user's views
-            messageContainerMe = itemView.findViewById(R.id.message_container_me);
-            senderNameMe = itemView.findViewById(R.id.sender_name_me);
-            messageBubbleMe = itemView.findViewById(R.id.message_bubble_me);
+            // Sent by me
+            containerMe = itemView.findViewById(R.id.message_container_me);
             messageTextMe = itemView.findViewById(R.id.message_text_me);
             timeTextMe = itemView.findViewById(R.id.time_text_me);
+            statusIndicator = itemView.findViewById(R.id.status_indicator_me);
+
+            // Received from other
+            containerOther = itemView.findViewById(R.id.message_container_other);
+            profileImageOther = itemView.findViewById(R.id.profile_image_other);
+            senderNameOther = itemView.findViewById(R.id.sender_name_other);
+            messageTextOther = itemView.findViewById(R.id.message_text_other);
+            timeTextOther = itemView.findViewById(R.id.time_text_other);
         }
-    }
-
-    private void setupSentMessage(ChatViewHolder holder, ChatMessage chatMessage, String formattedTime) {
-        holder.messageContainerOther.setVisibility(View.GONE);
-        holder.messageContainerMe.setVisibility(View.VISIBLE);
-
-        holder.senderNameMe.setText("You");
-        holder.messageTextMe.setText(chatMessage.getMessage());
-        holder.timeTextMe.setText(formattedTime);
-
-        holder.messageBubbleMe.setBackground(ContextCompat.getDrawable(holder.itemView.getContext(), R.drawable.bubble_outgoing));
-    }
-
-    private void setupReceivedMessage(ChatViewHolder holder, ChatMessage chatMessage, String formattedTime) {
-        holder.messageContainerMe.setVisibility(View.GONE);
-        holder.messageContainerOther.setVisibility(View.VISIBLE);
-
-        String senderName = userNames.getOrDefault(chatMessage.getSenderId(), "User");
-        holder.senderNameOther.setText(senderName);
-        holder.messageTextOther.setText(chatMessage.getMessage());
-        holder.timeTextOther.setText(formattedTime);
-
-        String profileImageUrl = chatMessage.getProfileImageUrl() != null ?
-                chatMessage.getProfileImageUrl() :
-                userProfilePics.get(chatMessage.getSenderId());
-
-        if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
-            Glide.with(holder.itemView.getContext())
-                    .load(profileImageUrl)
-                    .placeholder(R.drawable.default_profile)
-                    .into(holder.profileImageOther);
-        } else {
-            holder.profileImageOther.setImageResource(R.drawable.default_profile);
-        }
-
-        holder.messageBubbleOther.setBackground(ContextCompat.getDrawable(
-                holder.itemView.getContext(),
-                R.drawable.bubble_incoming
-        ));
     }
 }
