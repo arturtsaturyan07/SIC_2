@@ -1,5 +1,8 @@
 package com.example.sic_2;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -11,6 +14,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -46,6 +51,7 @@ public class ChatFragment extends Fragment {
     private ChildEventListener chatListener;
     private Map<String, String> userNames = new HashMap<>();
     private Map<String, String> userProfilePics = new HashMap<>();
+    private boolean isCurrentCardActive = false;
 
     private boolean isInForeground = false; // Tracks if user is in this chat
 
@@ -85,14 +91,15 @@ public class ChatFragment extends Fragment {
     public void onResume() {
         super.onResume();
         isInForeground = true;
+        isCurrentCardActive = true;
         markChatAsRead();
-        markAllMessagesAsRead(); // Optional: Mark all messages as read
     }
 
     @Override
     public void onPause() {
         super.onPause();
         isInForeground = false;
+        isCurrentCardActive = false;
     }
 
     private void setupViews(View view) {
@@ -136,14 +143,15 @@ public class ChatFragment extends Fragment {
             @Override
             public void onChildAdded(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {
                 ChatMessage message = snapshot.getValue(ChatMessage.class);
-                if (message != null) {
-                    message.setId(snapshot.getKey());
-
+                if (message != null && !message.getSenderId().equals(currentUserId)) {
                     // Show notification only if not in foreground and not self-message
-                    if (!isInForeground && !message.getSenderId().equals(currentUserId)) {
+                    if (!isInForeground) {
                         showUnreadNotification(message.getMessage(), message.getSenderId());
                     }
+                }
 
+                if (message != null) {
+                    message.setId(snapshot.getKey());
                     chatMessages.add(message);
                     chatAdapter.notifyItemInserted(chatMessages.size() - 1);
                     chatRecyclerView.smoothScrollToPosition(chatMessages.size() - 1);
@@ -154,9 +162,15 @@ public class ChatFragment extends Fragment {
                 }
             }
 
-            @Override public void onChildChanged(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
-            @Override public void onChildRemoved(@NonNull DataSnapshot snapshot) {}
-            @Override public void onChildMoved(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
+            @Override
+            public void onChildChanged(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
+
+            @Override
+            public void onChildRemoved(@NonNull DataSnapshot snapshot) {}
+
+            @Override
+            public void onChildMoved(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
+
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
                 Log.e(TAG, "Chat listener cancelled: " + error.getMessage());
@@ -248,14 +262,13 @@ public class ChatFragment extends Fragment {
                     String title = userNames.getOrDefault(currentUserId, "Someone");
                     String body = message.length() > 50 ? message.substring(0, 50) + "..." : message;
 
-                    Map<String, String> notificationData = new HashMap<>();
-                    notificationData.put("title", title);
-                    notificationData.put("body", body);
-                    notificationData.put("cardId", cardId);
-                    notificationData.put("senderId", currentUserId);
-                    notificationData.put("click_action", "OPEN_CHAT_ACTIVITY");
+                    Map<String, String> data = new HashMap<>();
+                    data.put("title", title);
+                    data.put("body", body);
+                    data.put("cardId", cardId); // Important: pass card ID
+                    data.put("click_action", "OPEN_CHAT_ACTIVITY"); // Optional custom action
 
-                    FCMNotificationSender.sendNotification(token, notificationData);
+                    FCMNotificationSender.sendNotification(token, data);
                 }
             }
 
@@ -268,40 +281,8 @@ public class ChatFragment extends Fragment {
 
     private void markChatAsRead() {
         if (cardId == null || currentUserId == null) return;
-
         DatabaseReference chatRef = userChatsRef.child(currentUserId).child(cardId);
         chatRef.child("read").setValue(true);
-    }
-
-    private void showUnreadNotification(String message, String senderId) {
-        DatabaseReference senderRef = FirebaseDatabase.getInstance().getReference("users").child(senderId);
-        senderRef.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                String senderName = snapshot.child("name").getValue(String.class);
-                if (senderName == null) senderName = "User";
-
-                String title = senderName;
-                String body = message.length() > 50 ? message.substring(0, 50) + "..." : message;
-
-                NotificationHelper.showUnreadChatNotification(requireContext(), title, body, cardId.hashCode());
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {}
-        });
-    }
-
-    private void showToast(String message) {
-        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
-    }
-
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        if (chatRef != null && chatListener != null) {
-            chatRef.removeEventListener(chatListener);
-        }
     }
 
     private void markAllMessagesAsRead() {
@@ -343,5 +324,42 @@ public class ChatFragment extends Fragment {
         Map<String, Object> update = new HashMap<>();
         update.put(statusType + "." + userId, value);
         msgRef.updateChildren(update);
+    }
+
+    private void showUnreadNotification(String message, String senderId) {
+        DatabaseReference senderRef = FirebaseDatabase.getInstance().getReference("users").child(senderId);
+        senderRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                String senderName = snapshot.child("name").getValue(String.class);
+                if (senderName == null) senderName = "User";
+
+                String title = senderName;
+                String body = message.length() > 50 ? message.substring(0, 50) + "..." : message;
+
+                NotificationHelper.showUnreadChatNotification(requireContext(), title, body, cardId.hashCode());
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {}
+        });
+    }
+
+    private void setupFirebaseForUserChatTracking() {
+        if (currentUserId == null || cardId == null) return;
+        DatabaseReference userChatRef = userChatsRef.child(currentUserId).child(cardId);
+        userChatRef.child("read").onDisconnect().removeValue(); // Optional cleanup
+    }
+
+    private void showToast(String message) {
+        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (chatRef != null && chatListener != null) {
+            chatRef.removeEventListener(chatListener);
+        }
     }
 }

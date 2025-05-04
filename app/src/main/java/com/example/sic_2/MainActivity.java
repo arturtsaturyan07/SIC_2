@@ -40,6 +40,7 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.messaging.FirebaseMessaging;
 
 import java.util.concurrent.TimeUnit;
 
@@ -120,22 +121,42 @@ public class MainActivity extends AppCompatActivity {
         if (savedInstanceState == null) {
             loadFragment(new HomeFragment());
         }
-    }
 
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            CharSequence name = "App Notifications";
-            String description = "Notifications for App Events";
-            int importance = NotificationManager.IMPORTANCE_DEFAULT;
-            NotificationChannel channel = new NotificationChannel("app_channel_id", name, importance);
-            channel.setDescription(description);
+        FirebaseMessaging.getInstance().getToken().addOnSuccessListener(token -> {
+            FirebaseDatabase.getInstance().getReference("fcmTokens")
+                    .child(userId)
+                    .setValue(token);
+        });
 
-            NotificationManager notificationManager = getSystemService(NotificationManager.class);
-            if (notificationManager != null) {
-                notificationManager.createNotificationChannel(channel);
+        FirebaseMessaging.getInstance().getToken()
+                .addOnSuccessListener(token -> {
+                    FirebaseDatabase.getInstance().getReference("fcmTokens")
+                            .child(userId)
+                            .setValue(token);
+                });
+
+        if (intent != null && intent.getBooleanExtra("open_chat", false)) {
+            String cardId = intent.getStringExtra("cardId");
+            if (cardId != null) {
+                openChatFragment(cardId);
             }
         }
     }
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            CharSequence name = "Chat Messages";
+            String description = "Notifications for incoming messages";
+            int importance = NotificationManager.IMPORTANCE_HIGH;
+
+            NotificationChannel channel = new NotificationChannel("chat_channel_id", name, importance);
+            channel.setDescription(description);
+
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
+        }
+    }
+
+
 
     @SuppressLint("MissingPermission")
     private void showAppStartedNotification() {
@@ -385,4 +406,8 @@ public class MainActivity extends AppCompatActivity {
             badge.setVisibility(View.GONE);
         }
     }
+
+
+
+
 }

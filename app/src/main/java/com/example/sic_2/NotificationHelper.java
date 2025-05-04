@@ -12,25 +12,33 @@ import androidx.core.app.NotificationCompat;
 
 public class NotificationHelper {
 
-    public static void showUnreadChatNotification(Context context, String title, String content, int notificationId) {
-        String channelId = "chat_channel_id";
-        NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 
+
+    private static final String CHANNEL_ID = "chat_message_channel";
+
+    public static void showUnreadChatNotification(Context context, String title, String content, int notificationId) {
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(channelId, "Chat Messages", NotificationManager.IMPORTANCE_DEFAULT);
-            channel.setDescription("Unread messages from chats");
-            notificationManager.createNotificationChannel(channel);
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    "Unread Messages",
+                    NotificationManager.IMPORTANCE_HIGH
+            );
+            manager.createNotificationChannel(channel);
         }
 
         Intent intent = new Intent(context, MainActivity.class);
         intent.putExtra("open_chat", true);
-        intent.putExtra("cardId", "your_card_id_here"); // You can pass dynamic value if available
+        intent.putExtra("cardId", "your_card_id_here");
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
-        PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                context, 0, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
 
-        Notification notification = new NotificationCompat.Builder(context, channelId)
-                .setSmallIcon(android.R.drawable.ic_dialog_email)
+        Notification notification = new NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.baseline_circle_notifications_24)
                 .setContentTitle(title)
                 .setContentText(content)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -38,6 +46,6 @@ public class NotificationHelper {
                 .setContentIntent(pendingIntent)
                 .build();
 
-        notificationManager.notify(notificationId, notification);
+        manager.notify(notificationId, notification);
     }
 }
