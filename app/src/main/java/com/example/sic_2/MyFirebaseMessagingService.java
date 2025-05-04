@@ -1,6 +1,6 @@
 package com.example.sic_2;
 
-import android.app.NotificationChannel;
+import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -16,54 +16,69 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
-    private static final String CHANNEL_ID = "chat_notification_channel";
+    private Map<String, Notification> activeNotifications = new HashMap<>();
 
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
         super.onMessageReceived(remoteMessage);
 
-        if (remoteMessage.getData().size() > 0) {
-            String title = remoteMessage.getData().get("title");
-            String body = remoteMessage.getData().get("body");
-            String cardId = remoteMessage.getData().get("cardId");
-
-            Log.d("FCM", "Received message: " + remoteMessage.getData());
-
-            showNotification(title, body, cardId);
+        Map<String, String> data = remoteMessage.getData();
+        if (!data.isEmpty()) {
+            String cardId = data.get("cardId");
+            String cardName = data.get("cardName");
+            String senderName = data.get("senderName");
+            String message = data.get("body");
+            CustomNotification customNotification = new CustomNotification(cardId, cardName, message, senderName);
+            showNotification(customNotification);
         }
     }
 
-    private void showNotification(String title, String body, String cardId) {
-        NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+    private void showNotification(CustomNotification customNotification) {
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID,
-                    "Chat Notifications",
-                    NotificationManager.IMPORTANCE_HIGH
-            );
-            manager.createNotificationChannel(channel);
+        String cardId = customNotification.cardId;
+
+        if (activeNotifications.containsKey(cardId)) {
+            Log.d("MyFirebaseMessagingService", "Notification for cardId " + cardId + " already exists.");
+            return; // Do not send a new notification
         }
+
+        if(customNotification.message == null){
+            return;
+        }
+
+        NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
         Intent intent = new Intent(this, MainActivity.class);
         intent.putExtra("open_chat", true);
         intent.putExtra("cardId", cardId);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "chat_notification_channel")
+                .setSmallIcon(R.drawable.baseline_chat_24)
+                .setContentTitle(customNotification.cardName)
+                .setContentText(customNotification.senderName+": "+customNotification.message)
+                .setAutoCancel(true).setContentIntent(pendingIntent);
 
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.ic_dialog_email)
-                .setContentTitle(title)
-                .setContentText(body)
-                .setAutoCancel(true)
-                .setContentIntent(pendingIntent)
-                .setPriority(NotificationCompat.PRIORITY_HIGH);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Create the NotificationChannel, but only on API 26+ because
+            // the NotificationChannel class is new and not in the support library
+            CharSequence name = "Chat Notifications";
+            int importance = NotificationManager.IMPORTANCE_HIGH;
+            android.app.NotificationChannel channel = new android.app.NotificationChannel("chat_notification_channel", name, importance);
+            channel.setDescription("Channel for chat notifications");
+            // Register the channel with the system
+            manager.createNotificationChannel(channel);
+        }
+        Notification notification = builder.build();
+        activeNotifications.put(cardId, notification);
+        manager.notify(cardId.hashCode(), notification);
 
-        manager.notify(cardId.hashCode(), builder.build());
     }
 
     @Override

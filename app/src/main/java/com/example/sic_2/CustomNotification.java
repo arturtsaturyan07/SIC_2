@@ -1,33 +1,28 @@
 package com.example.sic_2;
 
 public class CustomNotification {
-    private String id;
-    private String cardId;
-    private String cardName;
-    private String message;
-    private long timestamp;
-    private boolean isRead;
+    public final String cardId;
+    public final String cardName;
+    public final String senderName;
+    public final String message;
+    public final long timestamp;
 
     public CustomNotification() {
-        // Required for Firebase
+        this("", "", "", "", 0);
     }
-
-    public CustomNotification(String id, String cardId, String cardName, String message, long timestamp, boolean isRead) {
-        this.id = id;
+    public CustomNotification(String cardId, String cardName, String senderName, String message, long timestamp) {
         this.cardId = cardId;
         this.cardName = cardName;
+        this.senderName = senderName;
         this.message = message;
         this.timestamp = timestamp;
-        this.isRead = isRead;
     }
 
-    // Getters and setters
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
-    public String getCardId() { return cardId; }
-    public String getCardName() { return cardName; }
-    public String getMessage() { return message; }
-    public long getTimestamp() { return timestamp; }
-    public boolean isRead() { return isRead; }
-    public void setRead(boolean read) { isRead = read; }
+    public CustomNotification(String cardId, String cardName, String message, String senderName) {
+        this.cardId = cardId;
+        this.cardName = cardName;
+        this.senderName = senderName;
+        this.message = message;
+        this.timestamp = System.currentTimeMillis();
+    }
 }
