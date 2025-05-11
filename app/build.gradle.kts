@@ -126,6 +126,8 @@ dependencies {
     // Floating Action Button
     implementation(libs.fab)
 
+    implementation ("de.hdodenhof:circleimageview:3.1.0")
+
 
     // Test Dependencies
     testImplementation(libs.junit)

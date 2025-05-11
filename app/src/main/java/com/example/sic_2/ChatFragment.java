@@ -1,8 +1,5 @@
 package com.example.sic_2;
 
-import android.Manifest;
-import android.content.pm.PackageManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -14,8 +11,6 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -37,7 +32,6 @@ public class ChatFragment extends Fragment {
 
     private static final String TAG = "ChatFragment";
     private static final String ARG_CARD_ID = "cardId";
-    private static final String ARG_OWNER_ID = "originalOwnerId";
 
     private RecyclerView chatRecyclerView;
     private ChatAdapter chatAdapter;
@@ -46,19 +40,19 @@ public class ChatFragment extends Fragment {
     private DatabaseReference usersRef;
     private DatabaseReference tokensRef;
     private DatabaseReference userChatsRef;
+
     private String cardId;
     private String currentUserId;
     private ChildEventListener chatListener;
+
     private Map<String, String> userNames = new HashMap<>();
     private Map<String, String> userProfilePics = new HashMap<>();
-    private boolean isCurrentCardActive = false;
 
-    private boolean isInForeground = false; // Tracks if user is in this chat
+    private boolean isInForeground = false;
 
     public static ChatFragment newInstance(String cardId, String originalOwnerId) {
         Bundle args = new Bundle();
         args.putString(ARG_CARD_ID, cardId);
-        args.putString(ARG_OWNER_ID, originalOwnerId);
         ChatFragment fragment = new ChatFragment();
         fragment.setArguments(args);
         return fragment;
@@ -70,6 +64,7 @@ public class ChatFragment extends Fragment {
         if (getArguments() != null) {
             cardId = getArguments().getString(ARG_CARD_ID);
         }
+
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser != null) {
             currentUserId = currentUser.getUid();
@@ -91,7 +86,6 @@ public class ChatFragment extends Fragment {
     public void onResume() {
         super.onResume();
         isInForeground = true;
-        isCurrentCardActive = true;
         markChatAsRead();
     }
 
@@ -99,13 +93,13 @@ public class ChatFragment extends Fragment {
     public void onPause() {
         super.onPause();
         isInForeground = false;
-        isCurrentCardActive = false;
     }
 
     private void setupViews(View view) {
         chatRecyclerView = view.findViewById(R.id.chat_recycler_view);
         chatMessages = new ArrayList<>();
-        chatAdapter = new ChatAdapter(chatMessages, currentUserId, userNames, userProfilePics);
+        // ✅ Pass context here to avoid errors
+        chatAdapter = new ChatAdapter(requireContext(), chatMessages, currentUserId, userNames, userProfilePics);
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         chatRecyclerView.setAdapter(chatAdapter);
 
@@ -124,18 +118,20 @@ public class ChatFragment extends Fragment {
     }
 
     private void setupFirebase() {
-        usersRef = FirebaseDatabase.getInstance().getReference("users");
-        tokensRef = FirebaseDatabase.getInstance().getReference("fcmTokens");
-        userChatsRef = FirebaseDatabase.getInstance().getReference("user_chats");
+        FirebaseDatabase database = FirebaseDatabase.getInstance();
 
-        chatRef = FirebaseDatabase.getInstance()
-                .getReference("cards")
+        usersRef = database.getReference("users");
+        tokensRef = database.getReference("fcmTokens");
+        userChatsRef = database.getReference("user_chats");
+
+        chatRef = database.getReference("cards")
                 .child(cardId)
                 .child("chats")
                 .child("messages");
 
         setupChatListener();
         fetchUserInfo(currentUserId);
+        setupFirebaseForUserChatTracking();
     }
 
     private void setupChatListener() {
@@ -143,21 +139,20 @@ public class ChatFragment extends Fragment {
             @Override
             public void onChildAdded(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {
                 ChatMessage message = snapshot.getValue(ChatMessage.class);
-                if (message != null && !message.getSenderId().equals(currentUserId)) {
-                    // Show notification only if not in foreground and not self-message
+                if (message == null) return;
+
+                message.setId(snapshot.getKey());
+                chatMessages.add(message);
+                chatAdapter.notifyItemInserted(chatMessages.size() - 1);
+                chatRecyclerView.smoothScrollToPosition(chatMessages.size() - 1);
+
+                String senderId = message.getSenderId();
+                if (senderId != null && !senderId.equals(currentUserId)) {
                     if (!isInForeground) {
-                        showUnreadNotification(message.getMessage(), message.getSenderId());
+                        showUnreadNotification(message.getMessage(), senderId);
                     }
-                }
-
-                if (message != null) {
-                    message.setId(snapshot.getKey());
-                    chatMessages.add(message);
-                    chatAdapter.notifyItemInserted(chatMessages.size() - 1);
-                    chatRecyclerView.smoothScrollToPosition(chatMessages.size() - 1);
-
-                    if (!userNames.containsKey(message.getSenderId())) {
-                        fetchUserInfo(message.getSenderId());
+                    if (!userNames.containsKey(senderId)) {
+                        fetchUserInfo(senderId);
                     }
                 }
             }
@@ -184,23 +179,23 @@ public class ChatFragment extends Fragment {
         usersRef.child(userId).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                String name = snapshot.child("name").getValue(String.class);
-                String profileImageUrl = snapshot.child("profileImageUrl").getValue(String.class);
-
-                if (name != null && !name.isEmpty()) {
-                    userNames.put(userId, name);
-                } else {
+                if (snapshot.exists()) {
+                    String name = snapshot.child("name").getValue(String.class);
                     String email = snapshot.child("email").getValue(String.class);
-                    if (email != null) {
+                    String profileImageUrl = snapshot.child("profileImageUrl").getValue(String.class);
+
+                    if (name != null && !name.isEmpty()) {
+                        userNames.put(userId, name);
+                    } else if (email != null) {
                         userNames.put(userId, email.split("@")[0]);
                     }
-                }
 
-                if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
-                    userProfilePics.put(userId, profileImageUrl);
-                }
+                    if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
+                        userProfilePics.put(userId, profileImageUrl);
+                    }
 
-                chatAdapter.notifyDataSetChanged();
+                    chatAdapter.notifyDataSetChanged();
+                }
             }
 
             @Override
@@ -265,8 +260,8 @@ public class ChatFragment extends Fragment {
                     Map<String, String> data = new HashMap<>();
                     data.put("title", title);
                     data.put("body", body);
-                    data.put("cardId", cardId); // Important: pass card ID
-                    data.put("click_action", "OPEN_CHAT_ACTIVITY"); // Optional custom action
+                    data.put("cardId", cardId);
+                    data.put("click_action", "OPEN_CHAT_ACTIVITY");
 
                     FCMNotificationSender.sendNotification(token, data);
                 }
@@ -281,36 +276,7 @@ public class ChatFragment extends Fragment {
 
     private void markChatAsRead() {
         if (cardId == null || currentUserId == null) return;
-        DatabaseReference chatRef = userChatsRef.child(currentUserId).child(cardId);
-        chatRef.child("read").setValue(true);
-    }
-
-    private void markAllMessagesAsRead() {
-        DatabaseReference cardRef = FirebaseDatabase.getInstance()
-                .getReference("cards")
-                .child(cardId)
-                .child("chats")
-                .child("messages");
-
-        cardRef.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                for (DataSnapshot messageSnapshot : snapshot.getChildren()) {
-                    String messageId = messageSnapshot.getKey();
-
-                    // Avoid NullPointerException here
-                    Boolean isRead = messageSnapshot.child("read").child(currentUserId).getValue(Boolean.class);
-                    if (Boolean.TRUE.equals(isRead)) continue;
-
-                    updateMessageStatus(cardId, messageId, currentUserId, "read", true);
-                }
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                Log.e(TAG, "Failed to load messages to mark as read", error.toException());
-            }
-        });
+        userChatsRef.child(currentUserId).child(cardId).child("read").setValue(true);
     }
 
     private void updateMessageStatus(String cardId, String messageId, String userId, String statusType, boolean value) {
@@ -336,7 +302,6 @@ public class ChatFragment extends Fragment {
 
                 String title = senderName;
                 String body = message.length() > 50 ? message.substring(0, 50) + "..." : message;
-
                 NotificationHelper.showUnreadChatNotification(requireContext(), title, body, cardId.hashCode());
             }
 

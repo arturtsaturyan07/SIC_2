@@ -256,7 +256,9 @@ public class MainActivity extends AppCompatActivity {
                 selectedFragment = new NotificationFragment();
             } else if (itemId == R.id.profile) {
                 selectedFragment = new ProfileFragment();
-            }
+            } else if (itemId == R.id.direct_chats) {
+            selectedFragment = new DirectChatsFragment();
+        }
             if (selectedFragment != null) {
                 loadFragment(selectedFragment);
                 return true;

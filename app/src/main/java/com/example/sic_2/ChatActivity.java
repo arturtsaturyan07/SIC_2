@@ -21,6 +21,7 @@ import com.google.firebase.database.ValueEventListener;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class ChatActivity extends AppCompatActivity {
@@ -60,7 +61,7 @@ public class ChatActivity extends AppCompatActivity {
         }
 
         chatMessages = new ArrayList<>();
-        chatAdapter = new ChatAdapter(chatMessages, currentUserId, userNames, userProfilePics);
+        chatAdapter = new ChatAdapter(this, chatMessages, currentUserId, userNames, userProfilePics);
         chatRecyclerView = findViewById(R.id.chat_recycler_view);
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         chatRecyclerView.setAdapter(chatAdapter);
@@ -97,32 +98,32 @@ public class ChatActivity extends AppCompatActivity {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 chatMessages.clear();
+
                 for (DataSnapshot messageSnapshot : snapshot.getChildren()) {
                     ChatMessage chatMessage = messageSnapshot.getValue(ChatMessage.class);
-                    if (chatMessage != null) {
+                    if (chatMessage != null && chatMessage.getSenderId() != null) {
                         chatMessage.setId(messageSnapshot.getKey());
-                        chatMessages.add(chatMessage);
 
-                        // Update sender name if available in message
+                        // Use sender info from message if available
                         if (chatMessage.getSenderName() != null && !chatMessage.getSenderName().isEmpty()) {
                             userNames.put(chatMessage.getSenderId(), chatMessage.getSenderName());
                         }
 
-                        // Update profile image if available in message
                         if (chatMessage.getProfileImageUrl() != null && !chatMessage.getProfileImageUrl().isEmpty()) {
                             userProfilePics.put(chatMessage.getSenderId(), chatMessage.getProfileImageUrl());
                         }
 
-                        // Fetch additional user details if not already cached
+                        // If name or image is missing, fetch from usersRef
                         if (!userNames.containsKey(chatMessage.getSenderId())) {
                             fetchUserDetails(chatMessage.getSenderId());
                         }
+
+                        chatMessages.add(chatMessage);
                     }
                 }
+
                 chatAdapter.notifyDataSetChanged();
-                if (!chatMessages.isEmpty()) {
-                    chatRecyclerView.scrollToPosition(chatMessages.size() - 1);
-                }
+                scrollToBottom();
             }
 
             @Override
@@ -135,41 +136,36 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void fetchUserDetails(String userId) {
-        usersRef.child(userId).addListenerForSingleValueEvent(
-                new ValueEventListener() {
-                    @Override
-                    public void onDataChange(@NonNull DataSnapshot snapshot) {
-                        if (snapshot.exists()) {
-                            // Get user name
-                            String name = snapshot.child("name").getValue(String.class);
-                            if (name == null || name.isEmpty()) {
-                                // Fallback to email if name not available
-                                String email = snapshot.child("email").getValue(String.class);
-                                if (email != null) {
-                                    name = email.split("@")[0];
-                                }
-                            }
+        usersRef.child(userId).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (snapshot.exists()) {
+                    String name = snapshot.child("name").getValue(String.class);
+                    String email = snapshot.child("email").getValue(String.class);
+                    String profilePicUrl = snapshot.child("profileImageUrl").getValue(String.class);
 
-                            if (name != null) {
-                                userNames.put(userId, name);
-                            }
-
-                            // Get profile picture URL
-                            String profilePicUrl = snapshot.child("profileImageUrl").getValue(String.class);
-                            if (profilePicUrl != null) {
-                                userProfilePics.put(userId, profilePicUrl);
-                            }
-
-                            chatAdapter.notifyDataSetChanged();
+                    if (name == null || name.isEmpty()) {
+                        if (email != null) {
+                            name = email.split("@")[0];
+                        } else {
+                            name = "User";
                         }
                     }
 
-                    @Override
-                    public void onCancelled(@NonNull DatabaseError error) {
-                        Log.e("FirebaseError", "Failed to fetch user details: " + error.getMessage());
+                    userNames.put(userId, name);
+                    if (profilePicUrl != null) {
+                        userProfilePics.put(userId, profilePicUrl);
                     }
+
+                    chatAdapter.notifyDataSetChanged();
                 }
-        );
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("FirebaseError", "Failed to fetch user details: " + error.getMessage());
+            }
+        });
     }
 
     private void sendMessage(String message) {
@@ -179,26 +175,32 @@ public class ChatActivity extends AppCompatActivity {
         }
 
         String messageId = chatRef.push().getKey();
-        if (messageId != null) {
-            // Get current user's name and profile image from cache
-            String senderName = userNames.getOrDefault(currentUserId, "You");
-            String profileImageUrl = userProfilePics.get(currentUserId);
+        if (messageId == null) return;
 
-            ChatMessage chatMessage = new ChatMessage(
-                    currentUserId,
-                    senderName,
-                    message,
-                    System.currentTimeMillis(),
-                    profileImageUrl
-            );
+        // Get cached name and profile URL
+        String senderName = userNames.getOrDefault(currentUserId, "You");
+        String profileImageUrl = userProfilePics.get(currentUserId);
 
-            chatRef.child(messageId).setValue(chatMessage)
-                    .addOnCompleteListener(task -> {
-                        if (!task.isSuccessful()) {
-                            Log.e("FirebaseError", "Failed to send message", task.getException());
-                            showToast("Failed to send message");
-                        }
-                    });
+        ChatMessage chatMessage = new ChatMessage(
+                currentUserId,
+                senderName,
+                message,
+                System.currentTimeMillis(),
+                profileImageUrl
+        );
+
+        chatRef.child(messageId).setValue(chatMessage)
+                .addOnCompleteListener(task -> {
+                    if (!task.isSuccessful()) {
+                        Log.e("FirebaseError", "Failed to send message", task.getException());
+                        showToast("Failed to send message");
+                    }
+                });
+    }
+
+    private void scrollToBottom() {
+        if (!chatMessages.isEmpty()) {
+            chatRecyclerView.scrollToPosition(chatMessages.size() - 1);
         }
     }
 
@@ -209,7 +211,6 @@ public class ChatActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Clean up listeners
         if (chatRef != null && chatListener != null) {
             chatRef.removeEventListener(chatListener);
         }

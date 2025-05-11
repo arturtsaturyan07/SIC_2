@@ -1,8 +1,11 @@
 package com.example.sic_2;
 
+import android.content.Context;
+import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -25,9 +28,11 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
     private final String currentUserId;
     private final Map<String, String> userNames;
     private final Map<String, String> userProfilePics;
+    private final Context context; // Added context
 
-    public ChatAdapter(List<ChatMessage> chatMessages, String currentUserId,
+    public ChatAdapter(Context context, List<ChatMessage> chatMessages, String currentUserId,
                        Map<String, String> userNames, Map<String, String> userProfilePics) {
+        this.context = context;
         this.chatMessages = chatMessages;
         this.currentUserId = currentUserId;
         this.userNames = userNames;
@@ -51,6 +56,12 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
         // Format timestamp
         SimpleDateFormat sdf = new SimpleDateFormat("HH:mm", Locale.getDefault());
         String formattedTime = sdf.format(new Date(chatMessage.getTimestamp()));
+
+        holder.profileImageOther.setOnClickListener(v -> {
+            Intent intent = new Intent(context, ProfileActivity.class);
+            intent.putExtra("userId", senderId); // pass the sender's ID
+            context.startActivity(intent);
+        });
 
         if (isSentByCurrentUser) {
             // Show self message
@@ -80,7 +91,7 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
 
             String profileUrl = userProfilePics.get(senderId);
             if (profileUrl != null && !profileUrl.isEmpty()) {
-                Glide.with(holder.itemView.getContext())
+                Glide.with(context)
                         .load(profileUrl)
                         .placeholder(R.drawable.default_profile)
                         .into(holder.profileImageOther);
