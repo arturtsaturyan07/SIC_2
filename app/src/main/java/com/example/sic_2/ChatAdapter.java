@@ -72,9 +72,9 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             holder.timeTextMe.setText(formattedTime);
 
             // Update status indicator
-            if (chatMessage.isRead()) {
+            if (chatMessage.isReadByUser(currentUserId)) {
                 holder.statusIndicator.setText("✔️✔️");
-            } else if (chatMessage.isDelivered()) {
+            } else if (chatMessage.isDeliveredByUser(currentUserId)) {
                 holder.statusIndicator.setText("✔️");
             } else {
                 holder.statusIndicator.setText("");

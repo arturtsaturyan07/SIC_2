@@ -48,14 +48,12 @@ public class DirectChatsFragment extends Fragment {
         recyclerView = view.findViewById(R.id.direct_chats_recycler_view);
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         directChatUsers = new ArrayList<>();
-        adapter = new DirectChatAdapter(requireContext(), directChatUsers); // Pass context
+        adapter = new DirectChatAdapter(requireContext(), directChatUsers);
         recyclerView.setAdapter(adapter);
     }
 
     private void setupFirebase() {
         FirebaseAuth auth = FirebaseAuth.getInstance();
-        FirebaseDatabase database = FirebaseDatabase.getInstance();
-
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentUser == null) {
             Toast.makeText(requireContext(), "User not authenticated", Toast.LENGTH_SHORT).show();
@@ -64,8 +62,7 @@ public class DirectChatsFragment extends Fragment {
         }
 
         currentUserId = currentUser.getUid();
-        userChatsRef = database.getReference("user_chats").child(currentUserId);
-        usersRef = database.getReference("users");
+        userChatsRef = FirebaseDatabase.getInstance().getReference("user_chats").child(currentUserId);
 
         userChatsRef.addValueEventListener(new ValueEventListener() {
             @Override
@@ -110,32 +107,27 @@ public class DirectChatsFragment extends Fragment {
         usersRef.child(userId).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (snapshot.exists()) {
-                    String name = snapshot.child("name").getValue(String.class);
-                    String surname = snapshot.child("surname").getValue(String.class);
-                    String email = snapshot.child("email").getValue(String.class);
-                    String profileImageUrl = snapshot.child("profileImageUrl").getValue(String.class);
+                directChatUsers.clear();
+                for (DataSnapshot chatSnapshot : snapshot.getChildren()) {
+                    String chatId = chatSnapshot.getKey();
 
-                    // ✅ Safe constructor call
-                    User user = new User();
-                    user.setUserId(userId);
-                    user.setName(name);
-                    user.setSurname(surname);
-                    user.setEmail(email);
-                    user.setProfileImageUrl(profileImageUrl);
-                    user.setStatus("offline"); // Default value
-                    user.setLastSeen(0); // Default value
+                    if (chatId != null && chatId.startsWith("direct_chat_")) {
+                        String otherUserId = extractOtherUserId(chatId, currentUserId);
+                        if (otherUserId != null) {
+                            fetchUserInfo(otherUserId);
+                        }
+                    }
+                }
 
-                    directChatUsers.add(user);
-                    adapter.notifyDataSetChanged();
-                } else {
-                    Log.d(TAG, "User not found: " + userId);
+                // Optional: show empty state
+                if (directChatUsers.isEmpty()) {
+                    Toast.makeText(requireContext(), "No direct chats yet", Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                Log.e(TAG, "Failed to fetch user info: " + error.getMessage());
+                Log.e(TAG, "Failed to fetch user info", error.toException());
             }
         });
     }

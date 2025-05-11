@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.sic_2.ChatActivity;
 import com.example.sic_2.User;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.FirebaseDatabase;
 
 import java.util.List;
 
@@ -49,12 +50,27 @@ public class DirectChatAdapter extends RecyclerView.Adapter<DirectChatAdapter.Di
         // Set item click listener
         holder.itemView.setOnClickListener(v -> {
             String otherUserId = user.getUserId();
+            String chatId = "direct_chat_" + user.getUserId() + "_" + otherUserId;
+
+            Intent intent = new Intent(context, ChatActivity.class);
+            intent.putExtra("cardId", chatId);
+            context.startActivity(intent);
 
             if (otherUserId != null && !otherUserId.isEmpty()) {
                 // Generate consistent direct chat ID
-                String chatId = "direct_chat_" + getCurrentUserId() + "_" + otherUserId;
 
-                Intent intent = new Intent(context, ChatActivity.class);
+                FirebaseDatabase.getInstance()
+                        .getReference("user_chats")
+                        .child(user.getUserId())
+                        .child(chatId)
+                        .child("read").setValue(true);
+
+                FirebaseDatabase.getInstance()
+                        .getReference("user_chats")
+                        .child(otherUserId)
+                        .child(chatId)
+                        .child("read").setValue(false);
+
                 intent.putExtra("cardId", chatId);
                 context.startActivity(intent);
             }

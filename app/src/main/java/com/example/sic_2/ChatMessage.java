@@ -30,11 +30,8 @@ public class ChatMessage {
         this.timestamp = timestamp;
         this.profileImageUrl = profileImageUrl;
 
-        this.delivered = new HashMap<>();
-        this.read = new HashMap<>();
-
-        this.delivered.put(senderId, true);
-        this.read.put(senderId, false);
+        this.read.put(senderId, false); // Not read by sender yet
+        this.delivered.put(senderId, true); // Delivered by sender
     }
 
     // Getters and Setters used by Firebase

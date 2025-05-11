@@ -1,8 +1,5 @@
 package com.example.sic_2;
 
-import android.Manifest;
-import android.content.pm.PackageManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -14,8 +11,6 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -32,6 +27,7 @@ import com.google.firebase.database.ValueEventListener;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 public class ChatFragment extends Fragment {
 
@@ -255,11 +251,34 @@ public class ChatFragment extends Fragment {
         );
 
         chatRef.child(messageId).setValue(chatMessage)
-                .addOnSuccessListener(aVoid -> sendNotificationsToChatParticipants(message))
+                .addOnSuccessListener(aVoid -> {
+                    saveChatReference(cardId, currentUserId); // Save chat in user_chats
+                    sendNotificationsToChatParticipants(message);
+                })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Failed to send message", e);
                     showToast("Failed to send message");
                 });
+    }
+
+    private void saveChatReference(String chatId, String currentUserId) {
+        DatabaseReference userChatRefA = FirebaseDatabase.getInstance()
+                .getReference("user_chats")
+                .child(this.currentUserId)
+                .child(chatId);
+
+        DatabaseReference userChatRefB = FirebaseDatabase.getInstance()
+                .getReference("user_chats")
+                .child(Objects.requireNonNull(userNames.getOrDefault(this.currentUserId, "User")))
+                .child(chatId);
+
+        Map<String, Object> chatData = new HashMap<>();
+        chatData.put("read", false);
+        chatData.put("lastMessage", chatMessages);
+        chatData.put("timestamp", System.currentTimeMillis());
+
+        userChatRefA.updateChildren(chatData);
+        userChatRefB.updateChildren(chatData);
     }
 
     private void sendNotificationsToChatParticipants(String message) {
@@ -312,6 +331,19 @@ public class ChatFragment extends Fragment {
         if (cardId == null || currentUserId == null) return;
         DatabaseReference chatRef = userChatsRef.child(currentUserId).child(cardId);
         chatRef.child("read").setValue(true);
+    }
+
+    private void markMessageAsRead(String cardId, String messageId, String userId) {
+        DatabaseReference ref = FirebaseDatabase.getInstance()
+                .getReference("cards")
+                .child(cardId)
+                .child("chats")
+                .child("messages")
+                .child(messageId);
+
+        Map<String, Object> update = new HashMap<>();
+        update.put("read." + userId, true); // Update only one user's read status
+        ref.updateChildren(update);
     }
 
     private void updateMessageStatus(String cardId, String messageId, String userId, String statusType, boolean value) {
