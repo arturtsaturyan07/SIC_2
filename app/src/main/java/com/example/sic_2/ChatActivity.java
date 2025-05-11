@@ -21,7 +21,6 @@ import com.google.firebase.database.ValueEventListener;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 public class ChatActivity extends AppCompatActivity {
@@ -66,10 +65,11 @@ public class ChatActivity extends AppCompatActivity {
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         chatRecyclerView.setAdapter(chatAdapter);
 
-        // Firebase references
+        // Firebase references - ✅ Fixed path from `/chats/...` to `/cards/...`
         chatRef = FirebaseDatabase.getInstance()
-                .getReference("chats")
+                .getReference("cards")
                 .child(cardId)
+                .child("chats")
                 .child("messages");
 
         usersRef = FirebaseDatabase.getInstance().getReference("users");
@@ -104,7 +104,7 @@ public class ChatActivity extends AppCompatActivity {
                     if (chatMessage != null && chatMessage.getSenderId() != null) {
                         chatMessage.setId(messageSnapshot.getKey());
 
-                        // Use sender info from message if available
+                        // Use sender info from message or fetch from usersRef
                         if (chatMessage.getSenderName() != null && !chatMessage.getSenderName().isEmpty()) {
                             userNames.put(chatMessage.getSenderId(), chatMessage.getSenderName());
                         }
@@ -113,7 +113,6 @@ public class ChatActivity extends AppCompatActivity {
                             userProfilePics.put(chatMessage.getSenderId(), chatMessage.getProfileImageUrl());
                         }
 
-                        // If name or image is missing, fetch from usersRef
                         if (!userNames.containsKey(chatMessage.getSenderId())) {
                             fetchUserDetails(chatMessage.getSenderId());
                         }
@@ -145,11 +144,7 @@ public class ChatActivity extends AppCompatActivity {
                     String profilePicUrl = snapshot.child("profileImageUrl").getValue(String.class);
 
                     if (name == null || name.isEmpty()) {
-                        if (email != null) {
-                            name = email.split("@")[0];
-                        } else {
-                            name = "User";
-                        }
+                        name = email != null ? email.split("@")[0] : "User";
                     }
 
                     userNames.put(userId, name);

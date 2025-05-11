@@ -18,7 +18,7 @@
     <item
         android:id="@+id/direct_chats"
         android:title="Direct chats"
-        android:icon="@drawable/ic_chat_direct" />
+        android:icon="@drawable/ic_chat_notification" />
 
 
 </menu>

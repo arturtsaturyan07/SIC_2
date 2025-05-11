@@ -1,5 +1,8 @@
 package com.example.sic_2;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -11,6 +14,8 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -32,6 +37,7 @@ public class ChatFragment extends Fragment {
 
     private static final String TAG = "ChatFragment";
     private static final String ARG_CARD_ID = "cardId";
+    private static final String ARG_OWNER_ID = "originalOwnerId";
 
     private RecyclerView chatRecyclerView;
     private ChatAdapter chatAdapter;
@@ -40,7 +46,6 @@ public class ChatFragment extends Fragment {
     private DatabaseReference usersRef;
     private DatabaseReference tokensRef;
     private DatabaseReference userChatsRef;
-
     private String cardId;
     private String currentUserId;
     private ChildEventListener chatListener;
@@ -48,11 +53,13 @@ public class ChatFragment extends Fragment {
     private Map<String, String> userNames = new HashMap<>();
     private Map<String, String> userProfilePics = new HashMap<>();
 
-    private boolean isInForeground = false;
+    private boolean isCurrentCardActive = false;
+    private boolean isInForeground = false; // Tracks if user is in this chat
 
     public static ChatFragment newInstance(String cardId, String originalOwnerId) {
         Bundle args = new Bundle();
         args.putString(ARG_CARD_ID, cardId);
+        args.putString(ARG_OWNER_ID, originalOwnerId);
         ChatFragment fragment = new ChatFragment();
         fragment.setArguments(args);
         return fragment;
@@ -75,7 +82,7 @@ public class ChatFragment extends Fragment {
     }
 
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.activity_chat, container, false);
         setupViews(view);
         setupFirebase();
@@ -86,6 +93,7 @@ public class ChatFragment extends Fragment {
     public void onResume() {
         super.onResume();
         isInForeground = true;
+        isCurrentCardActive = true;
         markChatAsRead();
     }
 
@@ -93,13 +101,16 @@ public class ChatFragment extends Fragment {
     public void onPause() {
         super.onPause();
         isInForeground = false;
+        isCurrentCardActive = false;
     }
 
     private void setupViews(View view) {
         chatRecyclerView = view.findViewById(R.id.chat_recycler_view);
         chatMessages = new ArrayList<>();
+
         // ✅ Pass context here to avoid errors
         chatAdapter = new ChatAdapter(requireContext(), chatMessages, currentUserId, userNames, userProfilePics);
+
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         chatRecyclerView.setAdapter(chatAdapter);
 
@@ -118,38 +129,61 @@ public class ChatFragment extends Fragment {
     }
 
     private void setupFirebase() {
-        FirebaseDatabase database = FirebaseDatabase.getInstance();
+        usersRef = FirebaseDatabase.getInstance().getReference("users");
+        tokensRef = FirebaseDatabase.getInstance().getReference("fcmTokens");
+        userChatsRef = FirebaseDatabase.getInstance().getReference("user_chats");
 
-        usersRef = database.getReference("users");
-        tokensRef = database.getReference("fcmTokens");
-        userChatsRef = database.getReference("user_chats");
-
-        chatRef = database.getReference("cards")
+        chatRef = FirebaseDatabase.getInstance()
+                .getReference("cards")
                 .child(cardId)
                 .child("chats")
                 .child("messages");
 
         setupChatListener();
         fetchUserInfo(currentUserId);
-        setupFirebaseForUserChatTracking();
     }
 
     private void setupChatListener() {
         chatListener = new ChildEventListener() {
             @Override
             public void onChildAdded(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {
-                ChatMessage message = snapshot.getValue(ChatMessage.class);
-                if (message == null) return;
+                Object rawValue = snapshot.getValue();
 
-                message.setId(snapshot.getKey());
-                chatMessages.add(message);
+                if (!(rawValue instanceof Map)) {
+                    Log.e(TAG, "Unexpected data type: " + rawValue.getClass());
+                    return;
+                }
+
+                Map<String, Object> messageMap = (Map<String, Object>) rawValue;
+
+                ChatMessage chatMessage = new ChatMessage();
+                chatMessage.setId(snapshot.getKey());
+
+                chatMessage.setSenderId((String) messageMap.get("senderId"));
+                chatMessage.setMessage((String) messageMap.get("message"));
+
+                Object timestampObj = messageMap.get("timestamp");
+                if (timestampObj instanceof Long) {
+                    chatMessage.setTimestamp((Long) timestampObj);
+                } else {
+                    chatMessage.setTimestamp(System.currentTimeMillis()); // fallback
+                }
+
+                chatMessage.setSenderName((String) messageMap.get("senderName"));
+                chatMessage.setProfileImageUrl((String) messageMap.get("profileImageUrl"));
+
+                // Safely parse delivered/read maps
+                chatMessage.parseDelivered(messageMap.get("delivered"));
+                chatMessage.parseRead(messageMap.get("read"));
+
+                chatMessages.add(chatMessage);
                 chatAdapter.notifyItemInserted(chatMessages.size() - 1);
                 chatRecyclerView.smoothScrollToPosition(chatMessages.size() - 1);
 
-                String senderId = message.getSenderId();
+                String senderId = chatMessage.getSenderId();
                 if (senderId != null && !senderId.equals(currentUserId)) {
                     if (!isInForeground) {
-                        showUnreadNotification(message.getMessage(), senderId);
+                        showUnreadNotification(chatMessage.getMessage(), senderId);
                     }
                     if (!userNames.containsKey(senderId)) {
                         fetchUserInfo(senderId);
@@ -179,23 +213,23 @@ public class ChatFragment extends Fragment {
         usersRef.child(userId).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (snapshot.exists()) {
-                    String name = snapshot.child("name").getValue(String.class);
-                    String email = snapshot.child("email").getValue(String.class);
-                    String profileImageUrl = snapshot.child("profileImageUrl").getValue(String.class);
+                String name = snapshot.child("name").getValue(String.class);
+                String profileImageUrl = snapshot.child("profileImageUrl").getValue(String.class);
 
-                    if (name != null && !name.isEmpty()) {
-                        userNames.put(userId, name);
-                    } else if (email != null) {
+                if (name != null && !name.isEmpty()) {
+                    userNames.put(userId, name);
+                } else {
+                    String email = snapshot.child("email").getValue(String.class);
+                    if (email != null) {
                         userNames.put(userId, email.split("@")[0]);
                     }
-
-                    if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
-                        userProfilePics.put(userId, profileImageUrl);
-                    }
-
-                    chatAdapter.notifyDataSetChanged();
                 }
+
+                if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
+                    userProfilePics.put(userId, profileImageUrl);
+                }
+
+                chatAdapter.notifyDataSetChanged();
             }
 
             @Override
@@ -260,8 +294,8 @@ public class ChatFragment extends Fragment {
                     Map<String, String> data = new HashMap<>();
                     data.put("title", title);
                     data.put("body", body);
-                    data.put("cardId", cardId);
-                    data.put("click_action", "OPEN_CHAT_ACTIVITY");
+                    data.put("cardId", cardId); // Important: pass card ID
+                    data.put("click_action", "OPEN_CHAT_ACTIVITY"); // Optional custom action
 
                     FCMNotificationSender.sendNotification(token, data);
                 }
@@ -276,7 +310,8 @@ public class ChatFragment extends Fragment {
 
     private void markChatAsRead() {
         if (cardId == null || currentUserId == null) return;
-        userChatsRef.child(currentUserId).child(cardId).child("read").setValue(true);
+        DatabaseReference chatRef = userChatsRef.child(currentUserId).child(cardId);
+        chatRef.child("read").setValue(true);
     }
 
     private void updateMessageStatus(String cardId, String messageId, String userId, String statusType, boolean value) {

@@ -28,7 +28,7 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
     private final String currentUserId;
     private final Map<String, String> userNames;
     private final Map<String, String> userProfilePics;
-    private final Context context; // Added context
+    private final Context context;
 
     public ChatAdapter(Context context, List<ChatMessage> chatMessages, String currentUserId,
                        Map<String, String> userNames, Map<String, String> userProfilePics) {
@@ -53,25 +53,25 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
         String senderId = chatMessage.getSenderId();
         boolean isSentByCurrentUser = senderId.equals(currentUserId);
 
-        // Format timestamp
         SimpleDateFormat sdf = new SimpleDateFormat("HH:mm", Locale.getDefault());
         String formattedTime = sdf.format(new Date(chatMessage.getTimestamp()));
 
+        // Set click listener for profile picture
         holder.profileImageOther.setOnClickListener(v -> {
             Intent intent = new Intent(context, ProfileActivity.class);
-            intent.putExtra("userId", senderId); // pass the sender's ID
+            intent.putExtra("userId", senderId);
             context.startActivity(intent);
         });
 
         if (isSentByCurrentUser) {
-            // Show self message
+            // Show sent message
             holder.containerMe.setVisibility(View.VISIBLE);
             holder.containerOther.setVisibility(View.GONE);
 
             holder.messageTextMe.setText(chatMessage.getMessage());
             holder.timeTextMe.setText(formattedTime);
 
-            // Set status indicator (✔️ / ✔️✔️)
+            // Update status indicator
             if (chatMessage.isRead()) {
                 holder.statusIndicator.setText("✔️✔️");
             } else if (chatMessage.isDelivered()) {
@@ -85,10 +85,14 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             holder.containerOther.setVisibility(View.VISIBLE);
             holder.containerMe.setVisibility(View.GONE);
 
-            holder.senderNameOther.setText(userNames.getOrDefault(senderId, "User"));
+            // Set sender name with fallback
+            String name = userNames.getOrDefault(senderId, "User");
+            holder.senderNameOther.setText(name);
+
             holder.messageTextOther.setText(chatMessage.getMessage());
             holder.timeTextOther.setText(formattedTime);
 
+            // Load profile image
             String profileUrl = userProfilePics.get(senderId);
             if (profileUrl != null && !profileUrl.isEmpty()) {
                 Glide.with(context)

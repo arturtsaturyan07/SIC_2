@@ -116,7 +116,16 @@ public class DirectChatsFragment extends Fragment {
                     String email = snapshot.child("email").getValue(String.class);
                     String profileImageUrl = snapshot.child("profileImageUrl").getValue(String.class);
 
-                    User user = new User(userId, name, surname, email, profileImageUrl, "", false);
+                    // ✅ Safe constructor call
+                    User user = new User();
+                    user.setUserId(userId);
+                    user.setName(name);
+                    user.setSurname(surname);
+                    user.setEmail(email);
+                    user.setProfileImageUrl(profileImageUrl);
+                    user.setStatus("offline"); // Default value
+                    user.setLastSeen(0); // Default value
+
                     directChatUsers.add(user);
                     adapter.notifyDataSetChanged();
                 } else {

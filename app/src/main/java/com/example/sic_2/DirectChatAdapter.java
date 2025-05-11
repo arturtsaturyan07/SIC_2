@@ -1,6 +1,7 @@
 package com.example.sic_2;
 
 import android.content.Context;
+import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -9,7 +10,9 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.sic_2.ChatActivity;
 import com.example.sic_2.User;
+import com.google.firebase.auth.FirebaseAuth;
 
 import java.util.List;
 
@@ -33,8 +36,29 @@ public class DirectChatAdapter extends RecyclerView.Adapter<DirectChatAdapter.Di
     @Override
     public void onBindViewHolder(@NonNull DirectChatViewHolder holder, int position) {
         User user = users.get(position);
-        holder.userName.setText(user.getFullName());
-        // Load image with Glide here if needed
+
+        // Set user name or placeholder
+        String fullName = user.getFullName();
+        if (fullName == null || fullName.isEmpty()) {
+            fullName = "Unknown";
+        }
+        holder.userName.setText(fullName);
+
+        // Optional: Load profile image using Glide if available
+
+        // Set item click listener
+        holder.itemView.setOnClickListener(v -> {
+            String otherUserId = user.getUserId();
+
+            if (otherUserId != null && !otherUserId.isEmpty()) {
+                // Generate consistent direct chat ID
+                String chatId = "direct_chat_" + getCurrentUserId() + "_" + otherUserId;
+
+                Intent intent = new Intent(context, ChatActivity.class);
+                intent.putExtra("cardId", chatId);
+                context.startActivity(intent);
+            }
+        });
     }
 
     @Override
@@ -49,5 +73,10 @@ public class DirectChatAdapter extends RecyclerView.Adapter<DirectChatAdapter.Di
             super(itemView);
             userName = itemView.findViewById(R.id.direct_chat_user_name);
         }
+    }
+
+    // Helper method (you can get currentUserId from ViewModel or pass it in constructor)
+    private String getCurrentUserId() {
+        return FirebaseAuth.getInstance().getCurrentUser().getUid();
     }
 }
