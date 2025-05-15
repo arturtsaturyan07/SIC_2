@@ -13,6 +13,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -82,16 +83,26 @@ public class CardFragment extends Fragment {
     }
 
     private void initializeCloudinary() {
+        boolean cloudinaryInitialized = false;
+        if (cloudinaryInitialized) return;
+
         try {
+            MediaManager.get(); // Will throw if not initialized
+            cloudinaryInitialized = true;
+        } catch (IllegalStateException e) {
             Map<String, String> config = new HashMap<>();
-            config.put("cloud_name", "your_cloud_name"); // Replace with your actual Cloud Name
-            config.put("api_key", "your_api_key");       // Replace with your actual API Key
-            config.put("api_secret", "your_api_secret"); // Replace with your actual API Secret
-            MediaManager.init(requireContext(), config);
-            Log.d(TAG, "Cloudinary initialized successfully");
-        } catch (Exception e) {
-            Log.e(TAG, "Cloudinary initialization failed", e);
-            Toast.makeText(requireContext(), "Cloudinary initialization failed", Toast.LENGTH_SHORT).show();
+            config.put("cloud_name", "disiijbpp"); // Replace with your actual Cloud Name
+            config.put("api_key", "265226997838638"); // Replace with your actual API Key
+            config.put("api_secret", "RsPtut3zPunRm-8Hwh8zRqQ8uG8"); // Replace with your actual API Secret
+
+            try {
+                MediaManager.init(requireContext().getApplicationContext(), config);
+                cloudinaryInitialized = true;
+                Log.d(TAG, "Cloudinary initialized successfully");
+            } catch (Exception ex) {
+                Log.e(TAG, "Cloudinary initialization failed", ex);
+                Toast.makeText(requireContext(), "Cloudinary init failed", Toast.LENGTH_SHORT).show();
+            }
         }
     }
 
@@ -153,7 +164,7 @@ public class CardFragment extends Fragment {
     private void showAddPublicationDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
         builder.setTitle("Add New Post");
-        final android.widget.EditText input = new android.widget.EditText(requireContext());
+        final EditText input = new EditText(requireContext());
         input.setHint("What's on your mind?");
         builder.setView(input);
         builder.setPositiveButton("Post", (dialog, which) -> {

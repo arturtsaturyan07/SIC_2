@@ -11,6 +11,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.bumptech.glide.Glide;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -92,8 +93,13 @@ public class ProfileActivity extends AppCompatActivity {
     }
 
     private void startDirectChat() {
+        String chatId = "direct_chat_" + sortUids(FirebaseAuth.getInstance().getCurrentUser().getUid(), userId);
         Intent intent = new Intent(ProfileActivity.this, ChatActivity.class);
-        intent.putExtra("cardId", "direct_chat_" + userId + "_" + userId); // or use sorted key
+        intent.putExtra("cardId", chatId);
         startActivity(intent);
+    }
+
+    private String sortUids(String uid1, String uid2) {
+        return uid1.compareTo(uid2) < 0 ? uid1 + "_" + uid2 : uid2 + "_" + uid1;
     }
 }

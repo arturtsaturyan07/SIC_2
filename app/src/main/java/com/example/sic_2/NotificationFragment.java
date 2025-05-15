@@ -5,6 +5,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -23,7 +24,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class NotificationFragment extends Fragment {
-
     private RecyclerView recyclerView;
     private NotificationAdapter adapter;
     private List<UnreadChatPreview> unreadChats = new ArrayList<>();
@@ -68,10 +68,23 @@ public class NotificationFragment extends Fragment {
                     Boolean isRead = chatSnapshot.child("read").getValue(Boolean.class);
                     if (isRead == null || !isRead) {
                         String cardId = chatSnapshot.getKey();
-                        String lastMessage = chatSnapshot.child("lastMessage").getValue(String.class);
+
+                        // Safely parse lastMessage
+                        Object messageObj = chatSnapshot.child("lastMessage").getValue();
+                        String lastMessage = "";
+
+                        if (messageObj instanceof String) {
+                            lastMessage = (String) messageObj;
+                        } else if (messageObj instanceof ArrayList<?>) {
+                            ArrayList<?> list = (ArrayList<?>) messageObj;
+                            if (!list.isEmpty() && list.get(0) instanceof String) {
+                                lastMessage = (String) list.get(list.size() - 1);
+                            }
+                        }
+
                         Long timestamp = chatSnapshot.child("timestamp").getValue(Long.class);
 
-                        if (cardId != null && lastMessage != null && timestamp != null) {
+                        if (cardId != null && !lastMessage.isEmpty() && timestamp != null) {
                             unreadChats.add(new UnreadChatPreview(cardId, lastMessage, timestamp));
                         }
                     }

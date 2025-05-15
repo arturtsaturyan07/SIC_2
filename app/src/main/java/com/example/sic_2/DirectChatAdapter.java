@@ -1,98 +1,74 @@
 package com.example.sic_2;
 
 import android.content.Context;
-import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.example.sic_2.ChatActivity;
-import com.example.sic_2.User;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.database.FirebaseDatabase;
+import com.bumptech.glide.Glide;
 
 import java.util.List;
 
-public class DirectChatAdapter extends RecyclerView.Adapter<DirectChatAdapter.DirectChatViewHolder> {
+public class DirectChatAdapter extends RecyclerView.Adapter<DirectChatAdapter.ViewHolder> {
 
-    private final Context context;
-    private final List<User> users;
+    private Context context;
+    private List<User> userList;
+    private OnItemClickListener listener;
 
-    public DirectChatAdapter(Context context, List<User> users) {
+    public interface OnItemClickListener {
+        void onItemClick(User user);
+    }
+
+    public DirectChatAdapter(Context context, List<User> userList, OnItemClickListener listener) {
         this.context = context;
-        this.users = users;
+        this.userList = userList;
+        this.listener = listener;
     }
 
     @NonNull
     @Override
-    public DirectChatViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+    public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(context).inflate(R.layout.item_direct_chat, parent, false);
-        return new DirectChatViewHolder(view);
+        return new ViewHolder(view);
     }
 
+
     @Override
-    public void onBindViewHolder(@NonNull DirectChatViewHolder holder, int position) {
-        User user = users.get(position);
+    public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+        User user = userList.get(position);
+        holder.name.setText(user.getName());
 
-        // Set user name or placeholder
-        String fullName = user.getFullName();
-        if (fullName == null || fullName.isEmpty()) {
-            fullName = "Unknown";
+        // Load image using Glide if needed
+        if (user.getProfileImageUrl() != null && !user.getProfileImageUrl().isEmpty()) {
+            Glide.with(context)
+                    .load(user.getProfileImageUrl())
+                    .placeholder(R.drawable.default_profile)
+                    .into(holder.imageView);
+        } else {
+            holder.imageView.setImageResource(R.drawable.default_profile);
         }
-        holder.userName.setText(fullName);
 
-        // Optional: Load profile image using Glide if available
-
-        // Set item click listener
-        holder.itemView.setOnClickListener(v -> {
-            String otherUserId = user.getUserId();
-            String chatId = "direct_chat_" + user.getUserId() + "_" + otherUserId;
-
-            Intent intent = new Intent(context, ChatActivity.class);
-            intent.putExtra("cardId", chatId);
-            context.startActivity(intent);
-
-            if (otherUserId != null && !otherUserId.isEmpty()) {
-                // Generate consistent direct chat ID
-
-                FirebaseDatabase.getInstance()
-                        .getReference("user_chats")
-                        .child(user.getUserId())
-                        .child(chatId)
-                        .child("read").setValue(true);
-
-                FirebaseDatabase.getInstance()
-                        .getReference("user_chats")
-                        .child(otherUserId)
-                        .child(chatId)
-                        .child("read").setValue(false);
-
-                intent.putExtra("cardId", chatId);
-                context.startActivity(intent);
-            }
-        });
+        holder.itemView.setOnClickListener(v -> listener.onItemClick(user));
     }
 
     @Override
     public int getItemCount() {
-        return users.size();
+        return userList.size();
     }
 
-    static class DirectChatViewHolder extends RecyclerView.ViewHolder {
-        TextView userName;
+    public static class ViewHolder extends RecyclerView.ViewHolder {
+        ImageView imageView;
+        TextView name;
 
-        public DirectChatViewHolder(@NonNull View itemView) {
+        public ViewHolder(@NonNull View itemView) {
             super(itemView);
-            userName = itemView.findViewById(R.id.direct_chat_user_name);
+            imageView = itemView.findViewById(R.id.userImage);
+            name = itemView.findViewById(R.id.chat_user_name);
         }
-    }
-
-    // Helper method (you can get currentUserId from ViewModel or pass it in constructor)
-    private String getCurrentUserId() {
-        return FirebaseAuth.getInstance().getCurrentUser().getUid();
     }
 }

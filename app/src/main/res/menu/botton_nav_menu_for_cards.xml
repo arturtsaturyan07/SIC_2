@@ -11,4 +11,8 @@
         android:id="@+id/nav_parameters"
         android:icon="@drawable/baseline_build_circle_24"
         android:title="Settings" />
+    <item
+        android:id="@+id/nav_members"
+        android:icon="@drawable/default_profile"
+        android:title="Members" />
 </menu>

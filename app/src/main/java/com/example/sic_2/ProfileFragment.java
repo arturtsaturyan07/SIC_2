@@ -31,6 +31,8 @@ import com.google.firebase.auth.EmailAuthProvider;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.UserProfileChangeRequest;
+import com.google.firebase.auth.FirebaseUserMetadata;
+import com.squareup.picasso.Picasso;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -38,9 +40,9 @@ import java.util.Map;
 import de.hdodenhof.circleimageview.CircleImageView;
 
 public class ProfileFragment extends Fragment {
-
     private static final int PICK_IMAGE_REQUEST = 1;
     private static final String TAG = "ProfileFragment";
+
     private CircleImageView profileImage;
     private TextView tvUsername, tvEmail, tvAbout;
     private Uri imageUri;
@@ -48,7 +50,9 @@ public class ProfileFragment extends Fragment {
     private FirebaseUser currentUser;
     private boolean cloudinaryInitialized = false;
 
-    public ProfileFragment() {}
+    public ProfileFragment() {
+        // Required empty constructor
+    }
 
     public static ProfileFragment newInstance() {
         return new ProfileFragment();
@@ -64,23 +68,25 @@ public class ProfileFragment extends Fragment {
 
     private void initializeCloudinary() {
         if (cloudinaryInitialized) return;
-
         try {
-            MediaManager.get(); // will throw if not initialized
+            MediaManager.get(); // Will throw if not initialized
             cloudinaryInitialized = true;
         } catch (IllegalStateException e) {
-            if (getContext() == null) return;
-
             Map<String, String> config = new HashMap<>();
             config.put("cloud_name", "disiijbpp");
             config.put("api_key", "265226997838638");
             config.put("api_secret", "RsPtut3zPunRm-8Hwh8zRqQ8uG8");
 
-            MediaManager.init(getContext().getApplicationContext(), config);
-            cloudinaryInitialized = true;
+            try {
+                MediaManager.init(requireContext().getApplicationContext(), config);
+                cloudinaryInitialized = true;
+                Log.d(TAG, "Cloudinary initialized successfully");
+            } catch (Exception ex) {
+                Log.e(TAG, "Cloudinary initialization failed", ex);
+                Toast.makeText(requireContext(), "Cloudinary init failed", Toast.LENGTH_SHORT).show();
+            }
         }
     }
-
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -93,7 +99,9 @@ public class ProfileFragment extends Fragment {
         tvAbout = view.findViewById(R.id.tv_about);
 
         loadUserData();
+
         setClickListenersWithAnimation(view);
+
         return view;
     }
 
@@ -133,8 +141,22 @@ public class ProfileFragment extends Fragment {
             tvUsername.setText(displayName != null ? displayName : "User");
             tvEmail.setText(currentUser.getEmail());
             tvAbout.setText("Tell us something about yourself...");
-            if (currentUser.getPhotoUrl() != null) {
-                profileImage.setImageURI(currentUser.getPhotoUrl());
+
+            // ✅ Use Picasso to load image with error handling
+            Uri photoUri = currentUser.getPhotoUrl();
+            if (photoUri != null) {
+                try {
+                    Picasso.get()
+                            .load(photoUri)
+                            .placeholder(R.drawable.ic_profile_placeholder)
+                            .error(R.drawable.ic_profile_placeholder)
+                            .into(profileImage);
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to load image: " + photoUri, e);
+                    profileImage.setImageResource(R.drawable.ic_profile_placeholder);
+                }
+            } else {
+                profileImage.setImageResource(R.drawable.ic_profile_placeholder);
             }
         }
     }
@@ -164,8 +186,11 @@ public class ProfileFragment extends Fragment {
             }
             etEmail.setText(currentUser.getEmail());
             etAbout.setText(tvAbout.getText().toString());
+
             if (currentUser.getPhotoUrl() != null) {
-                dialogProfileImage.setImageURI(currentUser.getPhotoUrl());
+                Picasso.get()
+                        .load(currentUser.getPhotoUrl())
+                        .into(dialogProfileImage);
             }
         }
 
@@ -208,6 +233,7 @@ public class ProfileFragment extends Fragment {
         UserProfileChangeRequest profileUpdates = new UserProfileChangeRequest.Builder()
                 .setDisplayName(fullName)
                 .build();
+
         currentUser.updateProfile(profileUpdates)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
@@ -309,7 +335,7 @@ public class ProfileFragment extends Fragment {
         if (requestCode == PICK_IMAGE_REQUEST && resultCode == getActivity().RESULT_OK
                 && data != null && data.getData() != null) {
             imageUri = data.getData();
-            profileImage.setImageURI(imageUri);
+            profileImage.setImageURI(imageUri); // Show selected image immediately
             uploadProfileImage();
         }
     }
@@ -336,7 +362,11 @@ public class ProfileFragment extends Fragment {
                     @Override
                     public void onSuccess(String requestId, Map resultData) {
                         String imageUrl = (String) resultData.get("secure_url");
-                        updateProfilePhotoUrl(imageUrl);
+                        if (imageUrl != null) {
+                            updateProfilePhotoUrl(imageUrl);
+                        } else {
+                            showToast("Upload failed - no URL returned");
+                        }
                     }
 
                     @Override
@@ -345,7 +375,9 @@ public class ProfileFragment extends Fragment {
                     }
 
                     @Override
-                    public void onReschedule(String requestId, ErrorInfo error) {}
+                    public void onReschedule(String requestId, ErrorInfo error) {
+                        Log.d(TAG, "Upload rescheduled");
+                    }
                 }).dispatch();
     }
 
@@ -360,7 +392,15 @@ public class ProfileFragment extends Fragment {
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
                         showToast("Profile image updated");
-                        profileImage.setImageURI(Uri.parse(imageUrl));
+                        // ✅ Reload user to fetch latest photoUrl
+                        mAuth.signOut();
+                        mAuth.signInAnonymously()
+                                .addOnCompleteListener(requireActivity(), task1 -> {
+                                    if (task1.isSuccessful()) {
+                                        currentUser = mAuth.getCurrentUser();
+                                        loadUserData(); // ✅ Refresh UI
+                                    }
+                                });
                     } else {
                         showToast("Failed to update profile image");
                     }

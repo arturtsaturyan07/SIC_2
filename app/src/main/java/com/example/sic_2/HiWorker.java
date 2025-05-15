@@ -1,4 +1,3 @@
-// Modified HiWorker.java
 package com.example.sic_2;
 
 import android.annotation.SuppressLint;
@@ -21,6 +20,7 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -39,6 +39,7 @@ public class HiWorker extends Worker {
     @Override
     public Result doWork() {
         if (currentUserId == null) {
+            Log.w("HiWorker", "User not authenticated. Skipping notification check.");
             return Result.success();
         }
 
@@ -71,13 +72,29 @@ public class HiWorker extends Worker {
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 for (DataSnapshot chatSnapshot : snapshot.getChildren()) {
                     Boolean isRead = chatSnapshot.child("read").getValue(Boolean.class);
-                    String lastMessage = chatSnapshot.child("lastMessage").getValue(String.class);
+                    Object messageObj = chatSnapshot.child("lastMessage").getValue();
+                    String lastMessage = "";
+
+                    if (messageObj instanceof String) {
+                        lastMessage = (String) messageObj;
+                    } else if (messageObj instanceof ArrayList<?>) {
+                        ArrayList<?> list = (ArrayList<?>) messageObj;
+                        if (!list.isEmpty() && list.get(0) instanceof String) {
+                            lastMessage = (String) list.get(list.size() - 1); // Get latest message
+                        }
+                    }
+
                     String cardId = chatSnapshot.child("cardId").getValue(String.class);
                     String senderId = chatSnapshot.child("senderId").getValue(String.class);
 
-                    if (isRead != null && !isRead && lastMessage != null) {
-                        showChatNotification(cardId, senderId, lastMessage);
-                        markAsRead(chatSnapshot.getKey());
+                    // 🔒 Validate senderId before proceeding
+                    if (isNonEmptyString(senderId)) {
+                        if (isRead != null && !isRead && !lastMessage.isEmpty()) {
+                            showChatNotification(cardId, senderId, lastMessage);
+                            markAsRead(chatSnapshot.getKey());
+                        }
+                    } else {
+                        Log.e("HiWorker", "Invalid or missing senderId");
                     }
                 }
             }
@@ -90,9 +107,14 @@ public class HiWorker extends Worker {
     }
 
     private void showChatNotification(String cardId, String senderId, String message) {
-        // Get sender name from cache or database
-        DatabaseReference usersRef = FirebaseDatabase.getInstance().getReference("users").child(senderId);
-        usersRef.child("name").addListenerForSingleValueEvent(new ValueEventListener() {
+        if (!isNonEmptyString(senderId)) {
+            Log.e("HiWorker", "Cannot show notification: Invalid sender ID");
+            return;
+        }
+
+        DatabaseReference usersRef = FirebaseDatabase.getInstance().getReference("users");
+
+        usersRef.child(senderId).child("name").addListenerForSingleValueEvent(new ValueEventListener() {
             @SuppressLint("MissingPermission")
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
@@ -117,6 +139,15 @@ public class HiWorker extends Worker {
     }
 
     private void markAsRead(String chatId) {
+        if (chatId == null || chatId.isEmpty()) {
+            Log.e("HiWorker", "Cannot mark as read: Invalid chat ID");
+            return;
+        }
         userChatsRef.child(chatId).child("read").setValue(true);
+    }
+
+    // 🔒 Helper method to safely validate strings
+    private boolean isNonEmptyString(String str) {
+        return str != null && !str.trim().isEmpty();
     }
 }
