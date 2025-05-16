@@ -15,7 +15,7 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.bumptech.glide.Glide; // Add Glide to your dependencies!
+import com.bumptech.glide.Glide;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.*;
 
@@ -50,18 +50,15 @@ public class MembersFragment extends Fragment {
         adapter = new MembersAdapter(membersList);
         recyclerView.setAdapter(adapter);
 
-        // Get cardId and authorId from arguments
         cardId = requireArguments().getString("cardId");
         authorId = requireArguments().getString("authorId");
         currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
 
-        // Firebase refs
         membersRef = FirebaseDatabase.getInstance().getReference("allCards").child(cardId).child("campMembers");
         usersRef = FirebaseDatabase.getInstance().getReference("users");
 
         fetchMembers();
 
-        // Debug log
         Log.d(TAG, "Current User ID: " + currentUserId);
         Log.d(TAG, "Author ID: " + authorId);
     }
@@ -76,15 +73,21 @@ public class MembersFragment extends Fragment {
                     String memberId = memberSnapshot.getKey();
                     memberIds.add(memberId);
                 }
-                // Fetch user info (name, photo) for each member
+                // Fetch user info for each member
                 if (!memberIds.isEmpty()) {
                     for (String memberId : memberIds) {
                         usersRef.child(memberId).addListenerForSingleValueEvent(new ValueEventListener() {
                             @Override
                             public void onDataChange(@NonNull DataSnapshot userSnap) {
                                 String name = userSnap.child("name").getValue(String.class);
-                                String photoUrl = userSnap.child("photoUrl").getValue(String.class); // Assumes you save URLs under "photoUrl"
-                                membersList.add(new MemberInfo(memberId, name, photoUrl));
+                                String photoUrl = userSnap.child("photoUrl").getValue(String.class);
+
+                                // If this member is the organizer, append " (organizer)" to their name.
+                                String displayName = (memberId.equals(authorId))
+                                        ? (name != null ? name : memberId) + " (organizer)"
+                                        : (name != null ? name : memberId);
+
+                                membersList.add(new MemberInfo(memberId, displayName, photoUrl));
                                 adapter.notifyDataSetChanged();
                             }
 
@@ -98,16 +101,14 @@ public class MembersFragment extends Fragment {
                     adapter.notifyDataSetChanged();
                 }
 
-                // Check if current user is the admin
-                if (currentUserId != null && authorId != null && currentUserId.equals(authorId)) {
-                    // Admin can see the list
-                    recyclerView.setVisibility(View.VISIBLE);
-                } else {
-                    // Non-admins see a message
-                    recyclerView.setVisibility(View.GONE);
-                    TextView messageView = requireView().findViewById(R.id.no_access_message);
-                    messageView.setVisibility(View.VISIBLE);
-                    messageView.setText("You are not authorized to view this list.");
+                // Everyone can see the list, hide the "not authorized" message if present
+                recyclerView.setVisibility(View.VISIBLE);
+                View parent = (View) recyclerView.getParent();
+                if (parent != null) {
+                    TextView messageView = parent.findViewById(R.id.no_access_message);
+                    if (messageView != null) {
+                        messageView.setVisibility(View.GONE);
+                    }
                 }
             }
 
@@ -123,12 +124,11 @@ public class MembersFragment extends Fragment {
         MembersFragment fragment = new MembersFragment();
         Bundle args = new Bundle();
         args.putString("cardId", cardId);
-        args.putString("authorId", authorId); // Ensure authorId is passed here
+        args.putString("authorId", authorId);
         fragment.setArguments(args);
         return fragment;
     }
 
-    // MemberInfo class to hold user info
     public static class MemberInfo {
         public String userId;
         public String name;
@@ -141,7 +141,6 @@ public class MembersFragment extends Fragment {
         }
     }
 
-    // Adapter with Glide for profile images
     public class MembersAdapter extends RecyclerView.Adapter<MembersAdapter.MemberViewHolder> {
         private List<MemberInfo> members;
 
@@ -163,14 +162,13 @@ public class MembersFragment extends Fragment {
             if (member.photoUrl != null && !member.photoUrl.isEmpty()) {
                 Glide.with(holder.itemView.getContext())
                         .load(member.photoUrl)
-                        .placeholder(R.drawable.ic_profile_placeholder) // your placeholder image
+                        .placeholder(R.drawable.ic_profile_placeholder)
                         .error(R.drawable.ic_profile_placeholder)
                         .into(holder.profileImageView);
             } else {
                 holder.profileImageView.setImageResource(R.drawable.ic_profile_placeholder);
             }
 
-            // Open ProfileActivity when member item is clicked
             holder.itemView.setOnClickListener(v -> {
                 Intent intent = new Intent(holder.itemView.getContext(), ProfileActivity.class);
                 intent.putExtra("userId", member.userId);
@@ -184,7 +182,7 @@ public class MembersFragment extends Fragment {
         }
 
         class MemberViewHolder extends RecyclerView.ViewHolder {
-            de.hdodenhof.circleimageview.CircleImageView profileImageView; // Use CircleImageView for rounded images
+            de.hdodenhof.circleimageview.CircleImageView profileImageView;
             TextView nameTextView;
 
             MemberViewHolder(View itemView) {
