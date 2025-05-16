@@ -19,7 +19,9 @@ public class Publication {
         this.userProfileImageUrl = userProfileImageUrl;
     }
 
-    public Publication(String currentUserId, String content, String imageUrl, long l) {
+    // Convenience constructor if no profile image url is provided
+    public Publication(String userId, String content, String imageUrl, long timestamp) {
+        this(userId, content, imageUrl, timestamp, null);
     }
 
     // Getters and setters

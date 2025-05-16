@@ -181,7 +181,7 @@ public class CardFragment extends Fragment {
 
     private void loadPublications() {
         Log.d(TAG, "Loading publications for card: " + cardId);
-        if (publicationsListener != null) {
+        if (postsRef != null && publicationsListener != null) {
             postsRef.removeEventListener(publicationsListener);
         }
         postsRef = FirebaseDatabase.getInstance()
@@ -205,10 +205,8 @@ public class CardFragment extends Fragment {
                             Log.e(TAG, "Error parsing publication", e);
                         }
                     }
-                    publicationsAdapter.updatePublications(publicationsList);
-                } else {
-                    Log.d(TAG, "No publications found");
                 }
+                publicationsAdapter.updatePublications(publicationsList);
             }
 
             @Override
@@ -226,12 +224,17 @@ public class CardFragment extends Fragment {
                 .getReference("posts")
                 .child(cardId)
                 .push();
+        // If posting an image, set content to empty string if null
+        if (content == null) content = "";
         Publication publication = new Publication(currentUserId, content, imageUrl, System.currentTimeMillis());
         newPostRef.setValue(publication)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
-                        String message = imageUrl != null ? "Image posted!" : "Post published!";
-                        showToast(message);
+                        if (imageUrl != null && !imageUrl.isEmpty()) {
+                            showToast("Image posted!");
+                        } else {
+                            showToast("Post published!");
+                        }
                         Log.d(TAG, "Publication created successfully");
                     } else {
                         showToast("Failed to create post");
@@ -290,9 +293,15 @@ public class CardFragment extends Fragment {
                 imageUri = data.getData();
                 Log.d(TAG, "Image selected from gallery: " + imageUri);
             }
+            if (requestCode == REQUEST_IMAGE_CAPTURE && imageUri == null && data != null) {
+                imageUri = data.getData();
+                Log.d(TAG, "Image captured: " + imageUri);
+            }
             if (imageUri != null) {
                 Log.d(TAG, "Starting image upload");
                 uploadImageToCloudinary();
+            } else {
+                showToast("Failed to get image.");
             }
         }
     }
@@ -329,7 +338,8 @@ public class CardFragment extends Fragment {
                                 String imageUrl = (String) resultData.get("secure_url");
                                 if (imageUrl != null) {
                                     Log.d(TAG, "Image uploaded successfully: " + imageUrl);
-                                    createPublication(null, imageUrl);
+                                    createPublication("", imageUrl);
+                                    imageUri = null;
                                 } else {
                                     Log.e(TAG, "Upload failed - no URL returned");
                                     showToast("Upload failed");

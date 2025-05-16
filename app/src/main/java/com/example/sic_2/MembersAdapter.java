@@ -43,7 +43,7 @@ public class MembersAdapter extends RecyclerView.Adapter<MembersAdapter.MemberVi
 
         public MemberViewHolder(@NonNull View itemView) {
             super(itemView);
-            memberIdTextView = itemView.findViewById(R.id.member_name_text);
+            memberIdTextView = itemView.findViewById(R.id.member_name);
         }
     }
 }
