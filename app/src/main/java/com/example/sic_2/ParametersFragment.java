@@ -34,6 +34,7 @@ public class ParametersFragment extends Fragment {
     private DatabaseReference allCardsRef;
     private DatabaseReference sharedCardsRef;
     private DatabaseReference userCardsRef;
+    private DatabaseReference cardAccessRef;
 
     public ParametersFragment() {
         // Required empty public constructor
@@ -63,6 +64,7 @@ public class ParametersFragment extends Fragment {
         allCardsRef = database.getReference("allCards");
         sharedCardsRef = database.getReference("sharedCards");
         userCardsRef = database.getReference("cards");
+        cardAccessRef = database.getReference("cardAccess");
 
         currentUserId = FirebaseAuth.getInstance().getCurrentUser() != null
                 ? FirebaseAuth.getInstance().getCurrentUser().getUid()
@@ -125,7 +127,7 @@ public class ParametersFragment extends Fragment {
         }
 
         // Determine the correct card reference based on originalOwnerId
-        DatabaseReference cardRef = originalOwnerId != null
+        DatabaseReference cardRef = (originalOwnerId != null)
                 ? userCardsRef.child(originalOwnerId).child(cardId)
                 : userCardsRef.child(currentUserId).child(cardId);
 
@@ -137,26 +139,29 @@ public class ParametersFragment extends Fragment {
                     return;
                 }
 
-                // Create shared card data
+                // Copy all card fields to shared data map
                 Map<String, Object> shareData = new HashMap<>();
-                shareData.put("id", cardId);
+                for (DataSnapshot child : snapshot.getChildren()) {
+                    shareData.put(child.getKey(), child.getValue());
+                }
+                shareData.put("id", cardId); // Ensure id is set
                 shareData.put("originalOwnerId", originalOwnerId != null ? originalOwnerId : currentUserId);
                 shareData.put("sharedBy", currentUserId);
                 shareData.put("timestamp", System.currentTimeMillis());
 
-                // Copy all card fields to shared data
-                for (DataSnapshot child : snapshot.getChildren()) {
-                    shareData.put(child.getKey(), child.getValue());
-                }
+                // 1. Save to allCards (update, don't clear possible campMembers)
+                allCardsRef.child(cardId).updateChildren(shareData);
 
-                // Save to both allCards and recipient's sharedCards
-                allCardsRef.child(cardId).setValue(shareData)
-                        .addOnSuccessListener(aVoid -> {
-                            sharedCardsRef.child(recipientUserId).child(cardId).setValue(true)
-                                    .addOnSuccessListener(aVoid1 -> showToast("Card shared successfully"))
-                                    .addOnFailureListener(e -> showToast("Failed to share card"));
-                        })
-                        .addOnFailureListener(e -> showToast("Failed to update card"));
+                // 2. Add recipient to allCards/{cardId}/campMembers
+                allCardsRef.child(cardId).child("campMembers").child(recipientUserId).setValue(true);
+
+                // 3. Add to /cardAccess/{cardId}/{recipientUserId}
+                cardAccessRef.child(cardId).child(recipientUserId).setValue(true);
+
+                // 4. Save actual card data into recipient's sharedCards node
+                sharedCardsRef.child(recipientUserId).child(cardId).setValue(shareData)
+                        .addOnSuccessListener(aVoid -> showToast("Card shared successfully"))
+                        .addOnFailureListener(e -> showToast("Failed to share card"));
             }
 
             @Override
@@ -192,6 +197,8 @@ public class ParametersFragment extends Fragment {
                         showToast("Shared card removed");
                     })
                     .addOnFailureListener(e -> showToast("Failed to remove shared card"));
+            // Remove also from cardAccess
+            cardAccessRef.child(cardId).child(currentUserId).removeValue();
             return;
         }
 
@@ -205,6 +212,8 @@ public class ParametersFragment extends Fragment {
                             .addOnSuccessListener(aVoid1 -> {
                                 // Remove from all sharedCards references
                                 removeFromAllSharedCards();
+                                // Remove from cardAccess
+                                cardAccessRef.child(cardId).removeValue();
                                 notifyCardDeleted();
                                 showToast("Card deleted successfully");
                             })
@@ -244,11 +253,11 @@ public class ParametersFragment extends Fragment {
             Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
         }
     }
+
     public void onCardDeleted() {
         // Handle any fragment-specific cleanup
         if (getActivity() != null) {
             getActivity().finish();
         }
     }
-
 }
