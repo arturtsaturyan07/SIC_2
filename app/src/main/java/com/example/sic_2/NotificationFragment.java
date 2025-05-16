@@ -7,7 +7,6 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -40,7 +39,7 @@ public class NotificationFragment extends Fragment {
 
         recyclerView = view.findViewById(R.id.notifications_recycler_view);
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
-        adapter = new NotificationAdapter(unreadChats);
+        adapter = new NotificationAdapter(unreadChats, requireContext());
         recyclerView.setAdapter(adapter);
 
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
@@ -66,17 +65,17 @@ public class NotificationFragment extends Fragment {
 
                 for (DataSnapshot chatSnapshot : snapshot.getChildren()) {
                     Boolean isRead = chatSnapshot.child("read").getValue(Boolean.class);
-                    if (isRead == null || !isRead) {
-                        String cardId = chatSnapshot.getKey();
+                    if (isRead != null && !isRead) {
+                        // This chat is unread for the current user
+                        String chatId = chatSnapshot.getKey();
 
-                        // Safely parse lastMessage
                         Object messageObj = chatSnapshot.child("lastMessage").getValue();
                         String lastMessage = "";
 
                         if (messageObj instanceof String) {
                             lastMessage = (String) messageObj;
-                        } else if (messageObj instanceof ArrayList<?>) {
-                            ArrayList<?> list = (ArrayList<?>) messageObj;
+                        } else if (messageObj instanceof List<?>) {
+                            List<?> list = (List<?>) messageObj;
                             if (!list.isEmpty() && list.get(0) instanceof String) {
                                 lastMessage = (String) list.get(list.size() - 1);
                             }
@@ -84,8 +83,8 @@ public class NotificationFragment extends Fragment {
 
                         Long timestamp = chatSnapshot.child("timestamp").getValue(Long.class);
 
-                        if (cardId != null && !lastMessage.isEmpty() && timestamp != null) {
-                            unreadChats.add(new UnreadChatPreview(cardId, lastMessage, timestamp));
+                        if (chatId != null && !lastMessage.isEmpty() && timestamp != null) {
+                            unreadChats.add(new UnreadChatPreview(chatId, lastMessage, timestamp));
                         }
                     }
                 }

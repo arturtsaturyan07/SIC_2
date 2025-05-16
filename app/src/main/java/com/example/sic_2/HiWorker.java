@@ -3,7 +3,9 @@ package com.example.sic_2;
 import android.annotation.SuppressLint;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Build;
 import android.util.Log;
 
@@ -20,9 +22,7 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 
 public class HiWorker extends Worker {
     private static final String CHANNEL_ID = "chat_notifications";
@@ -70,32 +70,43 @@ public class HiWorker extends Worker {
         userChatsRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
+                int unreadCount = 0;
+                String lastUnreadCardId = null;
+                String lastMessage = null;
+                String senderId = null;
                 for (DataSnapshot chatSnapshot : snapshot.getChildren()) {
                     Boolean isRead = chatSnapshot.child("read").getValue(Boolean.class);
-                    Object messageObj = chatSnapshot.child("lastMessage").getValue();
-                    String lastMessage = "";
 
-                    if (messageObj instanceof String) {
-                        lastMessage = (String) messageObj;
-                    } else if (messageObj instanceof ArrayList<?>) {
-                        ArrayList<?> list = (ArrayList<?>) messageObj;
-                        if (!list.isEmpty() && list.get(0) instanceof String) {
-                            lastMessage = (String) list.get(list.size() - 1); // Get latest message
+                    // Defensive type check for lastMessage
+                    Object msgObj = chatSnapshot.child("lastMessage").getValue();
+                    String msg = null;
+                    if (msgObj instanceof String) {
+                        msg = (String) msgObj;
+                    } else if (msgObj instanceof List) {
+                        List<?> list = (List<?>) msgObj;
+                        if (!list.isEmpty()) {
+                            Object last = list.get(list.size() - 1);
+                            if (last instanceof String) {
+                                msg = (String) last;
+                            }
                         }
                     }
 
                     String cardId = chatSnapshot.child("cardId").getValue(String.class);
-                    String senderId = chatSnapshot.child("senderId").getValue(String.class);
+                    String sId = chatSnapshot.child("senderId").getValue(String.class);
 
-                    // 🔒 Validate senderId before proceeding
-                    if (isNonEmptyString(senderId)) {
-                        if (isRead != null && !isRead && !lastMessage.isEmpty()) {
-                            showChatNotification(cardId, senderId, lastMessage);
-                            markAsRead(chatSnapshot.getKey());
-                        }
-                    } else {
-                        Log.e("HiWorker", "Invalid or missing senderId");
+                    if (isRead != null && !isRead && msg != null && !msg.isEmpty()) {
+                        unreadCount++;
+                        lastUnreadCardId = cardId;
+                        lastMessage = msg;
+                        senderId = sId;
                     }
+                }
+                if (unreadCount > 0 && lastUnreadCardId != null && senderId != null) {
+                    showChatNotification(lastUnreadCardId, senderId, lastMessage, unreadCount);
+                } else {
+                    // Cancel notification if all read
+                    NotificationManagerCompat.from(getApplicationContext()).cancel(1001);
                 }
             }
 
@@ -106,12 +117,7 @@ public class HiWorker extends Worker {
         });
     }
 
-    private void showChatNotification(String cardId, String senderId, String message) {
-        if (!isNonEmptyString(senderId)) {
-            Log.e("HiWorker", "Cannot show notification: Invalid sender ID");
-            return;
-        }
-
+    private void showChatNotification(String cardId, String senderId, String message, int unreadCount) {
         DatabaseReference usersRef = FirebaseDatabase.getInstance().getReference("users");
 
         usersRef.child(senderId).child("name").addListenerForSingleValueEvent(new ValueEventListener() {
@@ -121,14 +127,24 @@ public class HiWorker extends Worker {
                 String senderName = snapshot.getValue(String.class);
                 if (senderName == null) senderName = "Someone";
 
-                NotificationCompat.Builder builder = new NotificationCompat.Builder(getApplicationContext(), CHANNEL_ID)
-                        .setSmallIcon(R.drawable.ic_launcher_foreground)
-                        .setContentTitle("New message from " + senderName)
-                        .setContentText(message)
-                        .setPriority(NotificationCompat.PRIORITY_DEFAULT);
+                Context context = getApplicationContext();
+                Intent intent = new Intent(context, ChatActivity.class);
+                intent.putExtra("cardId", cardId);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
-                NotificationManagerCompat notificationManager = NotificationManagerCompat.from(getApplicationContext());
-                notificationManager.notify((int) System.currentTimeMillis(), builder.build());
+                PendingIntent pendingIntent = PendingIntent.getActivity(context, 1001,
+                        intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+                NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
+                        .setSmallIcon(R.drawable.ic_chat_notification)
+                        .setContentTitle("Unread messages: " + unreadCount)
+                        .setContentText("Latest from " + senderName + ": " + message)
+                        .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                        .setContentIntent(pendingIntent)
+                        .setAutoCancel(true);
+
+                NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
+                notificationManager.notify(1001, builder.build());
             }
 
             @Override
@@ -136,18 +152,5 @@ public class HiWorker extends Worker {
                 Log.e("HiWorker", "Failed to get sender name", error.toException());
             }
         });
-    }
-
-    private void markAsRead(String chatId) {
-        if (chatId == null || chatId.isEmpty()) {
-            Log.e("HiWorker", "Cannot mark as read: Invalid chat ID");
-            return;
-        }
-        userChatsRef.child(chatId).child("read").setValue(true);
-    }
-
-    // 🔒 Helper method to safely validate strings
-    private boolean isNonEmptyString(String str) {
-        return str != null && !str.trim().isEmpty();
     }
 }

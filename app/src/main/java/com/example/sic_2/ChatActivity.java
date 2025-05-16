@@ -30,7 +30,7 @@ public class ChatActivity extends AppCompatActivity {
     private List<ChatMessage> chatMessages;
     private DatabaseReference chatRef;
     private DatabaseReference usersRef;
-    private String cardId;
+    private String chatId;
     private String currentUserId;
     private Map<String, String> userNames = new HashMap<>();
     private Map<String, String> userProfilePics = new HashMap<>();
@@ -41,14 +41,13 @@ public class ChatActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-        // Initialize Firebase and UI components
         currentUserId = FirebaseAuth.getInstance().getCurrentUser() != null
                 ? FirebaseAuth.getInstance().getCurrentUser().getUid()
                 : null;
-        cardId = getIntent().getStringExtra("cardId");
+        chatId = getIntent().getStringExtra("cardId"); // still using cardId as chatId
 
-        if (cardId == null || cardId.isEmpty()) {
-            showToast("Card ID is missing");
+        if (chatId == null || chatId.isEmpty()) {
+            showToast("Chat ID is missing");
             finish();
             return;
         }
@@ -65,14 +64,14 @@ public class ChatActivity extends AppCompatActivity {
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         chatRecyclerView.setAdapter(chatAdapter);
 
-        // Firebase references - ✅ Fixed path from `/chats/...` to `/cards/...`
+        // NEW: Use /chats/{chatId}/messages
         chatRef = FirebaseDatabase.getInstance()
-                .getReference("cards")
-                .child(cardId)
-                .child("chats")
+                .getReference("chats")
+                .child(chatId)
                 .child("messages");
-
         usersRef = FirebaseDatabase.getInstance().getReference("users");
+
+        markChatAsRead();
 
         loadChatMessages();
         setupUI();
@@ -104,23 +103,18 @@ public class ChatActivity extends AppCompatActivity {
                     if (chatMessage != null && chatMessage.getSenderId() != null) {
                         chatMessage.setId(messageSnapshot.getKey());
 
-                        // Use sender info from message or fetch from usersRef
                         if (chatMessage.getSenderName() != null && !chatMessage.getSenderName().isEmpty()) {
                             userNames.put(chatMessage.getSenderId(), chatMessage.getSenderName());
                         }
-
                         if (chatMessage.getProfileImageUrl() != null && !chatMessage.getProfileImageUrl().isEmpty()) {
                             userProfilePics.put(chatMessage.getSenderId(), chatMessage.getProfileImageUrl());
                         }
-
                         if (!userNames.containsKey(chatMessage.getSenderId())) {
                             fetchUserDetails(chatMessage.getSenderId());
                         }
-
                         chatMessages.add(chatMessage);
                     }
                 }
-
                 chatAdapter.notifyDataSetChanged();
                 scrollToBottom();
             }
@@ -146,12 +140,10 @@ public class ChatActivity extends AppCompatActivity {
                     if (name == null || name.isEmpty()) {
                         name = email != null ? email.split("@")[0] : "User";
                     }
-
                     userNames.put(userId, name);
                     if (profilePicUrl != null) {
                         userProfilePics.put(userId, profilePicUrl);
                     }
-
                     chatAdapter.notifyDataSetChanged();
                 }
             }
@@ -164,7 +156,7 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void sendMessage(String message) {
-        if (currentUserId == null || cardId == null) {
+        if (currentUserId == null || chatId == null) {
             showToast("User authentication failed");
             return;
         }
@@ -172,7 +164,6 @@ public class ChatActivity extends AppCompatActivity {
         String messageId = chatRef.push().getKey();
         if (messageId == null) return;
 
-        // Get cached name and profile URL
         String senderName = userNames.getOrDefault(currentUserId, "You");
         String profileImageUrl = userProfilePics.get(currentUserId);
 
@@ -189,8 +180,71 @@ public class ChatActivity extends AppCompatActivity {
                     if (!task.isSuccessful()) {
                         Log.e("FirebaseError", "Failed to send message", task.getException());
                         showToast("Failed to send message");
+                    } else {
+                        setUnreadForRecipients(message);
                     }
                 });
+    }
+
+    // NEW: Get participants from /chats/{chatId}/participants
+    private void setUnreadForRecipients(String message) {
+        DatabaseReference participantsRef = FirebaseDatabase.getInstance()
+                .getReference("chats")
+                .child(chatId)
+                .child("participants");
+
+        long timestamp = System.currentTimeMillis();
+
+        participantsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                for (DataSnapshot userSnapshot : snapshot.getChildren()) {
+                    String uid = userSnapshot.getKey();
+                    if (uid != null && !uid.equals(currentUserId)) {
+                        DatabaseReference recipientChatRef = FirebaseDatabase.getInstance()
+                                .getReference("user_chats")
+                                .child(uid)
+                                .child(chatId);
+
+                        Map<String, Object> update = new HashMap<>();
+                        update.put("read", false);
+                        update.put("lastMessage", message);
+                        update.put("chatId", chatId);
+                        update.put("senderId", currentUserId);
+                        update.put("timestamp", timestamp);
+
+                        recipientChatRef.updateChildren(update);
+                    }
+                }
+                // Also, update sender's own user_chats with read:true, lastMessage, etc.
+                DatabaseReference senderChatRef = FirebaseDatabase.getInstance()
+                        .getReference("user_chats")
+                        .child(currentUserId)
+                        .child(chatId);
+
+                Map<String, Object> updateSender = new HashMap<>();
+                updateSender.put("read", true);
+                updateSender.put("lastMessage", message);
+                updateSender.put("chatId", chatId);
+                updateSender.put("senderId", currentUserId);
+                updateSender.put("timestamp", timestamp);
+                senderChatRef.updateChildren(updateSender);
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("ChatActivity", "Failed to update unread status", error.toException());
+            }
+        });
+    }
+
+    private void markChatAsRead() {
+        if (currentUserId == null || chatId == null) return;
+        DatabaseReference myChatRef = FirebaseDatabase.getInstance()
+                .getReference("user_chats")
+                .child(currentUserId)
+                .child(chatId);
+        myChatRef.child("read").setValue(true);
     }
 
     private void scrollToBottom() {

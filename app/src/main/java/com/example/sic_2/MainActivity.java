@@ -2,11 +2,8 @@ package com.example.sic_2;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.app.ActivityManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
-import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -68,38 +65,14 @@ public class MainActivity extends AppCompatActivity {
 
         badge = findViewById(R.id.badge);
 
-        // Load unread count from Firebase or local logic
-        loadUnreadMessageCount();
-
-        // Initialize views
-        initializeViews();
-
-        // Request notification permissions for Android 13+
-        requestNotificationPermission();
-
-        // Handle deep link to open chat fragment
-        Intent intent = getIntent();
-        if (intent != null && intent.getBooleanExtra("open_chat", false)) {
-            String cardId = intent.getStringExtra("cardId");
-            if (cardId != null) {
-                openChatFragment(cardId);
-            }
-        }
-
-        if (intent.getBooleanExtra("open_chat", false)) {
-            String cardId = intent.getStringExtra("cardId");
-            getSupportFragmentManager().beginTransaction()
-                    .replace(R.id.container, ChatFragment.newInstance(cardId, ""))
-                    .addToBackStack(null)
-                    .commit();
-        }
-
         // Initialize Firebase Authentication
         auth = FirebaseAuth.getInstance();
         user = auth.getCurrentUser();
 
         // Check guest mode
+        Intent intent = getIntent();
         boolean isGuest = intent.getBooleanExtra("guest_mode", false);
+
         if (user == null && !isGuest) {
             redirectToLogin();
             return;
@@ -109,6 +82,21 @@ public class MainActivity extends AppCompatActivity {
             userId = user.getUid();
             initializeFirebase(isGuest, intent);
             loadUserCards();
+            loadUnreadMessageCount();
+        }
+
+        // Initialize views
+        initializeViews();
+
+        // Request notification permissions for Android 13+
+        requestNotificationPermission();
+
+        // Handle deep link to open chat fragment
+        if (intent != null && intent.getBooleanExtra("open_chat", false)) {
+            String cardId = intent.getStringExtra("cardId");
+            if (cardId != null) {
+                openChatFragment(cardId);
+            }
         }
 
         // Apply dark mode settings
@@ -122,26 +110,15 @@ public class MainActivity extends AppCompatActivity {
             loadFragment(new HomeFragment());
         }
 
-        FirebaseMessaging.getInstance().getToken().addOnSuccessListener(token -> {
-            FirebaseDatabase.getInstance().getReference("fcmTokens")
-                    .child(userId)
-                    .setValue(token);
-        });
-
-        FirebaseMessaging.getInstance().getToken()
-                .addOnSuccessListener(token -> {
-                    FirebaseDatabase.getInstance().getReference("fcmTokens")
-                            .child(userId)
-                            .setValue(token);
-                });
-
-        if (intent != null && intent.getBooleanExtra("open_chat", false)) {
-            String cardId = intent.getStringExtra("cardId");
-            if (cardId != null) {
-                openChatFragment(cardId);
-            }
+        if (!isGuest && userId != null) {
+            FirebaseMessaging.getInstance().getToken().addOnSuccessListener(token -> {
+                FirebaseDatabase.getInstance().getReference("fcmTokens")
+                        .child(userId)
+                        .setValue(token);
+            });
         }
     }
+
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             CharSequence name = "Chat Messages";
@@ -153,10 +130,13 @@ public class MainActivity extends AppCompatActivity {
 
             NotificationManager notificationManager = getSystemService(NotificationManager.class);
             notificationManager.createNotificationChannel(channel);
+
+            // For app started notification
+            NotificationChannel appChannel = new NotificationChannel("app_channel_id", "App Events", NotificationManager.IMPORTANCE_DEFAULT);
+            appChannel.setDescription("General app notifications");
+            notificationManager.createNotificationChannel(appChannel);
         }
     }
-
-
 
     @SuppressLint("MissingPermission")
     private void showAppStartedNotification() {
@@ -257,8 +237,8 @@ public class MainActivity extends AppCompatActivity {
             } else if (itemId == R.id.profile) {
                 selectedFragment = new ProfileFragment();
             } else if (itemId == R.id.direct_chats) {
-            selectedFragment = new DirectChatsFragment();
-        }
+                selectedFragment = new DirectChatsFragment();
+            }
             if (selectedFragment != null) {
                 loadFragment(selectedFragment);
                 return true;
@@ -376,7 +356,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadUnreadMessageCount() {
-        String currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        if (user == null) return;
+        String currentUserId = user.getUid();
         DatabaseReference userChatsRef = FirebaseDatabase.getInstance().getReference("user_chats").child(currentUserId);
 
         userChatsRef.addListenerForSingleValueEvent(new ValueEventListener() {
@@ -408,8 +389,4 @@ public class MainActivity extends AppCompatActivity {
             badge.setVisibility(View.GONE);
         }
     }
-
-
-
-
 }

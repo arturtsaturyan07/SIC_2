@@ -179,10 +179,16 @@ public class HomeFragment extends Fragment {
 
                 for (DataSnapshot data : snapshot.getChildren()) {
                     try {
-                        Card card = data.getValue(Card.class);
-                        if (card != null && card.getId() != null && !cardExists(card.getId())) {
-                            cardList.add(card);
-                            createAndAddCardView(card, true);
+                        // Defensive: Check if the value is a map (object) before mapping to Card
+                        Object value = data.getValue();
+                        if (value instanceof Map) {
+                            Card card = data.getValue(Card.class);
+                            if (card != null && card.getId() != null && !cardExists(card.getId())) {
+                                cardList.add(card);
+                                createAndAddCardView(card, true);
+                            }
+                        } else {
+                            Log.w("HomeFragment", "Skipping shared card (not a Card object): " + value);
                         }
                     } catch (Exception e) {
                         Log.e("HomeFragment", "Error parsing shared card", e);
