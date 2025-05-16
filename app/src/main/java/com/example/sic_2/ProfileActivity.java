@@ -18,10 +18,15 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class ProfileActivity extends AppCompatActivity {
 
     private String userId;
+    private String currentUserId;
     private DatabaseReference userRef;
+    private DatabaseReference directChatsRef;
 
     private TextView nameText, surnameText, bioText;
     private ImageView profileImage;
@@ -41,7 +46,9 @@ public class ProfileActivity extends AppCompatActivity {
 
         // Get user ID from intent
         userId = getIntent().getStringExtra("userId");
-        if (userId == null || userId.isEmpty()) {
+        currentUserId = FirebaseAuth.getInstance().getCurrentUser() != null ? FirebaseAuth.getInstance().getCurrentUser().getUid() : null;
+
+        if (userId == null || userId.isEmpty() || currentUserId == null) {
             Toast.makeText(this, "User not found", Toast.LENGTH_SHORT).show();
             finish();
             return;
@@ -49,6 +56,7 @@ public class ProfileActivity extends AppCompatActivity {
 
         // Firebase references
         userRef = FirebaseDatabase.getInstance().getReference("users").child(userId);
+        directChatsRef = FirebaseDatabase.getInstance().getReference("direct_chats");
 
         fetchAndDisplayUserProfile();
 
@@ -93,7 +101,45 @@ public class ProfileActivity extends AppCompatActivity {
     }
 
     private void startDirectChat() {
-        String chatId = "direct_chat_" + sortUids(FirebaseAuth.getInstance().getCurrentUser().getUid(), userId);
+        if (userId.equals(currentUserId)) {
+            Toast.makeText(this, "You can't chat with yourself!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String chatId = "direct_chat_" + sortUids(currentUserId, userId);
+
+        // First, create the direct chat in Firebase if it doesn't exist
+        DatabaseReference chatRef = directChatsRef.child(chatId);
+        chatRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (!snapshot.exists()) {
+                    // Create chat with both participants
+                    Map<String, Object> chatData = new HashMap<>();
+                    Map<String, Boolean> participants = new HashMap<>();
+                    participants.put(currentUserId, true);
+                    participants.put(userId, true);
+                    chatData.put("participants", participants);
+                    chatData.put("lastMessage", "");
+                    chatData.put("timestamp", System.currentTimeMillis());
+                    chatRef.setValue(chatData)
+                            .addOnSuccessListener(aVoid -> openChat(chatId))
+                            .addOnFailureListener(e -> {
+                                Toast.makeText(ProfileActivity.this, "Failed to start chat", Toast.LENGTH_SHORT).show();
+                            });
+                } else {
+                    openChat(chatId);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Toast.makeText(ProfileActivity.this, "Database error", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void openChat(String chatId) {
         Intent intent = new Intent(ProfileActivity.this, ChatActivity.class);
         intent.putExtra("cardId", chatId);
         startActivity(intent);

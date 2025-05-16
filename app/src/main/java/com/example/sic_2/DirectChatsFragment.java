@@ -6,7 +6,6 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -25,9 +24,9 @@ import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.database.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 public class DirectChatsFragment extends Fragment {
 
@@ -41,6 +40,7 @@ public class DirectChatsFragment extends Fragment {
     private String currentUserId;
 
     private TextView emptyStateText;
+    private ValueEventListener chatsListener;
 
     @Nullable
     @Override
@@ -51,13 +51,18 @@ public class DirectChatsFragment extends Fragment {
         return view;
     }
 
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        // Remove the listener to avoid memory leaks
+        if (directChatsRef != null && chatsListener != null) {
+            directChatsRef.removeEventListener(chatsListener);
+        }
+    }
+
     private void setupViews(View view) {
         recyclerView = view.findViewById(R.id.direct_chats_recycler_view);
         emptyStateText = view.findViewById(R.id.empty_state);
-
-        // 🔧 TEST CODE: Test button click listener
-//        Button testButton = view.findViewById(R.id.btn_run_test);
-//        testButton.setOnClickListener(v -> runDirectChatTest());
 
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         directChatUsers = new ArrayList<>();
@@ -85,33 +90,35 @@ public class DirectChatsFragment extends Fragment {
         directChatsRef = FirebaseDatabase.getInstance().getReference("direct_chats");
         usersRef = FirebaseDatabase.getInstance().getReference("users");
 
-        // Listen to chats where current user is a participant
-        directChatsRef.orderByChild("participants/" + currentUserId).equalTo(true)
-                .addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(@NonNull DataSnapshot snapshot) {
-                        directChatUsers.clear();
+        // Listen to chats where current user is a participant (real-time updates)
+        chatsListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                directChatUsers.clear();
+                Set<String> seenUserIds = new HashSet<>();
+                for (DataSnapshot chatSnapshot : snapshot.getChildren()) {
+                    String chatId = chatSnapshot.getKey();
 
-                        for (DataSnapshot chatSnapshot : snapshot.getChildren()) {
-                            String chatId = chatSnapshot.getKey();
-
-                            if (chatId != null && chatId.startsWith("direct_chat_")) {
-                                String otherUserId = extractOtherUserId(chatId, currentUserId);
-                                if (otherUserId != null) {
-                                    fetchUserInfo(otherUserId);
-                                }
-                            }
+                    if (chatId != null && chatId.startsWith("direct_chat_")) {
+                        String otherUserId = extractOtherUserId(chatId, currentUserId);
+                        if (otherUserId != null && !seenUserIds.contains(otherUserId)) {
+                            seenUserIds.add(otherUserId);
+                            fetchUserInfo(otherUserId);
                         }
-
-                        updateUI();
                     }
+                }
+                updateUI();
+            }
 
-                    @Override
-                    public void onCancelled(@NonNull DatabaseError error) {
-                        Log.e(TAG, "Failed to load direct chats: " + error.getMessage());
-                        Toast.makeText(requireContext(), "Failed to load direct chats", Toast.LENGTH_SHORT).show();
-                    }
-                });
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Failed to load direct chats: " + error.getMessage());
+                Toast.makeText(requireContext(), "Failed to load direct chats", Toast.LENGTH_SHORT).show();
+            }
+        };
+
+        directChatsRef.orderByChild("participants/" + currentUserId).equalTo(true)
+                .addValueEventListener(chatsListener);
     }
 
     private void updateUI() {
@@ -149,8 +156,18 @@ public class DirectChatsFragment extends Fragment {
                     User user = snapshot.getValue(User.class);
                     if (user != null) {
                         user.setUserId(snapshot.getKey()); // Make sure ID is set
-                        directChatUsers.add(user);
-                        updateUI();
+                        // Add only if not already in the list (in case of rapid updates)
+                        boolean alreadyInList = false;
+                        for (User u : directChatUsers) {
+                            if (u.getUserId().equals(user.getUserId())) {
+                                alreadyInList = true;
+                                break;
+                            }
+                        }
+                        if (!alreadyInList) {
+                            directChatUsers.add(user);
+                            updateUI();
+                        }
                     }
                 }
             }
@@ -165,67 +182,5 @@ public class DirectChatsFragment extends Fragment {
     // Utility method to create sorted chat ID
     private String sortUids(String uid1, String uid2) {
         return uid1.compareTo(uid2) < 0 ? uid1 + "_" + uid2 : uid2 + "_" + uid1;
-    }
-
-    // ————————————————————————————————
-    // 🔧 TEST FUNCTION: Only used for debugging / demo
-    // ————————————————————————————————
-
-    /**
-     * Simulates creating a direct chat between the current user and a test user.
-     * Used for testing UI and Firebase structure. Not needed in production.
-     */
-    private void runDirectChatTest() {
-        Log.d("Test", "Running direct chat test...");
-        Toast.makeText(requireContext(), "Running test...", Toast.LENGTH_SHORT).show();
-
-        DatabaseReference rootRef = FirebaseDatabase.getInstance().getReference();
-        FirebaseAuth auth = FirebaseAuth.getInstance();
-        FirebaseUser currentUser = auth.getCurrentUser();
-
-        if (currentUser == null) {
-            Toast.makeText(requireContext(), "Not logged in", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        String currentUserId = currentUser.getUid();
-        String testUserId = "test_user_987"; // 🧪 Replace with real UID if needed
-
-        // Create a test user object
-        User testUser = new User();
-        testUser.setUserId(testUserId);
-        testUser.setName("Test");
-        testUser.setSurname("User");
-        testUser.setProfileImageUrl("https://example.com/profile.jpg ");
-
-        // Step 1: Save test user to Firebase
-        rootRef.child("users").child(testUserId).setValue(testUser)
-                .addOnSuccessListener(aVoid -> Log.d("Test", "Test user saved"));
-
-        // Step 2: Generate chat ID using sorted UIDs
-        String chatId = sortUids(currentUserId, testUserId);
-        String fullChatId = "direct_chat_" + chatId;
-
-        // Step 3: Create chat under /direct_chats/{fullChatId}
-        Map<String, Object> chatData = new HashMap<>();
-        chatData.put("lastMessage", "Hello from test!");
-        chatData.put("timestamp", System.currentTimeMillis());
-
-        Map<String, Boolean> participants = new HashMap<>();
-        participants.put(currentUserId, true);
-        participants.put(testUserId, true);
-        chatData.put("participants", participants);
-
-        rootRef.child("direct_chats")
-                .child(fullChatId)
-                .updateChildren(chatData)
-                .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(requireContext(), "Test chat created!", Toast.LENGTH_LONG).show();
-                    reloadChats(); // Reload chats
-                });
-    }
-
-    private void reloadChats() {
-        setupFirebase(); // Just re-run the query
     }
 }

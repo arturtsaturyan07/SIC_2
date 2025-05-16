@@ -37,7 +37,6 @@ public class DirectChatAdapter extends RecyclerView.Adapter<DirectChatAdapter.Vi
         return new ViewHolder(view);
     }
 
-
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         User user = userList.get(position);
@@ -67,7 +66,7 @@ public class DirectChatAdapter extends RecyclerView.Adapter<DirectChatAdapter.Vi
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
-            imageView = itemView.findViewById(R.id.userImage);
+            imageView = itemView.findViewById(R.id.chat_user_image); // FIXED ID
             name = itemView.findViewById(R.id.chat_user_name);
         }
     }
