@@ -17,7 +17,6 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.*;
 import java.util.*;
 
-
 public class HomeFragment extends Fragment {
     // UI Components
     private ExtendedFloatingActionButton fab;
@@ -179,7 +178,6 @@ public class HomeFragment extends Fragment {
 
                 for (DataSnapshot data : snapshot.getChildren()) {
                     try {
-                        // Defensive: Check if the value is a map (object) before mapping to Card
                         Object value = data.getValue();
                         if (value instanceof Map) {
                             Card card = data.getValue(Card.class);
@@ -214,7 +212,6 @@ public class HomeFragment extends Fragment {
                         for (DataSnapshot requestSnapshot : snapshot.getChildren()) {
                             CampRequest request = requestSnapshot.getValue(CampRequest.class);
                             if (request != null && request.getStatus().equals("pending")) {
-                                // Only show dialog if current user is the card owner
                                 if (request.getOwnerId().equals(userId)) {
                                     showCampRequestDialog(request);
                                 }
