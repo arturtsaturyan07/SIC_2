@@ -31,7 +31,11 @@ import com.google.firebase.auth.EmailAuthProvider;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.UserProfileChangeRequest;
-import com.google.firebase.auth.FirebaseUserMetadata;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 import com.squareup.picasso.Picasso;
 
 import java.util.HashMap;
@@ -49,10 +53,10 @@ public class ProfileFragment extends Fragment {
     private FirebaseAuth mAuth;
     private FirebaseUser currentUser;
     private boolean cloudinaryInitialized = false;
+    private DatabaseReference usersRef;
+    private String userId;
 
-    public ProfileFragment() {
-        // Required empty constructor
-    }
+    public ProfileFragment() {}
 
     public static ProfileFragment newInstance() {
         return new ProfileFragment();
@@ -63,6 +67,10 @@ public class ProfileFragment extends Fragment {
         super.onCreate(savedInstanceState);
         mAuth = FirebaseAuth.getInstance();
         currentUser = mAuth.getCurrentUser();
+        if (currentUser != null) {
+            userId = currentUser.getUid();
+            usersRef = FirebaseDatabase.getInstance().getReference("users").child(userId);
+        }
         initializeCloudinary();
     }
 
@@ -76,7 +84,6 @@ public class ProfileFragment extends Fragment {
             config.put("cloud_name", "disiijbpp");
             config.put("api_key", "265226997838638");
             config.put("api_secret", "RsPtut3zPunRm-8Hwh8zRqQ8uG8");
-
             try {
                 MediaManager.init(requireContext().getApplicationContext(), config);
                 cloudinaryInitialized = true;
@@ -92,16 +99,12 @@ public class ProfileFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_profile, container, false);
         view.startAnimation(AnimationUtils.loadAnimation(getContext(), R.anim.fade_in));
-
         profileImage = view.findViewById(R.id.profile_image);
         tvUsername = view.findViewById(R.id.tv_username);
         tvEmail = view.findViewById(R.id.tv_email);
         tvAbout = view.findViewById(R.id.tv_about);
-
         loadUserData();
-
         setClickListenersWithAnimation(view);
-
         return view;
     }
 
@@ -136,28 +139,51 @@ public class ProfileFragment extends Fragment {
     }
 
     private void loadUserData() {
-        if (currentUser != null) {
-            String displayName = currentUser.getDisplayName();
-            tvUsername.setText(displayName != null ? displayName : "User");
-            tvEmail.setText(currentUser.getEmail());
-            tvAbout.setText("Tell us something about yourself...");
+        if (currentUser != null && usersRef != null) {
+            usersRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(@NonNull DataSnapshot snapshot) {
+                    String name = snapshot.child("name").getValue(String.class);
+                    String email = snapshot.child("email").getValue(String.class);
+                    String about = snapshot.child("about").getValue(String.class);
+                    String profileImageUrl = snapshot.child("profileImageUrl").getValue(String.class);
 
-            // ✅ Use Picasso to load image with error handling
-            Uri photoUri = currentUser.getPhotoUrl();
-            if (photoUri != null) {
-                try {
-                    Picasso.get()
-                            .load(photoUri)
-                            .placeholder(R.drawable.ic_profile_placeholder)
-                            .error(R.drawable.ic_profile_placeholder)
-                            .into(profileImage);
-                } catch (Exception e) {
-                    Log.e(TAG, "Failed to load image: " + photoUri, e);
-                    profileImage.setImageResource(R.drawable.ic_profile_placeholder);
+                    tvUsername.setText(name != null ? name : "User");
+                    tvEmail.setText(email != null ? email : currentUser.getEmail());
+                    tvAbout.setText(about != null ? about : "Tell us something about yourself...");
+
+                    if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
+                        try {
+                            Picasso.get()
+                                    .load(profileImageUrl)
+                                    .placeholder(R.drawable.ic_profile_placeholder)
+                                    .error(R.drawable.ic_profile_placeholder)
+                                    .into(profileImage);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Failed to load image: " + profileImageUrl, e);
+                            profileImage.setImageResource(R.drawable.ic_profile_placeholder);
+                        }
+                    } else if (currentUser.getPhotoUrl() != null) {
+                        // fallback to FirebaseAuth photo
+                        try {
+                            Picasso.get()
+                                    .load(currentUser.getPhotoUrl())
+                                    .placeholder(R.drawable.ic_profile_placeholder)
+                                    .error(R.drawable.ic_profile_placeholder)
+                                    .into(profileImage);
+                        } catch (Exception e) {
+                            profileImage.setImageResource(R.drawable.ic_profile_placeholder);
+                        }
+                    } else {
+                        profileImage.setImageResource(R.drawable.ic_profile_placeholder);
+                    }
                 }
-            } else {
-                profileImage.setImageResource(R.drawable.ic_profile_placeholder);
-            }
+
+                @Override
+                public void onCancelled(@NonNull DatabaseError error) {
+                    showToast("Failed to load user data");
+                }
+            });
         }
     }
 
@@ -177,21 +203,34 @@ public class ProfileFragment extends Fragment {
         Button btnSave = dialogView.findViewById(R.id.btn_save_profile);
         Button btnCancel = dialogView.findViewById(R.id.btn_cancel_profile);
 
-        if (currentUser != null) {
-            String displayName = currentUser.getDisplayName();
-            if (displayName != null) {
-                String[] names = displayName.split(" ");
-                etFirstName.setText(names.length > 0 ? names[0] : "");
-                etLastName.setText(names.length > 1 ? names[1] : "");
-            }
-            etEmail.setText(currentUser.getEmail());
-            etAbout.setText(tvAbout.getText().toString());
+        // Pre-fill dialog with data from database
+        if (currentUser != null && usersRef != null) {
+            usersRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(@NonNull DataSnapshot snapshot) {
+                    String name = snapshot.child("name").getValue(String.class);
+                    String email = snapshot.child("email").getValue(String.class);
+                    String about = snapshot.child("about").getValue(String.class);
+                    String profileImageUrl = snapshot.child("profileImageUrl").getValue(String.class);
 
-            if (currentUser.getPhotoUrl() != null) {
-                Picasso.get()
-                        .load(currentUser.getPhotoUrl())
-                        .into(dialogProfileImage);
-            }
+                    if (name != null) {
+                        String[] names = name.split(" ", 2);
+                        etFirstName.setText(names.length > 0 ? names[0] : "");
+                        etLastName.setText(names.length > 1 ? names[1] : "");
+                    }
+                    etEmail.setText(email != null ? email : currentUser.getEmail());
+                    etAbout.setText(about != null ? about : "");
+
+                    if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
+                        Picasso.get().load(profileImageUrl).into(dialogProfileImage);
+                    } else if (currentUser.getPhotoUrl() != null) {
+                        Picasso.get().load(currentUser.getPhotoUrl()).into(dialogProfileImage);
+                    }
+                }
+
+                @Override
+                public void onCancelled(@NonNull DatabaseError error) {}
+            });
         }
 
         btnChangePhoto.setOnClickListener(v -> {
@@ -223,28 +262,29 @@ public class ProfileFragment extends Fragment {
             return;
         }
 
-        updateProfile(firstName + " " + lastName, email, about);
+        updateProfile(firstName, lastName, email, about);
         dialog.dismiss();
     }
 
-    private void updateProfile(String fullName, String email, String about) {
-        if (currentUser == null) return;
+    private void updateProfile(String firstName, String lastName, String email, String about) {
+        if (currentUser == null || usersRef == null) return;
 
+        String fullName = firstName + (TextUtils.isEmpty(lastName) ? "" : " " + lastName);
+
+        // Update FirebaseAuth displayName
         UserProfileChangeRequest profileUpdates = new UserProfileChangeRequest.Builder()
                 .setDisplayName(fullName)
                 .build();
-
         currentUser.updateProfile(profileUpdates)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
                         tvUsername.setText(fullName);
                         tvAbout.setText(about);
                         showToast("Profile updated");
-                    } else {
-                        showToast("Failed to update profile");
                     }
                 });
 
+        // Update email in FirebaseAuth if changed
         if (!email.equals(currentUser.getEmail())) {
             currentUser.updateEmail(email)
                     .addOnCompleteListener(task -> {
@@ -256,6 +296,16 @@ public class ProfileFragment extends Fragment {
                         }
                     });
         }
+
+        // Update name, email, about in database
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("name", fullName);
+        updates.put("email", email);
+        updates.put("about", about);
+
+        usersRef.updateChildren(updates)
+                .addOnSuccessListener(aVoid -> Log.d(TAG, "User profile updated in database"))
+                .addOnFailureListener(e -> Log.e(TAG, "Failed to update user profile in database", e));
     }
 
     private void showChangePasswordDialog() {
@@ -382,8 +432,9 @@ public class ProfileFragment extends Fragment {
     }
 
     private void updateProfilePhotoUrl(String imageUrl) {
-        if (currentUser == null) return;
+        if (currentUser == null || usersRef == null) return;
 
+        // Update Firebase Auth user photo
         UserProfileChangeRequest request = new UserProfileChangeRequest.Builder()
                 .setPhotoUri(Uri.parse(imageUrl))
                 .build();
@@ -392,15 +443,9 @@ public class ProfileFragment extends Fragment {
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
                         showToast("Profile image updated");
-                        // ✅ Reload user to fetch latest photoUrl
-                        mAuth.signOut();
-                        mAuth.signInAnonymously()
-                                .addOnCompleteListener(requireActivity(), task1 -> {
-                                    if (task1.isSuccessful()) {
-                                        currentUser = mAuth.getCurrentUser();
-                                        loadUserData(); // ✅ Refresh UI
-                                    }
-                                });
+                        // Update photo in Realtime Database as well
+                        usersRef.child("profileImageUrl").setValue(imageUrl)
+                                .addOnSuccessListener(aVoid -> loadUserData());
                     } else {
                         showToast("Failed to update profile image");
                     }

@@ -70,7 +70,7 @@ public class RegisterActivity extends AppCompatActivity {
                 if (task.isSuccessful()) {
                     FirebaseUser firebaseUser = mAuth.getCurrentUser();
                     if (firebaseUser != null) {
-                        // Create user profile in Realtime Database
+                        // Create user profile in Realtime Database with full name as "name"
                         createUserProfile(firebaseUser, name, surname, email);
 
                         // Send verification email
@@ -103,8 +103,10 @@ public class RegisterActivity extends AppCompatActivity {
         String userId = user.getUid();
 
         Map<String, Object> userProfile = new HashMap<>();
-        userProfile.put("name", name);
-        userProfile.put("surname", surname);
+        userProfile.put("name", name + " " + surname); // Store full name as "name"
+        // Optionally, store separate fields for name and surname as well, if needed:
+        // userProfile.put("firstName", name);
+        // userProfile.put("surname", surname);
         userProfile.put("email", email);
         userProfile.put("timestamp", System.currentTimeMillis());
 
