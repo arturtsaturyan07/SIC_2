@@ -3,6 +3,7 @@ package com.example.sic_2;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.ImageButton;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -27,11 +28,17 @@ public class CardActivity extends AppCompatActivity {
     private String originalOwnerId;
     private DatabaseReference cardRef;
 
+    // Add a reference to your toolbar/appbar title
+    private TextView titleTextView;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.card_view_layout);
         Log.d(TAG, "onCreate");
+
+        // Reference to the title TextView (make sure it exists in your card_view_layout)
+        titleTextView = findViewById(R.id.top_bar_title);
 
         // Initialize Firebase Auth
         FirebaseAuth mAuth = FirebaseAuth.getInstance();
@@ -141,6 +148,7 @@ public class CardActivity extends AppCompatActivity {
 
     private void loadInitialFragment() {
         Fragment initialFragment = CardFragment.newInstance(cardId, originalOwnerId != null ? originalOwnerId : currentUserId);
+        setToolbarTitleForFragment(initialFragment);
         loadFragment(initialFragment, false);
     }
 
@@ -167,6 +175,7 @@ public class CardActivity extends AppCompatActivity {
             }
 
             if (selectedFragment != null) {
+                setToolbarTitleForFragment(selectedFragment);
                 loadFragment(selectedFragment, true);
             }
             return true;
@@ -183,6 +192,7 @@ public class CardActivity extends AppCompatActivity {
                     String authorId = snapshot.child("authorId").getValue(String.class);
                     if (authorId != null) {
                         MembersFragment membersFragment = MembersFragment.newInstance(cardId, authorId);
+                        setToolbarTitleForFragment(membersFragment);
                         loadFragment(membersFragment, true);
                     } else {
                         showErrorAndFinish("Card has no author information");
@@ -216,6 +226,26 @@ public class CardActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Updates the toolbar/appbar title based on the fragment type.
+     */
+    private void setToolbarTitleForFragment(Fragment fragment) {
+        if (titleTextView == null) return;
+        String title = "";
+        if (fragment instanceof CardFragment) {
+            title = "Publications";
+        } else if (fragment instanceof ChatFragment) {
+            title = "Chats";
+        } else if (fragment instanceof ParametersFragment) {
+            title = "Parameters";
+        } else if (fragment instanceof MembersFragment) {
+            title = "Members";
+        } else {
+            title = getString(R.string.app_name); // fallback
+        }
+        titleTextView.setText(title);
+    }
+
     private void showErrorAndFinish(String message) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show();
         Log.e(TAG, message);
@@ -223,13 +253,10 @@ public class CardActivity extends AppCompatActivity {
     }
 
     public void onCardDeleted(String cardId) {
-        // Notify all fragments that might need to handle the deletion
         Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
         if (fragment instanceof HomeFragment) {
             ((HomeFragment) fragment).onCardDeleted(cardId);
         }
-
-        // Close the activity after deletion
         finish();
         Toast.makeText(this, "Card deleted successfully", Toast.LENGTH_SHORT).show();
     }
