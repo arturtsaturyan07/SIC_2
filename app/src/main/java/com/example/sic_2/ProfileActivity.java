@@ -28,7 +28,7 @@ public class ProfileActivity extends AppCompatActivity {
     private DatabaseReference userRef;
     private DatabaseReference directChatsRef;
 
-    private TextView nameText, surnameText, bioText;
+    private TextView nameText, bioText;
     private ImageView profileImage;
     private Button directChatButton;
 
@@ -39,7 +39,6 @@ public class ProfileActivity extends AppCompatActivity {
 
         // UI Components
         nameText = findViewById(R.id.profile_name);
-        surnameText = findViewById(R.id.profile_surname);
         bioText = findViewById(R.id.profile_bio);
         profileImage = findViewById(R.id.profile_image);
         directChatButton = findViewById(R.id.direct_chat_button);
@@ -70,12 +69,10 @@ public class ProfileActivity extends AppCompatActivity {
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (snapshot.exists()) {
                     String name = snapshot.child("name").getValue(String.class);
-                    String surname = snapshot.child("surname").getValue(String.class);
-                    String bio = snapshot.child("bio").getValue(String.class);
+                    String bio = snapshot.child("about").getValue(String.class);
                     String profileImageUrl = snapshot.child("profileImageUrl").getValue(String.class);
 
                     nameText.setText(name != null ? name : "Not Found");
-                    surnameText.setText(surname != null ? surname : "Not Found");
                     bioText.setText(bio != null ? bio : "No bio available");
 
                     if (profileImageUrl != null && !profileImageUrl.isEmpty()) {

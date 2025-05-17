@@ -62,6 +62,9 @@ public class CardFragment extends Fragment {
     private ProgressDialog progressDialog;
     private ValueEventListener publicationsListener;
 
+    // Profile picture URL for current user
+    private String currentUserProfileImageUrl = null;
+
     public static CardFragment newInstance(String cardId, String originalOwnerId) {
         CardFragment fragment = new CardFragment();
         Bundle args = new Bundle();
@@ -131,6 +134,18 @@ public class CardFragment extends Fragment {
             requireActivity().finish();
             return;
         }
+        // Load current user's profile image URL from database
+        DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("users").child(currentUserId);
+        userRef.child("profileImageUrl").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                currentUserProfileImageUrl = snapshot.getValue(String.class);
+            }
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Failed to load current user profile image", error.toException());
+            }
+        });
     }
 
     private void initializeViews(View view) {
@@ -218,6 +233,7 @@ public class CardFragment extends Fragment {
         postsRef.orderByChild("timestamp").addValueEventListener(publicationsListener);
     }
 
+    // Add currentUserProfileImageUrl to the Publication object when creating a publication
     private void createPublication(String content, String imageUrl) {
         Log.d(TAG, "Creating new publication");
         DatabaseReference newPostRef = FirebaseDatabase.getInstance()
@@ -227,6 +243,10 @@ public class CardFragment extends Fragment {
         // If posting an image, set content to empty string if null
         if (content == null) content = "";
         Publication publication = new Publication(currentUserId, content, imageUrl, System.currentTimeMillis());
+        // Add profileImageUrl field to publication if available
+        if (currentUserProfileImageUrl != null && !currentUserProfileImageUrl.isEmpty()) {
+            publication.setUserProfileImageUrl(currentUserProfileImageUrl);
+        }
         newPostRef.setValue(publication)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {

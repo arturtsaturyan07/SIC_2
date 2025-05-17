@@ -80,7 +80,12 @@ public class MembersFragment extends Fragment {
                             @Override
                             public void onDataChange(@NonNull DataSnapshot userSnap) {
                                 String name = userSnap.child("name").getValue(String.class);
-                                String photoUrl = userSnap.child("photoUrl").getValue(String.class);
+
+                                // Try both "photoUrl" and "profileImageUrl"
+                                String photoUrl = userSnap.child("profileImageUrl").getValue(String.class);
+                                if (photoUrl == null || photoUrl.isEmpty()) {
+                                    photoUrl = userSnap.child("photoUrl").getValue(String.class);
+                                }
 
                                 // If this member is the organizer, append " (organizer)" to their name.
                                 String displayName = (memberId.equals(authorId))
