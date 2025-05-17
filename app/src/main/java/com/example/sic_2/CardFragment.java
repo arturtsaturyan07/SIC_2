@@ -14,6 +14,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -61,6 +62,8 @@ public class CardFragment extends Fragment {
     private Button addPhotoButton;
     private ProgressDialog progressDialog;
     private ValueEventListener publicationsListener;
+
+    private TextView emptyStateText; // For "No publications" message
 
     public static CardFragment newInstance(String cardId, String originalOwnerId) {
         CardFragment fragment = new CardFragment();
@@ -137,6 +140,7 @@ public class CardFragment extends Fragment {
         publicationsRecyclerView = view.findViewById(R.id.publications_recycler_view);
         Button addPublicationButton = view.findViewById(R.id.add_publication_button);
         addPhotoButton = view.findViewById(R.id.add_photo_button);
+        emptyStateText = view.findViewById(R.id.empty_state); // Make sure this TextView exists in your layout!
         setupRecyclerView();
         setupButtonListeners(addPublicationButton);
         progressDialog = new ProgressDialog(requireContext());
@@ -207,15 +211,32 @@ public class CardFragment extends Fragment {
                     }
                 }
                 publicationsAdapter.updatePublications(publicationsList);
+                updateEmptyState();
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
                 Log.e(TAG, "Failed to load publications: " + error.getMessage());
                 showToast("Failed to load posts: " + error.getMessage());
+                publicationsList.clear();
+                publicationsAdapter.updatePublications(publicationsList);
+                updateEmptyState();
             }
         };
         postsRef.orderByChild("timestamp").addValueEventListener(publicationsListener);
+    }
+
+    private void updateEmptyState() {
+        if (emptyStateText != null) {
+            if (publicationsList.isEmpty()) {
+                emptyStateText.setText("No publications yet. Add the first!");
+                emptyStateText.setVisibility(View.VISIBLE);
+                publicationsRecyclerView.setVisibility(View.GONE);
+            } else {
+                emptyStateText.setVisibility(View.GONE);
+                publicationsRecyclerView.setVisibility(View.VISIBLE);
+            }
+        }
     }
 
     // Only save userId, content, imageUrl, timestamp in Publication.

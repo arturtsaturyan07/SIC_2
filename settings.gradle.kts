@@ -19,6 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "SIC_2"
+rootProject.name = "Camp_Connect"
 include(":app")
  

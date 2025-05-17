@@ -11,6 +11,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -29,7 +30,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-public class ChatFragment extends Fragment {
+/**
+ * ChatFragment: Chat UI for a card, with long-press menu for edit, react, and delete actions.
+ */
+public class ChatFragment extends Fragment implements OnMessageLongClickListener {
 
     private static final String TAG = "ChatFragment";
     private static final String ARG_CARD_ID = "cardId";
@@ -103,9 +107,8 @@ public class ChatFragment extends Fragment {
     private void setupViews(View view) {
         chatRecyclerView = view.findViewById(R.id.chat_recycler_view);
         chatMessages = new ArrayList<>();
-
-        // ✅ Pass context here to avoid errors
-        chatAdapter = new ChatAdapter(requireContext(), chatMessages, currentUserId, userNames, userProfilePics);
+        // Pass this as long-click listener
+        chatAdapter = new ChatAdapter(requireContext(), chatMessages, currentUserId, userNames, userProfilePics, this);
 
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         chatRecyclerView.setAdapter(chatAdapter);
@@ -167,10 +170,14 @@ public class ChatFragment extends Fragment {
 
                 chatMessage.setSenderName((String) messageMap.get("senderName"));
                 chatMessage.setProfileImageUrl((String) messageMap.get("profileImageUrl"));
-
-                // Safely parse delivered/read maps
                 chatMessage.parseDelivered(messageMap.get("delivered"));
                 chatMessage.parseRead(messageMap.get("read"));
+
+                // Parse reaction if present
+                Object reactionObj = messageMap.get("reaction");
+                if (reactionObj instanceof String) {
+                    chatMessage.setReaction((String) reactionObj);
+                }
 
                 chatMessages.add(chatMessage);
                 chatAdapter.notifyItemInserted(chatMessages.size() - 1);
@@ -188,10 +195,37 @@ public class ChatFragment extends Fragment {
             }
 
             @Override
-            public void onChildChanged(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
+            public void onChildChanged(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {
+                // Update the message if edited or reaction changed
+                String changedId = snapshot.getKey();
+                ChatMessage updatedMessage = snapshot.getValue(ChatMessage.class);
+                if (changedId != null && updatedMessage != null) {
+                    for (int i = 0; i < chatMessages.size(); i++) {
+                        ChatMessage msg = chatMessages.get(i);
+                        if (msg.getId() != null && msg.getId().equals(changedId)) {
+                            // Preserve the ID
+                            updatedMessage.setId(changedId);
+                            chatMessages.set(i, updatedMessage);
+                            chatAdapter.notifyItemChanged(i);
+                            break;
+                        }
+                    }
+                }
+            }
 
             @Override
-            public void onChildRemoved(@NonNull DataSnapshot snapshot) {}
+            public void onChildRemoved(@NonNull DataSnapshot snapshot) {
+                // Remove the deleted message from the list and update UI
+                String deletedId = snapshot.getKey();
+                for (int i = 0; i < chatMessages.size(); i++) {
+                    ChatMessage msg = chatMessages.get(i);
+                    if (msg.getId() != null && msg.getId().equals(deletedId)) {
+                        chatMessages.remove(i);
+                        chatAdapter.notifyItemRemoved(i);
+                        break;
+                    }
+                }
+            }
 
             @Override
             public void onChildMoved(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
@@ -393,5 +427,112 @@ public class ChatFragment extends Fragment {
         if (chatRef != null && chatListener != null) {
             chatRef.removeEventListener(chatListener);
         }
+    }
+
+    // ---- Long-press support for message actions: Edit, React, Delete ----
+    @Override
+    public void onMessageLongClick(ChatMessage chatMessage, int position) {
+        boolean isOwnMessage = currentUserId.equals(chatMessage.getSenderId());
+
+        // Build menu options
+        ArrayList<String> options = new ArrayList<>();
+        if (isOwnMessage) options.add("Edit");
+        options.add("React");
+        if (isOwnMessage) options.add("Delete");
+
+        String[] actions = options.toArray(new String[0]);
+
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Select Action")
+                .setItems(actions, (dialog, which) -> {
+                    String selected = actions[which];
+                    switch (selected) {
+                        case "Edit":
+                            showEditMessageDialog(chatMessage);
+                            break;
+                        case "React":
+                            showReactionDialog(chatMessage);
+                            break;
+                        case "Delete":
+                            confirmAndDeleteMessage(chatMessage);
+                            break;
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void showEditMessageDialog(ChatMessage chatMessage) {
+        if (!currentUserId.equals(chatMessage.getSenderId())) {
+            showToast("You can only edit your own messages");
+            return;
+        }
+        final EditText editText = new EditText(requireContext());
+        editText.setText(chatMessage.getMessage());
+        editText.setSelection(editText.getText().length());
+
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Edit Message")
+                .setView(editText)
+                .setPositiveButton("Save", (dialog, which) -> {
+                    String newText = editText.getText().toString().trim();
+                    if (!newText.isEmpty() && !newText.equals(chatMessage.getMessage())) {
+                        chatRef.child(chatMessage.getId()).child("message").setValue(newText)
+                                .addOnCompleteListener(task -> {
+                                    if (task.isSuccessful()) {
+                                        showToast("Message updated");
+                                    } else {
+                                        showToast("Failed to update message");
+                                    }
+                                });
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void showReactionDialog(ChatMessage chatMessage) {
+        // Example reactions; you can expand this
+        String[] reactions = {"👍", "❤️", "😂", "😮", "😢", "😡"};
+        new AlertDialog.Builder(requireContext())
+                .setTitle("React to Message")
+                .setItems(reactions, (dialog, which) -> {
+                    String selectedReaction = reactions[which];
+                    // Save reaction in Firebase (as a simple field, for advanced usage store per user)
+                    chatRef.child(chatMessage.getId()).child("reaction").setValue(selectedReaction)
+                            .addOnCompleteListener(task -> {
+                                if (task.isSuccessful()) {
+                                    showToast("Reacted with " + selectedReaction);
+                                } else {
+                                    showToast("Failed to react");
+                                }
+                            });
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void confirmAndDeleteMessage(ChatMessage chatMessage) {
+        if (!currentUserId.equals(chatMessage.getSenderId())) {
+            showToast("You can only delete your own messages");
+            return;
+        }
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Delete message?")
+                .setMessage("Are you sure you want to delete this message?")
+                .setPositiveButton("Delete", (dialog, which) -> {
+                    if (chatMessage.getId() != null) {
+                        chatRef.child(chatMessage.getId()).removeValue()
+                                .addOnCompleteListener(task -> {
+                                    if (task.isSuccessful()) {
+                                        showToast("Message deleted");
+                                    } else {
+                                        showToast("Failed to delete message");
+                                    }
+                                });
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 }

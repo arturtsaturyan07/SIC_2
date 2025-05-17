@@ -9,10 +9,13 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.imageview.ShapeableImageView;
 import java.util.List;
 
+/**
+ * Adapter for displaying Card objects in a RecyclerView.
+ */
 public class CardAdapter extends RecyclerView.Adapter<CardAdapter.CardViewHolder> {
     private List<Card> cardList;
-    private OnCardClickListener listener;
-    private boolean showSharedIndicator;
+    private final OnCardClickListener listener;
+    private final boolean showSharedIndicator;
 
     public interface OnCardClickListener {
         void onCardClick(Card card);
@@ -25,6 +28,9 @@ public class CardAdapter extends RecyclerView.Adapter<CardAdapter.CardViewHolder
         this.showSharedIndicator = showSharedIndicator;
     }
 
+    /**
+     * Update the adapter's data and refresh the list.
+     */
     public void updateData(List<Card> newCards) {
         this.cardList = newCards;
         notifyDataSetChanged();
@@ -48,13 +54,14 @@ public class CardAdapter extends RecyclerView.Adapter<CardAdapter.CardViewHolder
         holder.recPriority.setText(card.getPriority());
         holder.recImage.setImageResource(R.drawable.uploadimg);
 
-        // Set click listeners
+        // Set click listener
         holder.itemView.setOnClickListener(v -> {
             if (listener != null) {
                 listener.onCardClick(card);
             }
         });
 
+        // Set long click listener
         holder.itemView.setOnLongClickListener(v -> {
             if (listener != null) {
                 listener.onCardLongClick(card);
@@ -66,7 +73,7 @@ public class CardAdapter extends RecyclerView.Adapter<CardAdapter.CardViewHolder
 
     @Override
     public int getItemCount() {
-        return cardList.size();
+        return cardList != null ? cardList.size() : 0;
     }
 
     static class CardViewHolder extends RecyclerView.ViewHolder {

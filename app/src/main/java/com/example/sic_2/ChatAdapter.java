@@ -5,7 +5,6 @@ import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -22,6 +21,9 @@ import java.util.Map;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
+/**
+ * ChatAdapter for displaying chat messages, supporting reactions and long-press menu.
+ */
 public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder> {
 
     private final List<ChatMessage> chatMessages;
@@ -29,14 +31,17 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
     private final Map<String, String> userNames;
     private final Map<String, String> userProfilePics;
     private final Context context;
+    private final OnMessageLongClickListener longClickListener;
 
     public ChatAdapter(Context context, List<ChatMessage> chatMessages, String currentUserId,
-                       Map<String, String> userNames, Map<String, String> userProfilePics) {
+                       Map<String, String> userNames, Map<String, String> userProfilePics,
+                       OnMessageLongClickListener longClickListener) {
         this.context = context;
         this.chatMessages = chatMessages;
         this.currentUserId = currentUserId;
         this.userNames = userNames;
         this.userProfilePics = userProfilePics;
+        this.longClickListener = longClickListener;
     }
 
     @NonNull
@@ -63,15 +68,22 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             context.startActivity(intent);
         });
 
+        // Show reaction if available
         if (isSentByCurrentUser) {
-            // Show sent message
             holder.containerMe.setVisibility(View.VISIBLE);
             holder.containerOther.setVisibility(View.GONE);
 
             holder.messageTextMe.setText(chatMessage.getMessage());
             holder.timeTextMe.setText(formattedTime);
 
-            // Update status indicator
+            // Reaction
+            if (chatMessage.getReaction() != null && !chatMessage.getReaction().isEmpty()) {
+                holder.reactionMe.setVisibility(View.VISIBLE);
+                holder.reactionMe.setText(chatMessage.getReaction());
+            } else {
+                holder.reactionMe.setVisibility(View.GONE);
+            }
+
             if (chatMessage.isReadByUser(currentUserId)) {
                 holder.statusIndicator.setText("✔️✔️");
             } else if (chatMessage.isDeliveredByUser(currentUserId)) {
@@ -79,20 +91,24 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             } else {
                 holder.statusIndicator.setText("");
             }
-
         } else {
-            // Show received message
             holder.containerOther.setVisibility(View.VISIBLE);
             holder.containerMe.setVisibility(View.GONE);
 
-            // Set sender name with fallback
             String name = userNames.getOrDefault(senderId, "User");
             holder.senderNameOther.setText(name);
 
             holder.messageTextOther.setText(chatMessage.getMessage());
             holder.timeTextOther.setText(formattedTime);
 
-            // Load profile image
+            // Reaction
+            if (chatMessage.getReaction() != null && !chatMessage.getReaction().isEmpty()) {
+                holder.reactionOther.setVisibility(View.VISIBLE);
+                holder.reactionOther.setText(chatMessage.getReaction());
+            } else {
+                holder.reactionOther.setVisibility(View.GONE);
+            }
+
             String profileUrl = userProfilePics.get(senderId);
             if (profileUrl != null && !profileUrl.isEmpty()) {
                 Glide.with(context)
@@ -103,11 +119,20 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
                 holder.profileImageOther.setImageResource(R.drawable.default_profile);
             }
         }
+
+        // Long-press support
+        holder.itemView.setOnLongClickListener(v -> {
+            if (longClickListener != null) {
+                longClickListener.onMessageLongClick(chatMessage, position);
+                return true;
+            }
+            return false;
+        });
     }
 
     @Override
     public int getItemCount() {
-        return chatMessages.size();
+        return chatMessages != null ? chatMessages.size() : 0;
     }
 
     static class ChatViewHolder extends RecyclerView.ViewHolder {
@@ -117,6 +142,7 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
         TextView messageTextMe;
         TextView timeTextMe;
         TextView statusIndicator;
+        TextView reactionMe; // NEW
 
         // Received from others
         LinearLayout containerOther;
@@ -124,6 +150,7 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
         TextView senderNameOther;
         TextView messageTextOther;
         TextView timeTextOther;
+        TextView reactionOther; // NEW
 
         public ChatViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -133,6 +160,7 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             messageTextMe = itemView.findViewById(R.id.message_text_me);
             timeTextMe = itemView.findViewById(R.id.time_text_me);
             statusIndicator = itemView.findViewById(R.id.status_indicator_me);
+            reactionMe = itemView.findViewById(R.id.reaction_me); // Add this to your layout
 
             // Received from other
             containerOther = itemView.findViewById(R.id.message_container_other);
@@ -140,6 +168,7 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             senderNameOther = itemView.findViewById(R.id.sender_name_other);
             messageTextOther = itemView.findViewById(R.id.message_text_other);
             timeTextOther = itemView.findViewById(R.id.time_text_other);
+            reactionOther = itemView.findViewById(R.id.reaction_other); // Add this to your layout
         }
     }
 }

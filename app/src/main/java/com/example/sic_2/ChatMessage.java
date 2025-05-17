@@ -17,6 +17,9 @@ public class ChatMessage {
     private String senderName;
     private String profileImageUrl;
 
+    // Reaction field (single emoji per message; expand to Map<String, String> for per-user reactions)
+    private String reaction;
+
     // Status fields as Map for Firebase compatibility
     private Map<String, Boolean> delivered = new HashMap<>();
     private Map<String, Boolean> read = new HashMap<>();
@@ -58,17 +61,32 @@ public class ChatMessage {
         return delivered;
     }
 
-    public void setDelivered(Map<String, Boolean> delivered) {
-        this.delivered = delivered;
+    // Defensive setter: Accepts Map or Boolean for legacy Firebase compatibility
+    public void setDelivered(Object delivered) {
+        if (delivered instanceof Map) {
+            this.delivered = (Map<String, Boolean>) delivered;
+        } else {
+            // If it's a Boolean (legacy/incorrect data), clear and ignore
+            this.delivered = new HashMap<>();
+        }
     }
 
     public Map<String, Boolean> getRead() {
         return read;
     }
 
-    public void setRead(Map<String, Boolean> read) {
-        this.read = read;
+    // Defensive setter: Accepts Map or Boolean for legacy Firebase compatibility
+    public void setRead(Object read) {
+        if (read instanceof Map) {
+            this.read = (Map<String, Boolean>) read;
+        } else {
+            this.read = new HashMap<>();
+        }
     }
+
+    // Reaction getter/setter
+    public String getReaction() { return reaction; }
+    public void setReaction(String reaction) { this.reaction = reaction; }
 
     // Helper Methods - Exclude from Firebase
 
