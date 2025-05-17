@@ -1,27 +1,69 @@
-<!-- res/layout/item_direct_chat.xml -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:card_view="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:padding="8dp"
+    card_view:cardCornerRadius="12dp"
+    card_view:cardElevation="2dp"
+    android:layout_marginStart="8dp"
+    android:layout_marginEnd="8dp"
+    android:layout_marginTop="4dp"
+    android:layout_marginBottom="4dp"
+    android:foreground="?attr/selectableItemBackground"
     android:clickable="true"
-    android:focusable="true"
-    android:background="?attr/selectableItemBackground">
+    android:focusable="true">
 
-    <ImageView
-        android:id="@+id/chat_user_image"
-        android:layout_width="50dp"
-        android:layout_height="50dp"
-        android:src="@drawable/default_profile"
-        android:layout_marginEnd="12dp"
-        android:contentDescription="User profile"/>
-
-    <TextView
-        android:id="@+id/chat_user_name"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Username"
-        android:textSize="16sp"
-        android:gravity="center_vertical"
-        android:layout_gravity="center_vertical"/>
-</LinearLayout>
+        android:orientation="horizontal"
+        android:padding="12dp"
+        android:gravity="center_vertical">
+
+        <de.hdodenhof.circleimageview.CircleImageView
+            android:id="@+id/chat_user_image"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/default_profile"
+            android:layout_marginEnd="14dp"
+            android:contentDescription="user_profile_image" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/chat_user_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Username"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:textColor="@color/text_primary" />
+
+            <TextView
+                android:id="@+id/chat_last_message"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Last message preview..."
+                android:textSize="14sp"
+                android:textColor="@color/text_secondary"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:layout_marginTop="2dp"/>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/chat_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="12:34"
+            android:textSize="12sp"
+            android:textColor="@color/text_secondary"
+            android:layout_gravity="top"
+            android:layout_marginStart="8dp"/>
+    </LinearLayout>
+</androidx.cardview.widget.CardView>
