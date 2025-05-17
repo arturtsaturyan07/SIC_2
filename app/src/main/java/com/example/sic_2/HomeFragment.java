@@ -266,7 +266,7 @@ public class HomeFragment extends Fragment {
             } else {
                 String[] cardTitles = new String[results.size()];
                 for (int i = 0; i < results.size(); i++) {
-                    cardTitles[i] = results.get(i).getTitle() + " (by " + results.get(i).getAuthorId() + ")";
+                    cardTitles[i] = "[Shareable] " + results.get(i).getTitle() + " (by " + results.get(i).getAuthorId() + ")";
                 }
 
                 builder.setItems(cardTitles, (dialog, which) -> {
@@ -342,38 +342,46 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    private void shareCardWithUser(String cardId, String userId) {
-        allCardsRef.child(cardId).addListenerForSingleValueEvent(new ValueEventListener() {
+    // Share a card with another user (used for camp sharing or any other sharing)
+    public void shareCardWithUser(String cardId, String targetUserId) {
+        database.child(cardId).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (!isAdded()) return;
-
-                Map<String, Object> cardData = (Map<String, Object>) snapshot.getValue();
-                if (cardData != null) {
-                    Map<String, Object> sharedCard = new HashMap<>();
-                    sharedCard.put("id", cardData.get("id"));
-                    sharedCard.put("title", cardData.get("title"));
-                    sharedCard.put("description", cardData.get("description"));
-                    sharedCard.put("priority", cardData.get("priority"));
-                    sharedCard.put("authorId", cardData.get("authorId"));
-                    sharedCard.put("timestamp", cardData.get("timestamp"));
-                    sharedCard.put("isCampCard", cardData.get("isCampCard"));
-                    sharedCard.put("sharedBy", FirebaseAuth.getInstance().getCurrentUser().getUid());
-
-                    DatabaseReference sharedRef = FirebaseDatabase.getInstance()
-                            .getReference("sharedCards")
-                            .child(userId)
-                            .child(cardId);
-
-                    sharedRef.setValue(sharedCard)
-                            .addOnSuccessListener(aVoid -> {
-                                Log.d("Sharing", "Card successfully shared");
-                                sendRefreshSignal(userId);
-                            })
-                            .addOnFailureListener(e -> {
-                                Log.e("Sharing", "Failed to share card", e);
-                            });
+                if (!snapshot.exists()) {
+                    showToast("Card not found for sharing");
+                    return;
                 }
+                Card card = snapshot.getValue(Card.class);
+                if (card == null) {
+                    showToast("Failed to parse card for sharing");
+                    return;
+                }
+
+                Map<String, Object> sharedCard = new HashMap<>();
+                sharedCard.put("id", card.getId());
+                sharedCard.put("title", card.getTitle());
+                sharedCard.put("description", card.getDescription());
+                sharedCard.put("priority", card.getPriority());
+                sharedCard.put("authorId", card.getAuthorId());
+                sharedCard.put("timestamp", card.getTimestamp());
+                sharedCard.put("isCampCard", card.isCampCard());
+                sharedCard.put("sharedBy", userId);
+
+                DatabaseReference sharedRef = FirebaseDatabase.getInstance()
+                        .getReference("sharedCards")
+                        .child(targetUserId)
+                        .child(cardId);
+
+                sharedRef.setValue(sharedCard)
+                        .addOnSuccessListener(aVoid -> {
+                            Log.d("Sharing", "Card successfully shared");
+                            showToast("Card shared with user");
+                            sendRefreshSignal(targetUserId);
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.e("Sharing", "Failed to share card", e);
+                            showToast("Failed to share card");
+                        });
             }
 
             @Override
@@ -384,7 +392,7 @@ public class HomeFragment extends Fragment {
     }
 
     private void sendRefreshSignal(String userId) {
-        // Implement your refresh notification logic here
+        // Implement notification or UI refresh if needed for userId
     }
 
     private void showCardCreationDialog() {
@@ -455,6 +463,7 @@ public class HomeFragment extends Fragment {
                 .addOnFailureListener(e -> showToast("Failed to create card"));
     }
 
+    // Changed: recPriority now shows "Local Card" or "Shareable Card"
     private void createAndAddCardView(Card card, boolean isShared) {
         if (!isAdded() || getContext() == null) return;
 
@@ -467,11 +476,16 @@ public class HomeFragment extends Fragment {
 
             String titleText = card.getTitle();
             if (isShared) titleText = "[Shared] " + titleText;
-            if (card.isCampCard()) titleText = "🏕 " + titleText;
-
             recTitle.setText(titleText);
+
+            // Show "Shareable Card" if isCampCard, otherwise "Local Card"
+            if (card.isCampCard()) {
+                recPriority.setText("Shareable Card");
+            } else {
+                recPriority.setText("Local Card");
+            }
+
             recDesc.setText(card.getDescription());
-            recPriority.setText(card.getPriority());
             recImage.setImageResource(R.drawable.uploadimg);
 
             if (isShared) {

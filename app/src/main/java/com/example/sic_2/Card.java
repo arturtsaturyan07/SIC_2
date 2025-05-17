@@ -15,6 +15,9 @@ public class Card {
     private boolean isCampCard;
     private Map<String, Boolean> campMembers;  // Changed from List<String> to Map<String, Boolean>
 
+    // [NEW] Global flag
+    private boolean global = false;
+
     public Card() {
         // Default constructor required for Firebase
         this.campMembers = new HashMap<>();
@@ -29,6 +32,7 @@ public class Card {
         this.timestamp = timestamp;
         this.isCampCard = false;
         this.campMembers = new HashMap<>();
+        this.global = false;
     }
 
     // Getters and Setters
@@ -46,6 +50,10 @@ public class Card {
     public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
     public boolean isCampCard() { return isCampCard; }
     public void setCampCard(boolean campCard) { isCampCard = campCard; }
+
+    // [NEW] Global flag getter/setter
+    public boolean isGlobal() { return global; }
+    public void setGlobal(boolean global) { this.global = global; }
 
     // Updated campMembers getter and setter
     public Map<String, Boolean> getCampMembers() {
