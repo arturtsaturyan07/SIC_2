@@ -27,11 +27,11 @@ import com.cloudinary.android.MediaManager;
 import com.cloudinary.android.callback.ErrorInfo;
 import com.cloudinary.android.callback.UploadCallback;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 
 import java.io.File;
 import java.io.IOException;
@@ -61,9 +61,6 @@ public class CardFragment extends Fragment {
     private Button addPhotoButton;
     private ProgressDialog progressDialog;
     private ValueEventListener publicationsListener;
-
-    // Profile picture URL for current user
-    private String currentUserProfileImageUrl = null;
 
     public static CardFragment newInstance(String cardId, String originalOwnerId) {
         CardFragment fragment = new CardFragment();
@@ -134,18 +131,6 @@ public class CardFragment extends Fragment {
             requireActivity().finish();
             return;
         }
-        // Load current user's profile image URL from database
-        DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("users").child(currentUserId);
-        userRef.child("profileImageUrl").addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                currentUserProfileImageUrl = snapshot.getValue(String.class);
-            }
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                Log.e(TAG, "Failed to load current user profile image", error.toException());
-            }
-        });
     }
 
     private void initializeViews(View view) {
@@ -166,7 +151,7 @@ public class CardFragment extends Fragment {
     }
 
     private void setupRecyclerView() {
-        publicationsAdapter = new PublicationsAdapter(publicationsList, requireContext(), currentUserId);
+        publicationsAdapter = new PublicationsAdapter(publicationsList, requireContext());
         publicationsRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         publicationsRecyclerView.setAdapter(publicationsAdapter);
     }
@@ -233,20 +218,15 @@ public class CardFragment extends Fragment {
         postsRef.orderByChild("timestamp").addValueEventListener(publicationsListener);
     }
 
-    // Add currentUserProfileImageUrl to the Publication object when creating a publication
+    // Only save userId, content, imageUrl, timestamp in Publication.
     private void createPublication(String content, String imageUrl) {
         Log.d(TAG, "Creating new publication");
         DatabaseReference newPostRef = FirebaseDatabase.getInstance()
                 .getReference("posts")
                 .child(cardId)
                 .push();
-        // If posting an image, set content to empty string if null
         if (content == null) content = "";
         Publication publication = new Publication(currentUserId, content, imageUrl, System.currentTimeMillis());
-        // Add profileImageUrl field to publication if available
-        if (currentUserProfileImageUrl != null && !currentUserProfileImageUrl.isEmpty()) {
-            publication.setUserProfileImageUrl(currentUserProfileImageUrl);
-        }
         newPostRef.setValue(publication)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {

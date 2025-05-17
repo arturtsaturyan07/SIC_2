@@ -6,6 +6,7 @@ public class Publication {
     private String imageUrl;
     private long timestamp;
     private String userProfileImageUrl;
+    private String authorFullName;
 
     public Publication() {
         // Required for Firebase
@@ -64,4 +65,8 @@ public class Publication {
     public void setUserProfileImageUrl(String userProfileImageUrl) {
         this.userProfileImageUrl = userProfileImageUrl;
     }
+
+    public String getAuthorFullName() { return authorFullName; }
+    public void setAuthorFullName(String authorFullName) { this.authorFullName = authorFullName; }
+
 }
