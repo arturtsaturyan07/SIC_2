@@ -243,7 +243,7 @@ public class CardActivity extends AppCompatActivity {
         } else if (fragment instanceof MembersFragment) {
             title = "Members";
         } else {
-            title = getString(R.string.app_name); // fallback
+            title = "Calendar and Events";
         }
         titleTextView.setText(title);
     }

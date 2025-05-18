@@ -2,19 +2,21 @@ package com.example.sic_2;
 
 public class CampEvent {
     private String id;
-    private long date; // millis (start of day)
+    private long date; // millis (exact event time, not just start of day)
     private String title;
     private String description;
     private String createdBy; // userId
+    private String imageUrl;  // <-- new field for event image
 
     public CampEvent() {}
 
-    public CampEvent(String id, long date, String title, String description, String createdBy) {
+    public CampEvent(String id, long date, String title, String description, String createdBy, String imageUrl) {
         this.id = id;
         this.date = date;
         this.title = title;
         this.description = description;
         this.createdBy = createdBy;
+        this.imageUrl = imageUrl;
     }
 
     public String getId() { return id; }
@@ -27,4 +29,6 @@ public class CampEvent {
     public void setDescription(String description) { this.description = description; }
     public String getCreatedBy() { return createdBy; }
     public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
 }
