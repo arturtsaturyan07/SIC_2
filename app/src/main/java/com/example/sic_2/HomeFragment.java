@@ -289,6 +289,7 @@ public class HomeFragment extends Fragment {
                     }
                 })
                 .addOnFailureListener(e -> showToast("Failed to create card"));
+        reloadData();
     }
 
     private void updateCardImage(Card card, String imageUrl, ShapeableImageView recImage) {
