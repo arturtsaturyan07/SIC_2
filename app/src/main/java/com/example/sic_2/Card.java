@@ -13,13 +13,13 @@ public class Card {
     private String authorId;
     private long timestamp;
     private boolean isCampCard;
-    private Map<String, Boolean> campMembers;  // Changed from List<String> to Map<String, Boolean>
-
-    // [NEW] Global flag
+    private Map<String, Boolean> campMembers;
     private boolean global = false;
+    private long campStartDate;
+    private long campEndDate;
+    private String imageUrl; // <-- Add this field
 
     public Card() {
-        // Default constructor required for Firebase
         this.campMembers = new HashMap<>();
     }
 
@@ -33,6 +33,9 @@ public class Card {
         this.isCampCard = false;
         this.campMembers = new HashMap<>();
         this.global = false;
+        this.campStartDate = 0;
+        this.campEndDate = 0;
+        this.imageUrl = null;
     }
 
     // Getters and Setters
@@ -50,44 +53,38 @@ public class Card {
     public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
     public boolean isCampCard() { return isCampCard; }
     public void setCampCard(boolean campCard) { isCampCard = campCard; }
-
-    // [NEW] Global flag getter/setter
     public boolean isGlobal() { return global; }
     public void setGlobal(boolean global) { this.global = global; }
+    public long getCampStartDate() { return campStartDate; }
+    public void setCampStartDate(long campStartDate) { this.campStartDate = campStartDate; }
+    public long getCampEndDate() { return campEndDate; }
+    public void setCampEndDate(long campEndDate) { this.campEndDate = campEndDate; }
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
 
-    // Updated campMembers getter and setter
     public Map<String, Boolean> getCampMembers() {
         if (campMembers == null) {
             campMembers = new HashMap<>();
         }
         return campMembers;
     }
-
     public void setCampMembers(Map<String, Boolean> campMembers) {
         this.campMembers = campMembers != null ? campMembers : new HashMap<>();
     }
-
-    // Helper methods for camp membership
     public boolean isCampMember(String userId) {
         return campMembers != null && campMembers.containsKey(userId);
     }
-
     public void addCampMember(String userId) {
         getCampMembers().put(userId, true);
     }
-
     public void removeCampMember(String userId) {
         if (campMembers != null) {
             campMembers.remove(userId);
         }
     }
-
-    // Compatibility method for existing code expecting List<String>
     public List<String> getCampMembersAsList() {
         return new ArrayList<>(getCampMembers().keySet());
     }
-
-    // Compatibility method for existing code using List<String>
     public void setCampMembersFromList(List<String> members) {
         this.campMembers = new HashMap<>();
         if (members != null) {

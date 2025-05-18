@@ -1,15 +1,23 @@
 package com.example.sic_2;
 
+import android.app.DatePickerDialog;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.view.*;
 import android.widget.*;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.appcompat.widget.SearchView;
+import com.bumptech.glide.Glide;
+import com.cloudinary.android.MediaManager;
+import com.cloudinary.android.callback.ErrorInfo;
+import com.cloudinary.android.callback.UploadCallback;
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 import com.google.android.material.imageview.ShapeableImageView;
 import com.google.firebase.auth.FirebaseAuth;
@@ -38,11 +46,20 @@ public class HomeFragment extends Fragment {
     private List<Card> cardList = new ArrayList<>();
     private Map<String, View> cardViewsMap = new HashMap<>();
 
+    // Image selection/upload
+    private static final int PICK_IMAGE_REQUEST = 1001;
+    private static final int PICK_IMAGE_UPDATE_REQUEST = 1002;
+    private Uri imageUri = null;
+    private ShapeableImageView dialogImageView = null;
+    private Card pendingCardImageUpdate = null;
+    private ShapeableImageView pendingUpdateImageView = null;
+
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_home, container, false);
         initializeViews(view);
         setupFirebase();
+        initCloudinary();
         setupListeners();
         loadUserData();
         return view;
@@ -66,6 +83,222 @@ public class HomeFragment extends Fragment {
             campRequestsRef = FirebaseDatabase.getInstance().getReference("campRequests");
             usersRef = FirebaseDatabase.getInstance().getReference("users");
             loadData();
+        }
+    }
+
+    private void initCloudinary() {
+        try {
+            Map<String, String> config = new HashMap<>();
+            config.put("cloud_name", "disiijbpp");
+            config.put("api_key", "265226997838638");
+            config.put("api_secret", "RsPtut3zPunRm-8Hwh8zRqQ8uG8");
+            MediaManager.init(requireContext().getApplicationContext(), config);
+        } catch (IllegalStateException e) {
+            // Already initialized, ignore
+        }
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == PICK_IMAGE_REQUEST && resultCode == getActivity().RESULT_OK && data != null && data.getData() != null) {
+            imageUri = data.getData();
+            if (dialogImageView != null) {
+                dialogImageView.setImageURI(imageUri);
+            }
+        }
+        if (requestCode == PICK_IMAGE_UPDATE_REQUEST && resultCode == getActivity().RESULT_OK && data != null && data.getData() != null) {
+            Uri updateImageUri = data.getData();
+            if (pendingCardImageUpdate != null && pendingUpdateImageView != null) {
+                showToast("Uploading image...");
+                uploadImageToCloudinary(updateImageUri, imageUrl -> {
+                    if (imageUrl != null) {
+                        updateCardImage(pendingCardImageUpdate, imageUrl, pendingUpdateImageView);
+                    } else {
+                        showToast("Image update failed.");
+                    }
+                    pendingCardImageUpdate = null;
+                    pendingUpdateImageView = null;
+                });
+            }
+        }
+    }
+
+    private void uploadImageToCloudinary(Uri uri, OnImageUploadedListener listener) {
+        MediaManager.get().upload(uri)
+                .callback(new UploadCallback() {
+                    @Override public void onStart(String requestId) {}
+                    @Override public void onProgress(String requestId, long bytes, long totalBytes) {}
+                    @Override public void onSuccess(String requestId, Map resultData) {
+                        String url = (String) resultData.get("secure_url");
+                        listener.onUploaded(url);
+                    }
+                    @Override public void onError(String requestId, ErrorInfo error) {
+                        showToast("Image upload failed: " + error.getDescription());
+                        listener.onUploaded(null);
+                    }
+                    @Override public void onReschedule(String requestId, ErrorInfo error) {}
+                }).dispatch();
+    }
+    private interface OnImageUploadedListener {
+        void onUploaded(String imageUrl);
+    }
+
+    private void showCardCreationDialog() {
+        if (!isAdded() || getContext() == null) return;
+
+        try {
+            AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
+            builder.setTitle("Create New Card");
+
+            final EditText titleInput = new EditText(requireContext());
+            titleInput.setHint("Title");
+            titleInput.setSingleLine();
+
+            final EditText descInput = new EditText(requireContext());
+            descInput.setHint("Description (Optional)");
+
+            final CheckBox shareableCheckbox = new CheckBox(requireContext());
+            shareableCheckbox.setText("Make card shareable (camp card)");
+
+            dialogImageView = new ShapeableImageView(requireContext());
+            dialogImageView.setLayoutParams(new LinearLayout.LayoutParams(200, 200));
+            dialogImageView.setImageResource(R.drawable.uploadimg);
+            dialogImageView.setPadding(0, 24, 0, 24);
+            dialogImageView.setOnClickListener(v -> {
+                Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                startActivityForResult(intent, PICK_IMAGE_REQUEST);
+            });
+
+            final TextView startDateLabel = new TextView(requireContext());
+            startDateLabel.setText("Start Date: Not set");
+
+            final TextView endDateLabel = new TextView(requireContext());
+            endDateLabel.setText("End Date: Not set");
+
+            final Button pickStartDateBtn = new Button(requireContext());
+            pickStartDateBtn.setText("Pick Start Date");
+
+            final Button pickEndDateBtn = new Button(requireContext());
+            pickEndDateBtn.setText("Pick End Date");
+
+            final long[] startDateMillis = {0};
+            final long[] endDateMillis = {0};
+
+            pickStartDateBtn.setOnClickListener(v -> {
+                Calendar cal = Calendar.getInstance();
+                DatePickerDialog dialog = new DatePickerDialog(requireContext(), (view, year, month, dayOfMonth) -> {
+                    Calendar chosen = Calendar.getInstance();
+                    chosen.set(year, month, dayOfMonth, 0, 0, 0);
+                    startDateMillis[0] = chosen.getTimeInMillis();
+                    startDateLabel.setText("Start Date: " + (month + 1) + "/" + dayOfMonth + "/" + year);
+                }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH));
+                dialog.show();
+            });
+
+            pickEndDateBtn.setOnClickListener(v -> {
+                Calendar cal = Calendar.getInstance();
+                DatePickerDialog dialog = new DatePickerDialog(requireContext(), (view, year, month, dayOfMonth) -> {
+                    Calendar chosen = Calendar.getInstance();
+                    chosen.set(year, month, dayOfMonth, 0, 0, 0);
+                    endDateMillis[0] = chosen.getTimeInMillis();
+                    endDateLabel.setText("End Date: " + (month + 1) + "/" + dayOfMonth + "/" + year);
+                }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH));
+                dialog.show();
+            });
+
+            LinearLayout layout = new LinearLayout(requireContext());
+            layout.setOrientation(LinearLayout.VERTICAL);
+            layout.setPadding(32, 16, 32, 16);
+            layout.addView(titleInput);
+            layout.addView(descInput);
+            layout.addView(shareableCheckbox);
+            layout.addView(dialogImageView);
+            layout.addView(startDateLabel);
+            layout.addView(pickStartDateBtn);
+            layout.addView(endDateLabel);
+            layout.addView(pickEndDateBtn);
+
+            builder.setView(layout);
+            builder.setPositiveButton("Create", (dialog, which) -> {
+                String title = titleInput.getText().toString().trim();
+                String description = descInput.getText().toString().trim();
+                boolean isShareable = shareableCheckbox.isChecked();
+
+                long startDate = startDateMillis[0];
+                long endDate = endDateMillis[0];
+
+                if (title.isEmpty()) {
+                    showToast("Title cannot be empty");
+                    return;
+                }
+                if (startDate == 0 || endDate == 0) {
+                    showToast("Please select start and end dates");
+                    return;
+                }
+                if (endDate < startDate) {
+                    showToast("End date cannot be before start date");
+                    return;
+                }
+
+                if (imageUri != null) {
+                    uploadImageToCloudinary(imageUri, imageUrl -> {
+                        if (imageUrl != null) {
+                            createNewCard(title, description, isShareable, startDate, endDate, imageUrl);
+                        } else {
+                            showToast("Card not created due to image upload error.");
+                        }
+                    });
+                } else {
+                    createNewCard(title, description, isShareable, startDate, endDate, null);
+                }
+            });
+            builder.setNegativeButton("Cancel", null);
+            builder.show();
+        } catch (IllegalStateException e) {
+            Log.e("HomeFragment", "Error showing card creation dialog", e);
+        }
+    }
+
+    private void createNewCard(String title, String description, boolean isShareable, long startDate, long endDate, String imageUrl) {
+        String cardId = database.push().getKey();
+        if (cardId == null) {
+            showToast("Failed to create card ID");
+            return;
+        }
+
+        Card card = new Card(cardId, title, description, "Medium", userId, System.currentTimeMillis());
+        card.setCampCard(isShareable);
+        card.setCampStartDate(startDate);
+        card.setCampEndDate(endDate);
+        if (imageUrl != null) card.setImageUrl(imageUrl);
+
+        database.child(cardId).setValue(card)
+                .addOnSuccessListener(aVoid -> {
+                    cardList.add(card);
+                    createAndAddCardView(card, false);
+                    updateEmptyState();
+                    showToast("Card created");
+
+                    if (isShareable) {
+                        allCardsRef.child(cardId).setValue(card)
+                                .addOnFailureListener(e -> Log.e("HomeFragment", "Failed to save camp card globally", e));
+                    }
+                })
+                .addOnFailureListener(e -> showToast("Failed to create card"));
+    }
+
+    private void updateCardImage(Card card, String imageUrl, ShapeableImageView recImage) {
+        card.setImageUrl(imageUrl);
+        if (card.getAuthorId().equals(userId)) {
+            database.child(card.getId()).child("imageUrl").setValue(imageUrl);
+            if (card.isCampCard()) {
+                allCardsRef.child(card.getId()).child("imageUrl").setValue(imageUrl);
+            }
+            showToast("Card image updated!");
+            if (recImage != null && isAdded()) {
+                Glide.with(requireContext()).load(imageUrl).into(recImage);
+            }
         }
     }
 
@@ -342,7 +575,6 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    // Share a card with another user (used for camp sharing or any other sharing)
     public void shareCardWithUser(String cardId, String targetUserId) {
         database.child(cardId).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
@@ -366,6 +598,7 @@ public class HomeFragment extends Fragment {
                 sharedCard.put("timestamp", card.getTimestamp());
                 sharedCard.put("isCampCard", card.isCampCard());
                 sharedCard.put("sharedBy", userId);
+                sharedCard.put("imageUrl", card.getImageUrl());
 
                 DatabaseReference sharedRef = FirebaseDatabase.getInstance()
                         .getReference("sharedCards")
@@ -395,75 +628,6 @@ public class HomeFragment extends Fragment {
         // Implement notification or UI refresh if needed for userId
     }
 
-    private void showCardCreationDialog() {
-        if (!isAdded() || getContext() == null) return;
-
-        try {
-            AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
-            builder.setTitle("Create New Card");
-
-            final EditText titleInput = new EditText(requireContext());
-            titleInput.setHint("Title");
-            titleInput.setSingleLine();
-
-            final EditText descInput = new EditText(requireContext());
-            descInput.setHint("Description (Optional)");
-
-            final CheckBox campCheckbox = new CheckBox(requireContext());
-            campCheckbox.setText("This is a camp card (shareable with others)");
-
-            LinearLayout layout = new LinearLayout(requireContext());
-            layout.setOrientation(LinearLayout.VERTICAL);
-            layout.setPadding(32, 16, 32, 16);
-            layout.addView(titleInput);
-            layout.addView(descInput);
-            layout.addView(campCheckbox);
-
-            builder.setView(layout);
-            builder.setPositiveButton("Create", (dialog, which) -> {
-                String title = titleInput.getText().toString().trim();
-                String description = descInput.getText().toString().trim();
-                boolean isCampCard = campCheckbox.isChecked();
-
-                if (!title.isEmpty()) {
-                    createNewCard(title, description, isCampCard);
-                } else {
-                    showToast("Title cannot be empty");
-                }
-            });
-            builder.setNegativeButton("Cancel", null);
-            builder.show();
-        } catch (IllegalStateException e) {
-            Log.e("HomeFragment", "Error showing card creation dialog", e);
-        }
-    }
-
-    private void createNewCard(String title, String description, boolean isCampCard) {
-        String cardId = database.push().getKey();
-        if (cardId == null) {
-            showToast("Failed to create card ID");
-            return;
-        }
-
-        Card card = new Card(cardId, title, description, "Medium", userId, System.currentTimeMillis());
-        card.setCampCard(isCampCard);
-
-        database.child(cardId).setValue(card)
-                .addOnSuccessListener(aVoid -> {
-                    cardList.add(card);
-                    createAndAddCardView(card, false);
-                    updateEmptyState();
-                    showToast("Card created");
-
-                    if (isCampCard) {
-                        allCardsRef.child(cardId).setValue(card)
-                                .addOnFailureListener(e -> Log.e("HomeFragment", "Failed to save camp card globally", e));
-                    }
-                })
-                .addOnFailureListener(e -> showToast("Failed to create card"));
-    }
-
-    // Changed: recPriority now shows "Local Card" or "Shareable Card"
     private void createAndAddCardView(Card card, boolean isShared) {
         if (!isAdded() || getContext() == null) return;
 
@@ -478,15 +642,30 @@ public class HomeFragment extends Fragment {
             if (isShared) titleText = "[Shared] " + titleText;
             recTitle.setText(titleText);
 
-            // Show "Shareable Card" if isCampCard, otherwise "Local Card"
-            if (card.isCampCard()) {
-                recPriority.setText("Shareable Card");
+            recPriority.setText(card.isCampCard() ? "Shareable Card" : "Local Card");
+            recDesc.setText(card.getDescription());
+
+            if (card.getImageUrl() != null && !card.getImageUrl().isEmpty()) {
+                Glide.with(requireContext()).load(card.getImageUrl()).into(recImage);
             } else {
-                recPriority.setText("Local Card");
+                recImage.setImageResource(R.drawable.uploadimg);
             }
 
-            recDesc.setText(card.getDescription());
-            recImage.setImageResource(R.drawable.uploadimg);
+            // Only the creator can update the image by clicking it
+            if (card.getAuthorId() != null && card.getAuthorId().equals(userId)) {
+                recImage.setOnClickListener(v -> {
+                    pendingCardImageUpdate = card;
+                    pendingUpdateImageView = recImage;
+                    Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                    startActivityForResult(intent, PICK_IMAGE_UPDATE_REQUEST);
+                });
+                recImage.setAlpha(0.8f);
+                recImage.setFocusable(true);
+                recImage.setContentDescription("Tap to update card image");
+            } else {
+                recImage.setOnClickListener(null);
+                recImage.setAlpha(1.0f);
+            }
 
             if (isShared) {
                 cardView.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.shared_card_bg));

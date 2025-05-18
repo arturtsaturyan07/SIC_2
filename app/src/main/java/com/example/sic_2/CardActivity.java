@@ -172,6 +172,8 @@ public class CardActivity extends AppCompatActivity {
             } else if (itemId == R.id.nav_members) {
                 fetchAuthorIdForCard();
                 return true;
+            } else if (itemId == R.id.nav_events) {
+                selectedFragment = CampCalendarFragment.newInstance(cardId);
             }
 
             if (selectedFragment != null) {
