@@ -1,22 +1,18 @@
-<?xml version="1.0" encoding="utf-8"?>
-<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <SwitchPreferenceCompat
-        app:key="dark_mode"
-        app:title="Enable Dark Mode"
-        app:defaultValue="false"/>
+    <PreferenceCategory android:title="Appearance">
+        <SwitchPreferenceCompat
+            android:key="dark_mode"
+            android:title="Dark Mode"
+            android:summary="Enable a beautiful dark theme"
+            android:icon="@drawable/ic_dark_mode"/>
+    </PreferenceCategory>
 
-    <Preference
-        android:key="user_id"
-        android:title="User ID"
-        android:summary="Fetching user ID..."
-        app:selectable="true"/>
-
-<!--    <Preference-->
-<!--        android:key="logout"-->
-<!--        android:title="Logout"-->
-<!--        android:icon="@android:drawable/ic_lock_power_off"-->
-<!--        app:selectable="true"/>-->
-
+    <PreferenceCategory android:title="Account">
+        <Preference
+            android:key="user_id"
+            android:title="User ID"
+            android:icon="@drawable/ic_person"
+            android:summary="Loading..."/>
+    </PreferenceCategory>
 </PreferenceScreen>
