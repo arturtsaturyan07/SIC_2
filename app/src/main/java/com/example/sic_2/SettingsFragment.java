@@ -5,12 +5,12 @@ import android.animation.AnimatorListenerAdapter;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewAnimationUtils;
 import android.view.ViewGroup;
+import android.widget.Switch;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatDelegate;
@@ -32,8 +32,28 @@ public class SettingsFragment extends PreferenceFragmentCompat {
         if (darkModeSwitch != null) {
             darkModeSwitch.setOnPreferenceChangeListener((preference, newValue) -> {
                 boolean isDarkMode = (boolean) newValue;
-                View root = getActivity().findViewById(android.R.id.content);
-                runDarkModeRevealAnimation(root, isDarkMode);
+
+                // Animate from the switch's thumb (the actual switch widget)
+                getListView().post(() -> {
+                    View switchWidget = findSwitchWidgetForPreference("dark_mode");
+                    View root = requireActivity().findViewById(android.R.id.content);
+
+                    if (switchWidget != null && root != null) {
+                        // Get coordinates of the switch widget relative to root
+                        int[] switchLocation = new int[2];
+                        int[] rootLocation = new int[2];
+                        switchWidget.getLocationOnScreen(switchLocation);
+                        root.getLocationOnScreen(rootLocation);
+
+                        int cx = switchLocation[0] - rootLocation[0] + switchWidget.getWidth() / 2;
+                        int cy = switchLocation[1] - rootLocation[1] + switchWidget.getHeight() / 2;
+
+                        runDarkModeRevealAnimation(root, isDarkMode, cx, cy);
+                    } else {
+                        // fallback: animate from screen center
+                        runDarkModeRevealAnimation(root, isDarkMode, root.getWidth() / 2, root.getHeight() / 2);
+                    }
+                });
                 return false; // We'll set the value manually after the animation.
             });
         }
@@ -53,22 +73,38 @@ public class SettingsFragment extends PreferenceFragmentCompat {
                 });
             }
         }
-
-        // Logout preference
-        Preference logoutPref = findPreference("logout");
-        if (logoutPref != null) {
-            logoutPref.setOnPreferenceClickListener(preference -> {
-                logout();
-                return true;
-            });
-        }
     }
 
-    private void runDarkModeRevealAnimation(View root, boolean enableDark) {
+    /**
+     * Finds the Switch widget for a SwitchPreferenceCompat by key.
+     */
+    private View findSwitchWidgetForPreference(String key) {
+        if (getListView() == null || key == null) return null;
+        for (int i = 0; i < getListView().getChildCount(); i++) {
+            View row = getListView().getChildAt(i);
+            if (row == null) continue;
+            Object tag = row.getTag();
+            if (tag instanceof String && tag.equals(key)) {
+                View switchWidget = row.findViewById(android.R.id.switch_widget);
+                if (switchWidget instanceof Switch) {
+                    return switchWidget;
+                }
+            }
+            // fallback: try to find any switch
+            View switchWidget = row.findViewById(android.R.id.switch_widget);
+            if (switchWidget instanceof Switch) {
+                return switchWidget;
+            }
+        }
+        // Fallback: try to find any switch in the list
+        if (getListView().findViewById(android.R.id.switch_widget) != null)
+            return getListView().findViewById(android.R.id.switch_widget);
+        return null;
+    }
+
+    private void runDarkModeRevealAnimation(View root, boolean enableDark, int cx, int cy) {
         if (root == null) return;
-        int cx = root.getWidth() / 2;
-        int cy = root.getHeight() / 2;
-        float finalRadius = (float) Math.hypot(cx, cy);
+        float finalRadius = (float) Math.hypot(root.getWidth(), root.getHeight());
 
         int color = enableDark
                 ? ContextCompat.getColor(getContext(), android.R.color.black)
@@ -105,7 +141,7 @@ public class SettingsFragment extends PreferenceFragmentCompat {
             overlay.postDelayed(() -> ((ViewGroup) root).removeView(overlay), 300);
         }
 
-        // Finally update the preference manually (to avoid double animation)
+        // Update the switch state after animation
         SwitchPreferenceCompat darkModeSwitch = findPreference("dark_mode");
         if (darkModeSwitch != null) darkModeSwitch.setChecked(enableDark);
     }
@@ -114,12 +150,5 @@ public class SettingsFragment extends PreferenceFragmentCompat {
         ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
         android.content.ClipData clip = android.content.ClipData.newPlainText("User ID", text);
         clipboard.setPrimaryClip(clip);
-    }
-
-    private void logout() {
-        FirebaseAuth.getInstance().signOut();
-        Toast.makeText(getContext(), "Logged out successfully", Toast.LENGTH_SHORT).show();
-        startActivity(new Intent(getActivity(), LoginActivity.class));
-        requireActivity().finish();
     }
 }
