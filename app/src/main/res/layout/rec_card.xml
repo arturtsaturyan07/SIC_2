@@ -16,6 +16,7 @@
         android:layout_height="wrap_content"
         android:padding="12dp">
 
+        <!-- Card Image -->
         <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/recImage"
             android:layout_width="60dp"
@@ -27,6 +28,20 @@
             android:src="@drawable/uploadimg"
             app:shapeAppearanceOverlay="@style/roundedImageViewRounded"/>
 
+        <!-- Favorite Star -->
+        <ImageView
+            android:id="@+id/starView"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:layout_alignTop="@id/recImage"
+            android:layout_toEndOf="@id/recImage"
+            android:layout_marginStart="8dp"
+            android:layout_marginTop="2dp"
+            android:src="@android:drawable/btn_star_big_on"
+            android:tint="@color/star_yellow"
+            android:visibility="gone"/>
+
+        <!-- Card Title -->
         <TextView
             android:id="@+id/recTitle"
             android:layout_width="wrap_content"
@@ -39,6 +54,7 @@
             android:textSize="20sp"
             android:textStyle="bold"/>
 
+        <!-- Priority/Type Badge -->
         <TextView
             android:id="@+id/recPriority"
             android:layout_width="wrap_content"
@@ -54,6 +70,7 @@
             android:textColor="@android:color/white"
             android:textSize="14sp"/>
 
+        <!-- Description or Notes -->
         <TextView
             android:id="@+id/recDesc"
             android:layout_width="match_parent"

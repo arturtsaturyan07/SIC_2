@@ -16,6 +16,9 @@
     <string name="assignment_title">Assignment Title</string>
     <string name="assignment_description">Assignment Description</string>
     <string name="share_card">Share Card</string>
+    <string name="event_image">Event Image</string>
+    <string name="edit">Edit</string>
+    <string name="time">Time</string>
 
 
 </resources>

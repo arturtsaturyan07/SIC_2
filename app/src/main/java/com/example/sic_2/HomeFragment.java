@@ -1,5 +1,6 @@
 package com.example.sic_2;
 
+import android.annotation.SuppressLint;
 import android.app.DatePickerDialog;
 import android.content.Intent;
 import android.net.Uri;
@@ -43,7 +44,8 @@ public class HomeFragment extends Fragment {
     private String userName;
 
     // Data
-    private List<Card> cardList = new ArrayList<>();
+    private List<Card> fullCardList = new ArrayList<>(); // All cards (including archived)
+    private List<Card> cardList = new ArrayList<>();     // Only non-archived cards (shown by default)
     private Map<String, View> cardViewsMap = new HashMap<>();
 
     // Image selection/upload
@@ -275,6 +277,7 @@ public class HomeFragment extends Fragment {
 
         database.child(cardId).setValue(card)
                 .addOnSuccessListener(aVoid -> {
+                    fullCardList.add(card);
                     cardList.add(card);
                     createAndAddCardView(card, false);
                     updateEmptyState();
@@ -369,6 +372,7 @@ public class HomeFragment extends Fragment {
     private void loadData() {
         showLoadingIndicator(true);
         cardContainer.removeAllViews();
+        fullCardList.clear();
         cardList.clear();
         cardViewsMap.clear();
 
@@ -382,18 +386,29 @@ public class HomeFragment extends Fragment {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (!isAdded()) return;
+                fullCardList.clear();
+                cardList.clear();
+                cardViewsMap.clear();
+                cardContainer.removeAllViews();
 
                 for (DataSnapshot data : snapshot.getChildren()) {
                     Card card = data.getValue(Card.class);
-                    if (card != null && card.getId() != null && !cardExists(card.getId())) {
-                        cardList.add(card);
-                        createAndAddCardView(card, false);
+                    if (card != null && card.getId() != null && !cardExists(card.getId(), fullCardList)) {
+                        fullCardList.add(card);
+                        createAndAddCardView(card, false); // ALWAYS create the view
+                        if (!card.getArchived()) {
+                            cardList.add(card);
+                            View cardView = cardViewsMap.get(card.getId());
+                            if (cardView != null) cardView.setVisibility(View.VISIBLE);
+                        } else {
+                            View cardView = cardViewsMap.get(card.getId());
+                            if (cardView != null) cardView.setVisibility(View.GONE);
+                        }
                     }
                 }
                 updateEmptyState();
                 showLoadingIndicator(false);
             }
-
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
                 Log.e("HomeFragment", "Error loading cards", error.toException());
@@ -414,9 +429,17 @@ public class HomeFragment extends Fragment {
                         Object value = data.getValue();
                         if (value instanceof Map) {
                             Card card = data.getValue(Card.class);
-                            if (card != null && card.getId() != null && !cardExists(card.getId())) {
-                                cardList.add(card);
-                                createAndAddCardView(card, true);
+                            if (card != null && card.getId() != null && !cardExists(card.getId(), fullCardList)) {
+                                fullCardList.add(card);
+                                createAndAddCardView(card, true); // ALWAYS create the view
+                                if (!card.getArchived()) {
+                                    cardList.add(card);
+                                    View cardView = cardViewsMap.get(card.getId());
+                                    if (cardView != null) cardView.setVisibility(View.VISIBLE);
+                                } else {
+                                    View cardView = cardViewsMap.get(card.getId());
+                                    if (cardView != null) cardView.setVisibility(View.GONE);
+                                }
                             }
                         } else {
                             Log.w("HomeFragment", "Skipping shared card (not a Card object): " + value);
@@ -427,7 +450,6 @@ public class HomeFragment extends Fragment {
                 }
                 updateEmptyState();
             }
-
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
                 Log.e("HomeFragment", "Error loading shared cards", error.toException());
@@ -600,6 +622,16 @@ public class HomeFragment extends Fragment {
                 sharedCard.put("sharedBy", userId);
                 sharedCard.put("imageUrl", card.getImageUrl());
 
+                // Preferences support
+                sharedCard.put("archived", card.getArchived());
+                sharedCard.put("favorite", card.getFavorite());
+                sharedCard.put("category", card.getCategory());
+                sharedCard.put("repeat", card.getRepeat());
+                sharedCard.put("color", card.getColor());
+                sharedCard.put("customTitle", card.getCustomTitle());
+                sharedCard.put("notes", card.getNotes());
+                sharedCard.put("reminderEnabled", card.getReminderEnabled());
+
                 DatabaseReference sharedRef = FirebaseDatabase.getInstance()
                         .getReference("sharedCards")
                         .child(targetUserId)
@@ -637,18 +669,31 @@ public class HomeFragment extends Fragment {
             TextView recTitle = cardView.findViewById(R.id.recTitle);
             TextView recPriority = cardView.findViewById(R.id.recPriority);
             TextView recDesc = cardView.findViewById(R.id.recDesc);
+            ImageView starView = cardView.findViewById(R.id.starView); // Add this to your rec_card layout if you want to show favorite
 
-            String titleText = card.getTitle();
+            String titleText = card.getCustomTitle() != null && !card.getCustomTitle().isEmpty() ? card.getCustomTitle() : card.getTitle();
             if (isShared) titleText = "[Shared] " + titleText;
             recTitle.setText(titleText);
 
             recPriority.setText(card.isCampCard() ? "Shareable Card" : "Local Card");
-            recDesc.setText(card.getDescription());
+            recDesc.setText(card.getNotes() != null && !card.getNotes().isEmpty() ? card.getNotes() : card.getDescription());
 
             if (card.getImageUrl() != null && !card.getImageUrl().isEmpty()) {
                 Glide.with(requireContext()).load(card.getImageUrl()).into(recImage);
             } else {
                 recImage.setImageResource(R.drawable.uploadimg);
+            }
+
+            // Favorite/star
+            if (starView != null) {
+                starView.setVisibility(card.getFavorite() ? View.VISIBLE : View.GONE);
+            }
+
+            // Card color
+            if (card.getColor() != null) {
+                cardView.setBackgroundColor(card.getColor());
+            } else if (isShared) {
+                cardView.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.shared_card_bg));
             }
 
             // Only the creator can update the image by clicking it
@@ -667,8 +712,11 @@ public class HomeFragment extends Fragment {
                 recImage.setAlpha(1.0f);
             }
 
-            if (isShared) {
-                cardView.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.shared_card_bg));
+            // Make archived cards faded in search mode
+            if (card.getArchived()) {
+                cardView.setAlpha(0.4f);
+            } else {
+                cardView.setAlpha(1.0f);
             }
 
             cardView.setOnClickListener(v -> openCardDetails(card, isShared));
@@ -694,12 +742,19 @@ public class HomeFragment extends Fragment {
 
     private void filterCards(String query) {
         if (!isAdded()) return;
-
         clearNoResultsMessage();
 
         if (query.isEmpty()) {
-            for (View cardView : cardViewsMap.values()) {
-                cardView.setVisibility(View.VISIBLE);
+            for (Card card : cardList) {
+                View cardView = cardViewsMap.get(card.getId());
+                if (cardView != null) cardView.setVisibility(View.VISIBLE);
+            }
+            // Hide all archived cards
+            for (Card card : fullCardList) {
+                if (card.getArchived()) {
+                    View cardView = cardViewsMap.get(card.getId());
+                    if (cardView != null) cardView.setVisibility(View.GONE);
+                }
             }
             updateEmptyState();
             return;
@@ -708,14 +763,27 @@ public class HomeFragment extends Fragment {
         int visibleCount = 0;
         String lowerCaseQuery = query.toLowerCase();
 
-        for (Card card : cardList) {
+        // Show all cards that match the search, even archived ones
+        for (Card card : fullCardList) {
             View cardView = cardViewsMap.get(card.getId());
-            if (cardView != null) {
-                boolean matches = (card.getTitle() != null && card.getTitle().toLowerCase().contains(lowerCaseQuery)) ||
-                        (card.getDescription() != null && card.getDescription().toLowerCase().contains(lowerCaseQuery));
+            if (cardView == null) continue;
+            boolean matches = (card.getTitle() != null && card.getTitle().toLowerCase().contains(lowerCaseQuery)) ||
+                    (card.getDescription() != null && card.getDescription().toLowerCase().contains(lowerCaseQuery)) ||
+                    (card.getNotes() != null && card.getNotes().toLowerCase().contains(lowerCaseQuery)) ||
+                    (card.getCustomTitle() != null && card.getCustomTitle().toLowerCase().contains(lowerCaseQuery));
 
-                cardView.setVisibility(matches ? View.VISIBLE : View.GONE);
-                if (matches) visibleCount++;
+            if (matches) {
+                cardView.setVisibility(View.VISIBLE);
+                visibleCount++;
+
+                // Fade if archived, normal if not
+                if (card.getArchived()) {
+                    cardView.setAlpha(0.4f);
+                } else {
+                    cardView.setAlpha(1.0f);
+                }
+            } else {
+                cardView.setVisibility(View.GONE);
             }
         }
 
@@ -762,6 +830,14 @@ public class HomeFragment extends Fragment {
                 break;
             }
         }
+        Iterator<Card> fullIterator = fullCardList.iterator();
+        while (fullIterator.hasNext()) {
+            Card card = fullIterator.next();
+            if (card != null && cardId.equals(card.getId())) {
+                fullIterator.remove();
+                break;
+            }
+        }
         updateEmptyState();
     }
 
@@ -773,10 +849,9 @@ public class HomeFragment extends Fragment {
         cardContainer.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
     }
 
-    private boolean cardExists(String cardId) {
-        if (cardId == null || cardList == null) return false;
-
-        for (Card card : cardList) {
+    private boolean cardExists(String cardId, List<Card> list) {
+        if (cardId == null || list == null) return false;
+        for (Card card : list) {
             if (card != null && cardId.equals(card.getId())) {
                 return true;
             }

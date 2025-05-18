@@ -17,7 +17,17 @@ public class Card {
     private boolean global = false;
     private long campStartDate;
     private long campEndDate;
-    private String imageUrl; // <-- Add this field
+    private String imageUrl;
+
+    // Card Preferences/Features
+    private Boolean archived = false;         // Hidden from list, but searchable
+    private Boolean favorite = false;         // Mark as favorite/starred
+    private String category = "None";         // Work/Fun/School/Personal etc
+    private String repeat = "None";           // None/Daily/Weekly/Monthly
+    private Integer color;                    // Card color theme (ARGB int)
+    private String customTitle;               // User's custom title override
+    private String notes;                     // Optional notes/description field
+    private Boolean reminderEnabled = false;  // Remind me before event
 
     public Card() {
         this.campMembers = new HashMap<>();
@@ -36,6 +46,14 @@ public class Card {
         this.campStartDate = 0;
         this.campEndDate = 0;
         this.imageUrl = null;
+        this.archived = false;
+        this.favorite = false;
+        this.category = "None";
+        this.repeat = "None";
+        this.color = null;
+        this.customTitle = null;
+        this.notes = null;
+        this.reminderEnabled = false;
     }
 
     // Getters and Setters
@@ -93,4 +111,22 @@ public class Card {
             }
         }
     }
+
+    // --- Card Preferences Getters/Setters ---
+    public Boolean getArchived() { return archived != null && archived; }
+    public void setArchived(Boolean archived) { this.archived = archived; }
+    public Boolean getFavorite() { return favorite != null && favorite; }
+    public void setFavorite(Boolean favorite) { this.favorite = favorite; }
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
+    public String getRepeat() { return repeat; }
+    public void setRepeat(String repeat) { this.repeat = repeat; }
+    public Integer getColor() { return color; }
+    public void setColor(Integer color) { this.color = color; }
+    public String getCustomTitle() { return customTitle; }
+    public void setCustomTitle(String customTitle) { this.customTitle = customTitle; }
+    public String getNotes() { return notes; }
+    public void setNotes(String notes) { this.notes = notes; }
+    public Boolean getReminderEnabled() { return reminderEnabled != null && reminderEnabled; }
+    public void setReminderEnabled(Boolean reminderEnabled) { this.reminderEnabled = reminderEnabled; }
 }

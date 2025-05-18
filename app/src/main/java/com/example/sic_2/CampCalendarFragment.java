@@ -67,7 +67,7 @@ public class CampCalendarFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragment_camp_calendar, container, false);
         calendarView = v.findViewById(R.id.calendarView);
-        eventRecyclerView = v.findViewById(R.id.eventRecyclerView); // Change to RecyclerView in your XML!
+        eventRecyclerView = v.findViewById(R.id.eventRecyclerView);
         addEventBtn = v.findViewById(R.id.addEventBtn);
 
         // Setup recycler view
@@ -127,8 +127,8 @@ public class CampCalendarFragment extends Fragment {
         });
 
         addEventBtn.setOnClickListener(v1 -> {
-            if (lastSelectedDate != 0) showAddEventDialog(lastSelectedDate);
-            else showAddEventDialog(calendarView.getDate());
+            if (lastSelectedDate != 0) showAddEventDialog(lastSelectedDate, null);
+            else showAddEventDialog(calendarView.getDate(), null);
         });
 
         return v;
@@ -164,25 +164,26 @@ public class CampCalendarFragment extends Fragment {
     private void showEventsForDate(long date) {
         long day = getStartOfDay(date);
         List<CampEvent> dayEvents = eventMap.getOrDefault(day, new ArrayList<>());
-        adapter.setEvents(dayEvents);
+        adapter.setEvents(dayEvents, isAdmin);
     }
 
-    private void showAddEventDialog(long date) {
-        if (!isAdmin) return;
+    private void showAddEventDialog(long date, CampEvent eventToEdit) {
         pickedImageUri = null;
         AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
-        builder.setTitle("Add Event");
+        builder.setTitle(eventToEdit == null ? "Add Event" : "Edit Event");
 
         LinearLayout layout = new LinearLayout(requireContext());
         layout.setOrientation(LinearLayout.VERTICAL);
 
         final EditText titleInput = new EditText(requireContext());
         titleInput.setHint("Event Title");
+        if (eventToEdit != null) titleInput.setText(eventToEdit.getTitle());
         layout.addView(titleInput);
 
         final EditText descInput = new EditText(requireContext());
         descInput.setHint("Event Description");
         descInput.setInputType(InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        if (eventToEdit != null) descInput.setText(eventToEdit.getDescription());
         layout.addView(descInput);
 
         final Button pickTimeBtn = new Button(requireContext());
@@ -196,19 +197,33 @@ public class CampCalendarFragment extends Fragment {
         final int[] pickedHour = { -1 };
         final int[] pickedMinute = { -1 };
 
+        if (eventToEdit != null) {
+            Calendar cal = Calendar.getInstance();
+            cal.setTimeInMillis(eventToEdit.getDate());
+            pickedHour[0] = cal.get(Calendar.HOUR_OF_DAY);
+            pickedMinute[0] = cal.get(Calendar.MINUTE);
+            pickedTimeView.setText(String.format(Locale.getDefault(), "Selected time: %02d:%02d", pickedHour[0], pickedMinute[0]));
+        }
+
         pickTimeBtn.setOnClickListener(v -> {
             Calendar now = Calendar.getInstance();
+            int defaultHour = (eventToEdit != null) ? pickedHour[0] : now.get(Calendar.HOUR_OF_DAY);
+            int defaultMinute = (eventToEdit != null) ? pickedMinute[0] : now.get(Calendar.MINUTE);
             TimePickerDialog dialog = new TimePickerDialog(requireContext(), (view, hourOfDay, minute) -> {
                 pickedHour[0] = hourOfDay;
                 pickedMinute[0] = minute;
                 pickedTimeView.setText(String.format(Locale.getDefault(), "Selected time: %02d:%02d", hourOfDay, minute));
-            }, now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE), true);
+            }, defaultHour, defaultMinute, true);
             dialog.show();
         });
 
         final ImageView imagePreview = new ImageView(requireContext());
         imagePreview.setLayoutParams(new LinearLayout.LayoutParams(300, 300));
-        imagePreview.setImageResource(R.drawable.uploadimg);
+        if (eventToEdit != null && eventToEdit.getImageUrl() != null && !eventToEdit.getImageUrl().isEmpty()) {
+            Glide.with(requireContext()).load(eventToEdit.getImageUrl()).into(imagePreview);
+        } else {
+            imagePreview.setImageResource(R.drawable.uploadimg);
+        }
         imagePreview.setPadding(0, 24, 0, 24);
         imagePreview.setOnClickListener(v -> {
             Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
@@ -217,10 +232,9 @@ public class CampCalendarFragment extends Fragment {
         layout.addView(imagePreview);
 
         builder.setView(layout);
-        builder.setPositiveButton("Add", (dialog, which) -> {
+        builder.setPositiveButton(eventToEdit == null ? "Add" : "Save", (dialog, which) -> {
             String title = titleInput.getText().toString().trim();
             String desc = descInput.getText().toString().trim();
-
             if (title.isEmpty()) {
                 Toast.makeText(requireContext(), "Title required", Toast.LENGTH_SHORT).show();
                 return;
@@ -229,8 +243,6 @@ public class CampCalendarFragment extends Fragment {
                 Toast.makeText(requireContext(), "Please pick a time", Toast.LENGTH_SHORT).show();
                 return;
             }
-
-            // Set event timestamp to selected date + picked hour/minute
             Calendar cal = Calendar.getInstance();
             cal.setTimeInMillis(date);
             cal.set(Calendar.HOUR_OF_DAY, pickedHour[0]);
@@ -241,20 +253,29 @@ public class CampCalendarFragment extends Fragment {
 
             if (pickedImageUri != null) {
                 uploadImageToCloudinary(pickedImageUri, imageUrl -> {
-                    saveEvent(eventTime, title, desc, imageUrl);
+                    saveOrUpdateEvent(eventToEdit, eventTime, title, desc, imageUrl);
                 });
             } else {
-                saveEvent(eventTime, title, desc, null);
+                String imageUrl = (eventToEdit != null) ? eventToEdit.getImageUrl() : null;
+                saveOrUpdateEvent(eventToEdit, eventTime, title, desc, imageUrl);
             }
         });
         builder.setNegativeButton("Cancel", null);
         builder.show();
     }
 
-    private void saveEvent(long dateTime, String title, String desc, String imageUrl) {
-        String eventId = eventsRef.push().getKey();
-        CampEvent event = new CampEvent(eventId, dateTime, title, desc, currentUserId, imageUrl);
-        eventsRef.child(eventId).setValue(event);
+    private void saveOrUpdateEvent(CampEvent eventToEdit, long dateTime, String title, String desc, String imageUrl) {
+        if (eventToEdit == null) {
+            String eventId = eventsRef.push().getKey();
+            CampEvent event = new CampEvent(eventId, dateTime, title, desc, currentUserId, imageUrl);
+            eventsRef.child(eventId).setValue(event);
+        } else {
+            eventToEdit.setTitle(title);
+            eventToEdit.setDescription(desc);
+            eventToEdit.setDate(dateTime);
+            eventToEdit.setImageUrl(imageUrl);
+            eventsRef.child(eventToEdit.getId()).setValue(eventToEdit);
+        }
     }
 
     private void uploadImageToCloudinary(Uri uri, OnImageUploadedListener listener) {
@@ -295,14 +316,17 @@ public class CampCalendarFragment extends Fragment {
         return fragment;
     }
 
-    // ====== Event Recycler Adapter for displaying event details ======
-    public static class CampEventAdapter extends RecyclerView.Adapter<CampEventAdapter.ViewHolder> {
-        private List<CampEvent> eventList;
+    // ====== Event Recycler Adapter for displaying event details and allowing admin edit/delete ======
+    public class CampEventAdapter extends RecyclerView.Adapter<CampEventAdapter.ViewHolder> {
+        private List<CampEvent> eventList = new ArrayList<>();
+        private boolean adminMode = false;
+
         public CampEventAdapter(List<CampEvent> eventList) {
             this.eventList = eventList;
         }
-        public void setEvents(List<CampEvent> list) {
+        public void setEvents(List<CampEvent> list, boolean isAdmin) {
             this.eventList = list;
+            this.adminMode = isAdmin;
             notifyDataSetChanged();
         }
         @Override
@@ -321,20 +345,56 @@ public class CampCalendarFragment extends Fragment {
             } else {
                 holder.img.setImageResource(R.drawable.uploadimg);
             }
+
+            // Show edit/delete options if adminMode
+            if (adminMode) {
+                holder.editBtn.setVisibility(View.VISIBLE);
+                holder.deleteBtn.setVisibility(View.VISIBLE);
+                holder.editBtn.setOnClickListener(v -> {
+                    showAddEventDialog(evt.getDate(), evt);
+                });
+                holder.deleteBtn.setOnClickListener(v -> {
+                    new AlertDialog.Builder(holder.itemView.getContext())
+                            .setTitle("Delete Event")
+                            .setMessage("Are you sure you want to delete this event?")
+                            .setPositiveButton("Delete", (dialog, which) -> {
+                                if (eventsRef != null) {
+                                    eventsRef.child(evt.getId()).removeValue();
+                                }
+                            })
+                            .setNegativeButton("Cancel", null)
+                            .show();
+                });
+            } else {
+                holder.editBtn.setVisibility(View.GONE);
+                holder.deleteBtn.setVisibility(View.GONE);
+            }
+
+            holder.itemView.setOnClickListener(view -> {
+                AlertDialog.Builder detailDialog = new AlertDialog.Builder(holder.itemView.getContext());
+                detailDialog.setTitle(evt.getTitle());
+                String msg = evt.getDescription() + "\nTime: " + android.text.format.DateFormat.format("HH:mm", evt.getDate());
+                detailDialog.setMessage(msg);
+                detailDialog.setPositiveButton("OK", null);
+                detailDialog.show();
+            });
         }
         @Override
         public int getItemCount() {
             return eventList == null ? 0 : eventList.size();
         }
-        static class ViewHolder extends RecyclerView.ViewHolder {
+        class ViewHolder extends RecyclerView.ViewHolder {
             TextView title, desc, time;
             ImageView img;
+            ImageButton editBtn, deleteBtn;
             ViewHolder(View v) {
                 super(v);
                 title = v.findViewById(R.id.eventTitle);
                 desc = v.findViewById(R.id.eventDesc);
                 time = v.findViewById(R.id.eventTime);
                 img = v.findViewById(R.id.eventImage);
+                editBtn = v.findViewById(R.id.eventEditBtn);
+                deleteBtn = v.findViewById(R.id.eventDeleteBtn);
             }
         }
     }
