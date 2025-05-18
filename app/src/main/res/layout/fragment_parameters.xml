@@ -1,182 +1,343 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F4F6F8">
+    android:background="#F7F9FB">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="18dp"
-        android:divider="?android:attr/listDivider"
-        android:dividerPadding="8dp"
+        android:padding="22dp"
+        android:divider="@android:color/darker_gray"
+        android:dividerPadding="12dp"
         android:showDividers="middle">
 
-        <!-- Notification Toggle -->
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:orientation="horizontal" android:gravity="center_vertical">
-            <TextView android:text="Remind me before event"
-                android:textSize="16sp" android:textColor="#222"
-                android:layout_width="0dp" android:layout_weight="1"
-                android:layout_height="wrap_content" />
-            <Switch
-                android:id="@+id/switch_notifications"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"/>
-        </LinearLayout>
+        <!-- CARD NAME (Rename) -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Card Name"
+            android:textStyle="bold"
+            android:textSize="17sp"
+            android:textColor="#34495E"
+            android:layout_marginBottom="4dp" />
 
-        <!-- Favorite Toggle -->
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:orientation="horizontal" android:gravity="center_vertical"
-            android:paddingTop="10dp">
-            <TextView android:text="Mark as favorite"
-                android:textSize="16sp" android:textColor="#222"
-                android:layout_width="0dp" android:layout_weight="1"
-                android:layout_height="wrap_content" />
-            <ToggleButton
-                android:id="@+id/toggle_favorite"
-                android:layout_width="48dp"
-                android:layout_height="32dp"
-                android:background="@drawable/toggle_star_selector"
-                android:textOn=""
-                android:textOff=""
-                android:checked="false"/>
-        </LinearLayout>
-
-        <!-- Visibility/Archive -->
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:orientation="horizontal" android:gravity="center_vertical"
-            android:paddingTop="10dp">
-            <TextView android:text="Hide this card from list"
-                android:textSize="16sp" android:textColor="#222"
-                android:layout_width="0dp" android:layout_weight="1"
-                android:layout_height="wrap_content" />
-            <Switch
-                android:id="@+id/switch_visibility"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"/>
-        </LinearLayout>
-
-        <!-- Category Selector -->
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="Category" android:textColor="#222" android:textSize="16sp"
-            android:paddingTop="13dp" />
-        <Spinner
-            android:id="@+id/spinner_category"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"/>
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/rounded_corners"
+            android:padding="4dp"
+            android:layout_marginBottom="12dp">
 
-        <!-- Repeat Option -->
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="Repeat"
-            android:textColor="#222" android:textSize="16sp"
-            android:paddingTop="13dp"/>
-        <Spinner
-            android:id="@+id/spinner_repeat"
+            <EditText
+                android:id="@+id/edit_title"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:hint="Rename card or event"
+                android:textColor="#283747"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:padding="8dp"
+                android:background="@android:color/transparent" />
+
+            <Button
+                android:id="@+id/renameButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:padding="0dp"
+                android:layout_marginStart="4dp"
+                android:layout_gravity="center"
+                android:contentDescription="Rename Card"
+                android:drawableStart="@drawable/ic_rename_card"
+                android:drawableTint="@color/teal_700"
+                android:text=""
+                android:tooltipText="Rename" />
+        </LinearLayout>
+
+        <!-- VISIBILITY CATEGORY (for admin only) -->
+        <LinearLayout
+            android:id="@+id/visibility_category_layout"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"/>
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/rounded_corners"
+            android:padding="10dp"
+            android:layout_marginBottom="10dp"
+            android:layout_marginTop="4dp">
 
-        <!-- Color Picker -->
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="Card Color"
-            android:textColor="#222" android:textSize="16sp"
-            android:paddingTop="13dp"/>
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:orientation="horizontal" android:gravity="center_vertical">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Visibility"
+                android:textStyle="bold"
+                android:textSize="15sp"
+                android:textColor="#808B96"
+                android:layout_marginBottom="6dp" />
+
+            <RadioGroup
+                android:id="@+id/visibility_radio_group"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <RadioButton
+                    android:id="@+id/radio_shareable"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Shareable"
+                    android:textColor="#2196F3"
+                    android:checked="false" />
+
+                <RadioButton
+                    android:id="@+id/radio_local"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Local"
+                    android:textColor="#495057"
+                    android:checked="false"
+                    android:layout_marginStart="32dp" />
+            </RadioGroup>
+        </LinearLayout>
+
+        <!-- CATEGORY & REPEAT -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Scheduling"
+            android:textAllCaps="true"
+            android:textStyle="bold"
+            android:textSize="15sp"
+            android:textColor="#808B96"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="6dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:weightSum="2"
+            android:background="@drawable/rounded_corners"
+            android:padding="8dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingEnd="8dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Category"
+                    android:textSize="14sp"
+                    android:textColor="#495057"
+                    android:layout_marginBottom="2dp" />
+
+                <Spinner
+                    android:id="@+id/spinner_category"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/rounded_corners"/>
+            </LinearLayout>
+
+            <Space android:layout_width="12dp" android:layout_height="wrap_content" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="8dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Repeat"
+                    android:textSize="14sp"
+                    android:textColor="#495057"
+                    android:layout_marginBottom="2dp" />
+
+                <Spinner
+                    android:id="@+id/spinner_repeat"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/rounded_corners"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- COLOR PICKER -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Appearance"
+            android:textAllCaps="true"
+            android:textStyle="bold"
+            android:textSize="15sp"
+            android:textColor="#808B96"
+            android:layout_marginTop="18dp"
+            android:layout_marginBottom="6dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/rounded_corners"
+            android:padding="8dp"
+            android:layout_marginBottom="12dp">
+
             <View
                 android:id="@+id/color_preview"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:background="#2196F3"
-                android:layout_marginEnd="16dp"
-                android:layout_marginTop="4dp"
-                android:layout_marginBottom="4dp"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
                 android:backgroundTint="#2196F3"
-                android:elevation="2dp"/>
+                android:background="@drawable/rounded_corners"
+                android:elevation="2dp"
+                android:layout_marginEnd="14dp"/>
+
             <Button
                 android:id="@+id/btn_color_picker"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Pick Color"
                 android:backgroundTint="@color/teal_200"
-                android:textColor="@color/white"/>
+                android:textColor="@color/white"
+                android:drawableLeft="@android:drawable/ic_menu_edit"
+                android:drawableStart="@android:drawable/ic_menu_edit"
+                android:paddingLeft="8dp"
+                android:paddingRight="8dp"/>
         </LinearLayout>
 
-        <!-- Custom Title -->
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="Custom Title" android:textColor="#222" android:textSize="16sp"
-            android:paddingTop="13dp"/>
-        <EditText
-            android:id="@+id/edit_title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Rename card or event"
-            android:textColor="#222"
-            android:textSize="15sp"
-            android:background="@drawable/rounded_corners"
-            android:padding="7dp"/>
-        <Button
-            android:id="@+id/renameButton"
+        <!-- TOGGLES -->
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Rename Card"
-            android:layout_below="@id/edit_title"
+            android:text="Options"
+            android:textAllCaps="true"
+            android:textStyle="bold"
+            android:textSize="15sp"
+            android:textColor="#808B96"
             android:layout_marginTop="8dp"
-            android:visibility="visible"/>
+            android:layout_marginBottom="6dp" />
 
-        <!-- Notes Field -->
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="Notes" android:textColor="#222" android:textSize="16sp"
-            android:paddingTop="13dp"/>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/rounded_corners"
+            android:padding="10dp">
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:gravity="center_vertical">
+                <TextView android:text="Remind me before event"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:textSize="15sp" android:textColor="#222" />
+                <Switch android:id="@+id/switch_notifications"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:gravity="center_vertical"
+                android:layout_marginTop="8dp">
+                <TextView android:text="Mark as favorite"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:textSize="15sp" android:textColor="#222" />
+                <ToggleButton android:id="@+id/toggle_favorite"
+                    android:layout_width="48dp" android:layout_height="32dp"
+                    android:background="@drawable/toggle_star_selector"
+                    android:textOn="" android:textOff="" />
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:gravity="center_vertical"
+                android:layout_marginTop="8dp">
+                <TextView android:text="Hide this card from list"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:textSize="15sp" android:textColor="#222" />
+                <Switch android:id="@+id/switch_visibility"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- NOTES -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Notes"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:textColor="#34495E"
+            android:layout_marginTop="18dp"
+            android:layout_marginBottom="4dp"/>
+
         <EditText
             android:id="@+id/edit_notes"
             android:layout_width="match_parent"
-            android:layout_height="80dp"
+            android:layout_height="90dp"
             android:hint="Add notes or description"
             android:textColor="#222"
             android:textSize="15sp"
             android:gravity="top|start"
             android:background="@drawable/rounded_corners"
-            android:padding="7dp"
+            android:padding="8dp"
             android:inputType="textMultiLine"
-            android:scrollbars="vertical"
-            android:maxLines="4"/>
+            android:maxLines="5" />
 
-        <!-- Share, Delete, Reset Buttons -->
+        <!-- ACTION BUTTONS -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center"
-            android:paddingTop="24dp">
+            android:layout_marginTop="26dp"
+            android:divider="@android:color/transparent"
+            android:showDividers="middle"
+            android:dividerPadding="8dp">
+
             <Button
                 android:id="@+id/shareButton"
                 android:layout_width="0dp"
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:text="Share"
+                android:drawableStart="@android:drawable/ic_menu_share"
                 android:backgroundTint="@color/teal_700"
                 android:textColor="@color/white"
-                android:layout_marginEnd="8dp"/>
+                android:layout_marginEnd="7dp" />
+
             <Button
                 android:id="@+id/deleteButton"
                 android:layout_width="0dp"
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:text="Delete"
+                android:drawableStart="@android:drawable/ic_menu_delete"
                 android:backgroundTint="@color/red"
                 android:textColor="@color/white"
-                android:layout_marginEnd="8dp"/>
+                android:layout_marginEnd="7dp" />
+
             <Button
                 android:id="@+id/resetButton"
                 android:layout_width="0dp"
                 android:layout_weight="1"
                 android:layout_height="wrap_content"
                 android:text="Reset"
+                android:drawableStart="@android:drawable/ic_menu_revert"
                 android:backgroundTint="@color/light_gray"
-                android:textColor="#333"/>
+                android:textColor="#333" />
         </LinearLayout>
+
     </LinearLayout>
 </ScrollView>

@@ -21,10 +21,11 @@ import com.cloudinary.android.callback.ErrorInfo;
 import com.cloudinary.android.callback.UploadCallback;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.*;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class CampCalendarFragment extends Fragment {
-    private CalendarView calendarView;
+    private RecyclerView dateRecyclerView;
     private RecyclerView eventRecyclerView;
     private Button addEventBtn;
     private String cardId;
@@ -40,6 +41,10 @@ public class CampCalendarFragment extends Fragment {
 
     // For image picking in dialog
     private ActivityResultLauncher<Intent> imagePickerLauncher;
+
+    // For date chips
+    private CampDateAdapter dateAdapter;
+    private List<Long> campDateList = new ArrayList<>();
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -66,14 +71,20 @@ public class CampCalendarFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragment_camp_calendar, container, false);
-        calendarView = v.findViewById(R.id.calendarView);
+        dateRecyclerView = v.findViewById(R.id.dateRecyclerView);
         eventRecyclerView = v.findViewById(R.id.eventRecyclerView);
         addEventBtn = v.findViewById(R.id.addEventBtn);
 
-        // Setup recycler view
+        // Setup event recycler view
         adapter = new CampEventAdapter(new ArrayList<>());
         eventRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         eventRecyclerView.setAdapter(adapter);
+
+        // Setup date recycler view (horizontal)
+        dateAdapter = new CampDateAdapter(new ArrayList<>(), 0, this::onDateSelected);
+        LinearLayoutManager dateLayoutManager = new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false);
+        dateRecyclerView.setLayoutManager(dateLayoutManager);
+        dateRecyclerView.setAdapter(dateAdapter);
 
         Bundle args = getArguments();
         cardId = args != null ? args.getString("cardId") : null;
@@ -95,7 +106,7 @@ public class CampCalendarFragment extends Fragment {
                 card = snapshot.getValue(Card.class);
                 if (card != null && card.getAuthorId() != null) {
                     isAdmin = card.getAuthorId().equals(currentUserId);
-                    setupCalendarBounds();
+                    setupCampDateList();
                     loadEvents();
                 } else {
                     cardsRefAll.addListenerForSingleValueEvent(new ValueEventListener() {
@@ -104,7 +115,7 @@ public class CampCalendarFragment extends Fragment {
                             card = snapshot.getValue(Card.class);
                             if (card != null && card.getAuthorId() != null) {
                                 isAdmin = card.getAuthorId().equals(currentUserId);
-                                setupCalendarBounds();
+                                setupCampDateList();
                                 loadEvents();
                             } else {
                                 Toast.makeText(requireContext(), "Card or author info missing!", Toast.LENGTH_SHORT).show();
@@ -118,26 +129,52 @@ public class CampCalendarFragment extends Fragment {
             @Override public void onCancelled(@NonNull DatabaseError error) {}
         });
 
-        calendarView.setOnDateChangeListener((view, year, month, dayOfMonth) -> {
-            Calendar cal = Calendar.getInstance();
-            cal.set(year, month, dayOfMonth, 0, 0, 0);
-            lastSelectedDate = cal.getTimeInMillis();
-            showEventsForDate(lastSelectedDate);
-            addEventBtn.setVisibility(isAdmin ? View.VISIBLE : View.GONE);
-        });
-
         addEventBtn.setOnClickListener(v1 -> {
             if (lastSelectedDate != 0) showAddEventDialog(lastSelectedDate, null);
-            else showAddEventDialog(calendarView.getDate(), null);
         });
 
         return v;
     }
 
-    private void setupCalendarBounds() {
+    private void setupCampDateList() {
         if (card == null) return;
-        if (card.getCampStartDate() > 0) calendarView.setMinDate(card.getCampStartDate());
-        if (card.getCampEndDate() > 0) calendarView.setMaxDate(card.getCampEndDate());
+        long campStart = card.getCampStartDate();
+        long campEnd = card.getCampEndDate();
+        if (campStart > 0 && campEnd > 0 && campEnd >= campStart) {
+            campDateList = getCampDateList(campStart, campEnd);
+            long today = getStartOfDay(System.currentTimeMillis());
+            // Default select today if in camp range, else first day
+            long firstSelectable = campDateList.contains(today) ? today : campDateList.get(0);
+            lastSelectedDate = firstSelectable;
+            dateAdapter = new CampDateAdapter(campDateList, lastSelectedDate, this::onDateSelected);
+            dateRecyclerView.setAdapter(dateAdapter);
+            showEventsForDate(lastSelectedDate);
+            addEventBtn.setVisibility(isAdmin ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    private List<Long> getCampDateList(long start, long end) {
+        List<Long> result = new ArrayList<>();
+        Calendar cal = Calendar.getInstance();
+        cal.setTimeInMillis(start);
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.set(Calendar.MINUTE, 0);
+        cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+
+        while (cal.getTimeInMillis() <= end) {
+            result.add(cal.getTimeInMillis());
+            cal.add(Calendar.DATE, 1);
+        }
+        return result;
+    }
+
+    private void onDateSelected(long dateMillis) {
+        lastSelectedDate = dateMillis;
+        showEventsForDate(lastSelectedDate);
+        addEventBtn.setVisibility(isAdmin ? View.VISIBLE : View.GONE);
+        // highlight selection in adapter
+        dateAdapter.setSelectedDate(dateMillis);
     }
 
     private void loadEvents() {
@@ -396,6 +433,58 @@ public class CampCalendarFragment extends Fragment {
                 editBtn = v.findViewById(R.id.eventEditBtn);
                 deleteBtn = v.findViewById(R.id.eventDeleteBtn);
             }
+        }
+    }
+
+    // ====== Date Chip Adapter ======
+    public static class CampDateAdapter extends RecyclerView.Adapter<CampDateAdapter.DateViewHolder> {
+        private List<Long> dateList;
+        private long selectedDate;
+        private OnDateSelectedListener listener;
+        private SimpleDateFormat sdf = new SimpleDateFormat("MMM dd", Locale.getDefault());
+
+        public interface OnDateSelectedListener {
+            void onDateSelected(long dateMillis);
+        }
+
+        public CampDateAdapter(List<Long> dateList, long selectedDate, OnDateSelectedListener listener) {
+            this.dateList = dateList;
+            this.selectedDate = selectedDate;
+            this.listener = listener;
+        }
+
+        public void setSelectedDate(long selectedDate) {
+            this.selectedDate = selectedDate;
+            notifyDataSetChanged();
+        }
+
+        @NonNull
+        @Override
+        public DateViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            Button btn = new Button(parent.getContext());
+            btn.setAllCaps(false);
+            btn.setPadding(36, 10, 36, 10);
+            btn.setTextSize(15);
+            btn.setBackgroundResource(R.drawable.chip_selector);
+            return new DateViewHolder(btn);
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull DateViewHolder holder, int position) {
+            long millis = dateList.get(position);
+            Button btn = (Button) holder.itemView;
+            btn.setText(sdf.format(new Date(millis)));
+            btn.setSelected(millis == selectedDate);
+            btn.setOnClickListener(v -> {
+                if (listener != null) listener.onDateSelected(millis);
+            });
+        }
+
+        @Override
+        public int getItemCount() { return dateList.size(); }
+
+        static class DateViewHolder extends RecyclerView.ViewHolder {
+            public DateViewHolder(@NonNull View itemView) { super(itemView); }
         }
     }
 }

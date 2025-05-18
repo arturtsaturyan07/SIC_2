@@ -31,6 +31,9 @@ public class CardActivity extends AppCompatActivity {
     // Add a reference to your toolbar/appbar title
     private TextView titleTextView;
 
+    // Track current fragment for visibility changes
+    private Fragment currentFragment;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -144,6 +147,9 @@ public class CardActivity extends AppCompatActivity {
 
         // Setup bottom navigation
         setupBottomNavigation();
+
+        // Listen for visibility changes (shareable/local) in real time, if you are the owner
+        listenForVisibilityChanges();
     }
 
     private void loadInitialFragment() {
@@ -223,6 +229,9 @@ public class CardActivity extends AppCompatActivity {
                 transaction.addToBackStack(fragmentTag);
             }
             transaction.commit();
+
+            // Track the current fragment for visibility change sync
+            currentFragment = fragment;
         } catch (IllegalStateException e) {
             Log.e(TAG, "Error loading fragment", e);
         }
@@ -267,5 +276,45 @@ public class CardActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         Log.d(TAG, "onDestroy");
+    }
+
+    /**
+     * Listen for changes to the card's visibility (shareable/local) and update UI/fragments accordingly.
+     * This makes sure that if the admin changes the visibility in ParametersFragment,
+     * the UI and access permissions reflect the new state.
+     */
+    private void listenForVisibilityChanges() {
+        // Only care if you're the owner/admin
+        if (currentUserId == null) return;
+        // Listen on user's cards node
+        DatabaseReference visibilityRef = FirebaseDatabase.getInstance()
+                .getReference("cards")
+                .child(currentUserId)
+                .child(cardId)
+                .child("shareable");
+
+        visibilityRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                Boolean shareable = snapshot.getValue(Boolean.class);
+                if (shareable != null) {
+                    // If you want to update the UI or fragments based on visibility change, do it here
+                    // For example: you can reload the ParametersFragment or show/hide sharing options
+                    Fragment frag = getSupportFragmentManager().findFragmentById(R.id.fragment_container);
+                    if (frag instanceof ParametersFragment) {
+                        // You could call a method on the fragment to update UI if needed
+                        // ((ParametersFragment) frag).onVisibilityChanged(shareable);
+                        // For now, just show a toast
+                        Toast.makeText(CardActivity.this,
+                                shareable ? "Card is now shareable" : "Card is now local",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                }
+            }
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                // Optionally handle
+            }
+        });
     }
 }

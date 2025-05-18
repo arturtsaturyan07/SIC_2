@@ -1,15 +1,11 @@
 package com.example.sic_2;
 
 import android.app.AlertDialog;
-import android.content.DialogInterface;
-import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
-import android.text.InputType;
 import android.view.*;
 import android.widget.*;
 import androidx.annotation.NonNull;
-import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import yuku.ambilwarna.AmbilWarnaDialog;
 
@@ -37,14 +33,20 @@ public class ParametersFragment extends Fragment {
     private Spinner categorySpinner, repeatSpinner;
     private Button colorBtn, shareBtn, deleteBtn, resetBtn;
     private EditText titleEditText, notesEditText;
-    private Button renameBtn; // NEW: Button to confirm rename
+    private Button renameBtn;
     private View colorPreview;
+
+    // Visibility category UI
+    private LinearLayout visibilityCategoryLayout;
+    private RadioGroup visibilityRadioGroup;
+    private RadioButton radioShareable, radioLocal;
 
     // Data
     private int selectedColor = Color.parseColor("#2196F3"); // Default color
     private String[] categories = {"None", "Work", "Fun", "School", "Personal"};
     private String[] repeatOptions = {"None", "Daily", "Weekly", "Monthly"};
     private boolean isOwner = false;
+    private boolean isShareable = false; // Default, will be loaded
 
     public ParametersFragment() {}
 
@@ -91,7 +93,13 @@ public class ParametersFragment extends Fragment {
         shareBtn = view.findViewById(R.id.shareButton);
         deleteBtn = view.findViewById(R.id.deleteButton);
         resetBtn = view.findViewById(R.id.resetButton);
-        renameBtn = view.findViewById(R.id.renameButton); // <-- Make sure you add this Button to your layout
+        renameBtn = view.findViewById(R.id.renameButton);
+
+        // New: find visibility category UI
+        visibilityCategoryLayout = view.findViewById(R.id.visibility_category_layout);
+        visibilityRadioGroup = view.findViewById(R.id.visibility_radio_group);
+        radioShareable = view.findViewById(R.id.radio_shareable);
+        radioLocal = view.findViewById(R.id.radio_local);
 
         // Setup spinners
         ArrayAdapter<String> catAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_item, categories);
@@ -113,6 +121,11 @@ public class ParametersFragment extends Fragment {
         }
         if (!isOwner && renameBtn != null) {
             renameBtn.setVisibility(View.GONE);
+        }
+
+        // Hide visibility category for non-admins
+        if (!isOwner && visibilityCategoryLayout != null) {
+            visibilityCategoryLayout.setVisibility(View.GONE);
         }
 
         // Load current state from Firebase
@@ -146,6 +159,17 @@ public class ParametersFragment extends Fragment {
             });
         }
 
+        // Only admin: set up visibility radio group logic
+        if (isOwner && visibilityRadioGroup != null) {
+            visibilityRadioGroup.setOnCheckedChangeListener((group, checkedId) -> {
+                boolean newShareable = (checkedId == R.id.radio_shareable);
+                if (newShareable != isShareable) {
+                    isShareable = newShareable;
+                    updateShareableStatus(isShareable);
+                }
+            });
+        }
+
         shareBtn.setVisibility(isOwner ? View.VISIBLE : View.GONE);
 
         shareBtn.setOnClickListener(v -> showShareDialog());
@@ -165,9 +189,7 @@ public class ParametersFragment extends Fragment {
                         savePreference("color", color);
                     }
                     @Override
-                    public void onCancel(AmbilWarnaDialog dialog) {
-                        // Do nothing or handle cancel
-                    }
+                    public void onCancel(AmbilWarnaDialog dialog) {}
                 }
         );
         dialog.show();
@@ -217,6 +239,22 @@ public class ParametersFragment extends Fragment {
             titleEditText.setText(snapshot.child("title").getValue(String.class));
         if (snapshot.child("notes").exists())
             notesEditText.setText(snapshot.child("notes").getValue(String.class));
+
+        // Visibility: only admin
+        if (isOwner && visibilityRadioGroup != null) {
+            // Default: not shareable
+            boolean shareableFromDb = false;
+            if (snapshot.child("shareable").exists()) {
+                Boolean dbVal = snapshot.child("shareable").getValue(Boolean.class);
+                shareableFromDb = dbVal != null && dbVal;
+            }
+            isShareable = shareableFromDb;
+            if (isShareable) {
+                visibilityRadioGroup.check(R.id.radio_shareable);
+            } else {
+                visibilityRadioGroup.check(R.id.radio_local);
+            }
+        }
     }
 
     private void savePreference(String key, Object value) {
@@ -233,12 +271,9 @@ public class ParametersFragment extends Fragment {
 
     // Only the creator can rename the main card title
     private void updateCardTitleEverywhere(String newTitle) {
-        // User's own card
         userCardsRef.child(currentUserId).child(cardId).child("title").setValue(newTitle);
-        // AllCards global reference
         allCardsRef.child(cardId).child("title").setValue(newTitle);
 
-        // Update in all shared copies
         sharedCardsRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
@@ -253,6 +288,46 @@ public class ParametersFragment extends Fragment {
             public void onCancelled(@NonNull DatabaseError error) {}
         });
         showToast("Card renamed for all participants");
+    }
+
+    // New: Update shareable status for card
+    private void updateShareableStatus(boolean beShareable) {
+        DatabaseReference cardRef = userCardsRef.child(currentUserId).child(cardId);
+        cardRef.child("shareable").setValue(beShareable);
+        cardRef.child("campCard").setValue(beShareable); // <-- Set campCard true for shareable, false for local
+        allCardsRef.child(cardId).child("shareable").setValue(beShareable);
+        allCardsRef.child(cardId).child("campCard").setValue(beShareable); // <-- reflect in allCards
+
+        if (beShareable) {
+            // Make the card shareable: add to allCards if not already there
+            cardRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot snapshot) {
+                    if (!snapshot.exists()) return;
+                    Map<String, Object> cardData = new HashMap<>();
+                    for (DataSnapshot child : snapshot.getChildren()) {
+                        cardData.put(child.getKey(), child.getValue());
+                    }
+                    allCardsRef.child(cardId).updateChildren(cardData);
+                }
+                @Override public void onCancelled(@NonNull DatabaseError error) {}
+            });
+        } else {
+            // Make the card local: remove from allCards and all shared users
+            allCardsRef.child(cardId).removeValue();
+            sharedCardsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override public void onDataChange(@NonNull DataSnapshot snapshot) {
+                    for (DataSnapshot userSnapshot : snapshot.getChildren()) {
+                        String userId = userSnapshot.getKey();
+                        if (userId != null) {
+                            sharedCardsRef.child(userId).child(cardId).removeValue();
+                        }
+                    }
+                }
+                @Override public void onCancelled(@NonNull DatabaseError error) {}
+            });
+            cardAccessRef.child(cardId).removeValue();
+        }
+        showToast(beShareable ? "Card is now shareable" : "Card is now local only");
     }
 
     private void showShareDialog() {
