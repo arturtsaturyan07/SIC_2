@@ -44,12 +44,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-public class CardFragment extends Fragment {
+public class CardFragment extends Fragment implements PublicationsAdapter.PublicationActionListener {
 
     private static final String TAG = "CardFragment";
     private static final String ARG_CARD_ID = "cardId";
     private static final int REQUEST_IMAGE_CAPTURE = 1;
     private static final int REQUEST_IMAGE_PICK = 2;
+    private static final int REQUEST_EDIT_IMAGE = 3;
     private static final String CLOUDINARY_FOLDER = "secure_uploads";
 
     private RecyclerView publicationsRecyclerView;
@@ -59,11 +60,12 @@ public class CardFragment extends Fragment {
     private String cardId;
     private String currentUserId;
     private Uri imageUri;
-    private Button addPhotoButton;
+    private Uri editImageUri;
     private ProgressDialog progressDialog;
     private ValueEventListener publicationsListener;
 
-    private TextView emptyStateText; // For "No publications" message
+    private TextView emptyStateText;
+    private Publication editTargetPublication;
 
     public static CardFragment newInstance(String cardId, String originalOwnerId) {
         CardFragment fragment = new CardFragment();
@@ -76,11 +78,9 @@ public class CardFragment extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Log.d(TAG, "onCreate");
         initializeCloudinary();
         if (getArguments() != null) {
             cardId = getArguments().getString(ARG_CARD_ID);
-            Log.d(TAG, "Card ID: " + cardId);
         }
         publicationsList = new ArrayList<>();
     }
@@ -88,22 +88,18 @@ public class CardFragment extends Fragment {
     private void initializeCloudinary() {
         boolean cloudinaryInitialized = false;
         if (cloudinaryInitialized) return;
-
         try {
-            MediaManager.get(); // Will throw if not initialized
+            MediaManager.get();
             cloudinaryInitialized = true;
         } catch (IllegalStateException e) {
             Map<String, String> config = new HashMap<>();
-            config.put("cloud_name", "disiijbpp"); // Replace with your actual Cloud Name
-            config.put("api_key", "265226997838638"); // Replace with your actual API Key
-            config.put("api_secret", "RsPtut3zPunRm-8Hwh8zRqQ8uG8"); // Replace with your actual API Secret
-
+            config.put("cloud_name", "disiijbpp");
+            config.put("api_key", "265226997838638");
+            config.put("api_secret", "RsPtut3zPunRm-8Hwh8zRqQ8uG8");
             try {
                 MediaManager.init(requireContext().getApplicationContext(), config);
                 cloudinaryInitialized = true;
-                Log.d(TAG, "Cloudinary initialized successfully");
             } catch (Exception ex) {
-                Log.e(TAG, "Cloudinary initialization failed", ex);
                 Toast.makeText(requireContext(), "Cloudinary init failed", Toast.LENGTH_SHORT).show();
             }
         }
@@ -111,7 +107,6 @@ public class CardFragment extends Fragment {
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        Log.d(TAG, "onCreateView");
         View view = inflater.inflate(R.layout.fragment_card, container, false);
         initializeDependencies();
         initializeViews(view);
@@ -124,13 +119,11 @@ public class CardFragment extends Fragment {
                 : null;
         if (cardId == null || cardId.isEmpty()) {
             showToast("Card ID is missing");
-            Log.e(TAG, "Card ID is missing");
             requireActivity().finish();
             return;
         }
         if (currentUserId == null) {
             showToast("Please sign in first");
-            Log.e(TAG, "User not authenticated");
             requireActivity().finish();
             return;
         }
@@ -139,10 +132,10 @@ public class CardFragment extends Fragment {
     private void initializeViews(View view) {
         publicationsRecyclerView = view.findViewById(R.id.publications_recycler_view);
         Button addPublicationButton = view.findViewById(R.id.add_publication_button);
-        addPhotoButton = view.findViewById(R.id.add_photo_button);
-        emptyStateText = view.findViewById(R.id.empty_state); // Make sure this TextView exists in your layout!
+        Button addPhotoButton = view.findViewById(R.id.add_photo_button);
+        emptyStateText = view.findViewById(R.id.empty_state);
         setupRecyclerView();
-        setupButtonListeners(addPublicationButton);
+        setupButtonListeners(addPublicationButton, addPhotoButton);
         progressDialog = new ProgressDialog(requireContext());
         progressDialog.setCancelable(false);
     }
@@ -150,17 +143,16 @@ public class CardFragment extends Fragment {
     @Override
     public void onStart() {
         super.onStart();
-        Log.d(TAG, "onStart - Loading publications");
         loadPublications();
     }
 
     private void setupRecyclerView() {
-        publicationsAdapter = new PublicationsAdapter(publicationsList, requireContext());
+        publicationsAdapter = new PublicationsAdapter(publicationsList, requireContext(), cardId, this);
         publicationsRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         publicationsRecyclerView.setAdapter(publicationsAdapter);
     }
 
-    private void setupButtonListeners(Button addPublicationButton) {
+    private void setupButtonListeners(Button addPublicationButton, Button addPhotoButton) {
         addPublicationButton.setOnClickListener(v -> showAddPublicationDialog());
         addPhotoButton.setOnClickListener(v -> showImagePickerDialog());
     }
@@ -184,7 +176,6 @@ public class CardFragment extends Fragment {
     }
 
     private void loadPublications() {
-        Log.d(TAG, "Loading publications for card: " + cardId);
         if (postsRef != null && publicationsListener != null) {
             postsRef.removeEventListener(publicationsListener);
         }
@@ -195,28 +186,21 @@ public class CardFragment extends Fragment {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 publicationsList.clear();
-                Log.d(TAG, "Found " + snapshot.getChildrenCount() + " publications");
                 if (snapshot.exists()) {
                     for (DataSnapshot postSnapshot : snapshot.getChildren()) {
-                        try {
-                            Publication publication = postSnapshot.getValue(Publication.class);
-                            if (publication != null) {
-                                publicationsList.add(0, publication); // Newest first
-                                Log.d(TAG, "Loaded publication: " + publication.getContent()
-                                        + " | Image: " + publication.getImageUrl());
-                            }
-                        } catch (Exception e) {
-                            Log.e(TAG, "Error parsing publication", e);
+                        Publication publication = postSnapshot.getValue(Publication.class);
+                        if (publication != null) {
+                            publication.setId(postSnapshot.getKey());
+                            publication.setCardId(cardId);
+                            publicationsList.add(0, publication);
                         }
                     }
                 }
                 publicationsAdapter.updatePublications(publicationsList);
                 updateEmptyState();
             }
-
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                Log.e(TAG, "Failed to load publications: " + error.getMessage());
                 showToast("Failed to load posts: " + error.getMessage());
                 publicationsList.clear();
                 publicationsAdapter.updatePublications(publicationsList);
@@ -239,9 +223,7 @@ public class CardFragment extends Fragment {
         }
     }
 
-    // Only save userId, content, imageUrl, timestamp in Publication.
     private void createPublication(String content, String imageUrl) {
-        Log.d(TAG, "Creating new publication");
         DatabaseReference newPostRef = FirebaseDatabase.getInstance()
                 .getReference("posts")
                 .child(cardId)
@@ -251,15 +233,9 @@ public class CardFragment extends Fragment {
         newPostRef.setValue(publication)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
-                        if (imageUrl != null && !imageUrl.isEmpty()) {
-                            showToast("Image posted!");
-                        } else {
-                            showToast("Post published!");
-                        }
-                        Log.d(TAG, "Publication created successfully");
+                        showToast((imageUrl != null && !imageUrl.isEmpty()) ? "Image posted!" : "Post published!");
                     } else {
                         showToast("Failed to create post");
-                        Log.e(TAG, "Publication creation failed", task.getException());
                     }
                 });
     }
@@ -296,11 +272,8 @@ public class CardFragment extends Fragment {
         String imageFileName = "JPEG_" + timeStamp + "_";
         File storageDir = requireContext().getExternalFilesDir(Environment.DIRECTORY_PICTURES);
         try {
-            File imageFile = File.createTempFile(imageFileName, ".jpg", storageDir);
-            Log.d(TAG, "Image file created: " + imageFile.getAbsolutePath());
-            return imageFile;
+            return File.createTempFile(imageFileName, ".jpg", storageDir);
         } catch (IOException e) {
-            Log.e(TAG, "Error creating image file", e);
             showToast("Error creating image");
             return null;
         }
@@ -312,17 +285,18 @@ public class CardFragment extends Fragment {
         if (resultCode == RESULT_OK) {
             if (requestCode == REQUEST_IMAGE_PICK && data != null) {
                 imageUri = data.getData();
-                Log.d(TAG, "Image selected from gallery: " + imageUri);
             }
             if (requestCode == REQUEST_IMAGE_CAPTURE && imageUri == null && data != null) {
                 imageUri = data.getData();
-                Log.d(TAG, "Image captured: " + imageUri);
             }
-            if (imageUri != null) {
-                Log.d(TAG, "Starting image upload");
+            if (requestCode == REQUEST_EDIT_IMAGE && data != null) {
+                editImageUri = data.getData();
+                if (editTargetPublication != null && editImageUri != null) {
+                    uploadEditImageToCloudinary();
+                }
+            }
+            if (imageUri != null && requestCode != REQUEST_EDIT_IMAGE) {
                 uploadImageToCloudinary();
-            } else {
-                showToast("Failed to get image.");
             }
         }
     }
@@ -340,54 +314,98 @@ public class CardFragment extends Fragment {
                     .callback(new UploadCallback() {
                         @Override
                         public void onStart(String requestId) {
-                            Log.d(TAG, "Upload started");
-                            requireActivity().runOnUiThread(() ->
-                                    progressDialog.setMessage("Uploading..."));
+                            requireActivity().runOnUiThread(() -> progressDialog.setMessage("Uploading..."));
                         }
-
                         @Override
                         public void onProgress(String requestId, long bytes, long totalBytes) {
                             int progress = (int) ((100 * bytes) / totalBytes);
-                            requireActivity().runOnUiThread(() ->
-                                    progressDialog.setMessage("Uploading: " + progress + "%"));
+                            requireActivity().runOnUiThread(() -> progressDialog.setMessage("Uploading: " + progress + "%"));
                         }
-
                         @Override
                         public void onSuccess(String requestId, Map resultData) {
                             requireActivity().runOnUiThread(() -> {
                                 progressDialog.dismiss();
                                 String imageUrl = (String) resultData.get("secure_url");
                                 if (imageUrl != null) {
-                                    Log.d(TAG, "Image uploaded successfully: " + imageUrl);
                                     createPublication("", imageUrl);
                                     imageUri = null;
                                 } else {
-                                    Log.e(TAG, "Upload failed - no URL returned");
                                     showToast("Upload failed");
                                 }
                             });
                         }
-
                         @Override
                         public void onError(String requestId, ErrorInfo error) {
                             requireActivity().runOnUiThread(() -> {
                                 progressDialog.dismiss();
-                                Log.e(TAG, "Upload error: " + error.getDescription());
                                 showToast("Upload failed: " + error.getDescription());
                             });
                         }
-
                         @Override
-                        public void onReschedule(String requestId, ErrorInfo error) {
-                            Log.d(TAG, "Upload rescheduled");
-                        }
+                        public void onReschedule(String requestId, ErrorInfo error) {}
                     })
                     .dispatch();
         } catch (Exception e) {
             progressDialog.dismiss();
-            Log.e(TAG, "Upload failed", e);
             showToast("Upload failed");
         }
+    }
+
+    private void uploadEditImageToCloudinary() {
+        if (editImageUri == null || editTargetPublication == null) return;
+        progressDialog.setMessage("Uploading image...");
+        progressDialog.show();
+        try {
+            MediaManager.get().upload(editImageUri)
+                    .option("folder", CLOUDINARY_FOLDER)
+                    .callback(new UploadCallback() {
+                        @Override
+                        public void onStart(String requestId) {}
+                        @Override
+                        public void onProgress(String requestId, long bytes, long totalBytes) {}
+                        @Override
+                        public void onSuccess(String requestId, Map resultData) {
+                            requireActivity().runOnUiThread(() -> {
+                                progressDialog.dismiss();
+                                String newImageUrl = (String) resultData.get("secure_url");
+                                if (newImageUrl != null) {
+                                    updatePublicationImage(editTargetPublication, newImageUrl);
+                                    editImageUri = null;
+                                } else {
+                                    showToast("Upload failed");
+                                }
+                            });
+                        }
+                        @Override
+                        public void onError(String requestId, ErrorInfo error) {
+                            requireActivity().runOnUiThread(() -> {
+                                progressDialog.dismiss();
+                                showToast("Upload failed: " + error.getDescription());
+                            });
+                        }
+                        @Override
+                        public void onReschedule(String requestId, ErrorInfo error) {}
+                    })
+                    .dispatch();
+        } catch (Exception e) {
+            progressDialog.dismiss();
+            showToast("Upload failed");
+        }
+    }
+
+    private void updatePublicationImage(Publication publication, String imageUrl) {
+        FirebaseDatabase.getInstance().getReference("posts")
+                .child(cardId)
+                .child(publication.getId())
+                .child("imageUrl")
+                .setValue(imageUrl)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        showToast("Image updated!");
+                    } else {
+                        showToast("Failed to update image.");
+                    }
+                });
     }
 
     private void showToast(String message) {
@@ -397,7 +415,6 @@ public class CardFragment extends Fragment {
     @Override
     public void onStop() {
         super.onStop();
-        Log.d(TAG, "onStop");
         if (progressDialog != null && progressDialog.isShowing()) {
             progressDialog.dismiss();
         }
@@ -406,9 +423,16 @@ public class CardFragment extends Fragment {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        Log.d(TAG, "onDestroyView");
         if (postsRef != null && publicationsListener != null) {
             postsRef.removeEventListener(publicationsListener);
         }
+    }
+
+    // PublicationsAdapter.PublicationActionListener
+    @Override
+    public void onEditImageRequest(Publication publication) {
+        this.editTargetPublication = publication;
+        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        startActivityForResult(intent, REQUEST_EDIT_IMAGE);
     }
 }
