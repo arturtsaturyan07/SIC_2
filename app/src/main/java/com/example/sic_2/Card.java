@@ -19,6 +19,9 @@ public class Card {
     private long campEndDate;
     private String imageUrl;
 
+    // New field: image as background
+    private boolean fullImageBackground = false;
+
     // Card Preferences/Features
     private Boolean archived = false;         // Hidden from list, but searchable
     private Boolean favorite = false;         // Mark as favorite/starred
@@ -54,6 +57,7 @@ public class Card {
         this.customTitle = null;
         this.notes = null;
         this.reminderEnabled = false;
+        this.fullImageBackground = false;
     }
 
     // Getters and Setters
@@ -79,6 +83,9 @@ public class Card {
     public void setCampEndDate(long campEndDate) { this.campEndDate = campEndDate; }
     public String getImageUrl() { return imageUrl; }
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+
+    public boolean isFullImageBackground() { return fullImageBackground; }
+    public void setFullImageBackground(boolean fullImageBackground) { this.fullImageBackground = fullImageBackground; }
 
     public Map<String, Boolean> getCampMembers() {
         if (campMembers == null) {

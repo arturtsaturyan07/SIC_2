@@ -1,5 +1,8 @@
 package com.example.sic_2;
 
+import android.graphics.drawable.Drawable;
+import com.bumptech.glide.request.target.CustomTarget;
+import com.bumptech.glide.request.transition.Transition;
 import android.annotation.SuppressLint;
 import android.app.DatePickerDialog;
 import android.content.Intent;
@@ -163,6 +166,10 @@ public class HomeFragment extends Fragment {
             final CheckBox shareableCheckbox = new CheckBox(requireContext());
             shareableCheckbox.setText("Make card shareable (camp card)");
 
+            // New checkbox for image display mode
+            final CheckBox fullImageCheckbox = new CheckBox(requireContext());
+            fullImageCheckbox.setText("Image covers entire card");
+
             dialogImageView = new ShapeableImageView(requireContext());
             dialogImageView.setLayoutParams(new LinearLayout.LayoutParams(200, 200));
             dialogImageView.setImageResource(R.drawable.uploadimg);
@@ -215,6 +222,7 @@ public class HomeFragment extends Fragment {
             layout.addView(titleInput);
             layout.addView(descInput);
             layout.addView(shareableCheckbox);
+            layout.addView(fullImageCheckbox); // <-- Add the new checkbox here!
             layout.addView(dialogImageView);
             layout.addView(startDateLabel);
             layout.addView(pickStartDateBtn);
@@ -226,6 +234,7 @@ public class HomeFragment extends Fragment {
                 String title = titleInput.getText().toString().trim();
                 String description = descInput.getText().toString().trim();
                 boolean isShareable = shareableCheckbox.isChecked();
+                boolean isFullImage = fullImageCheckbox.isChecked(); // <-- get value
 
                 long startDate = startDateMillis[0];
                 long endDate = endDateMillis[0];
@@ -246,13 +255,13 @@ public class HomeFragment extends Fragment {
                 if (imageUri != null) {
                     uploadImageToCloudinary(imageUri, imageUrl -> {
                         if (imageUrl != null) {
-                            createNewCard(title, description, isShareable, startDate, endDate, imageUrl);
+                            createNewCard(title, description, isShareable, startDate, endDate, imageUrl, isFullImage);
                         } else {
                             showToast("Card not created due to image upload error.");
                         }
                     });
                 } else {
-                    createNewCard(title, description, isShareable, startDate, endDate, null);
+                    createNewCard(title, description, isShareable, startDate, endDate, null, isFullImage);
                 }
             });
             builder.setNegativeButton("Cancel", null);
@@ -262,7 +271,8 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    private void createNewCard(String title, String description, boolean isShareable, long startDate, long endDate, String imageUrl) {
+
+    private void createNewCard(String title, String description, boolean isShareable, long startDate, long endDate, String imageUrl, boolean isFullImage) {
         String cardId = database.push().getKey();
         if (cardId == null) {
             showToast("Failed to create card ID");
@@ -273,6 +283,7 @@ public class HomeFragment extends Fragment {
         card.setCampCard(isShareable);
         card.setCampStartDate(startDate);
         card.setCampEndDate(endDate);
+        card.setFullImageBackground(isFullImage);
         if (imageUrl != null) card.setImageUrl(imageUrl);
 
         database.child(cardId).setValue(card)
@@ -670,7 +681,7 @@ public class HomeFragment extends Fragment {
             TextView recTitle = cardView.findViewById(R.id.recTitle);
             TextView recPriority = cardView.findViewById(R.id.recPriority);
             TextView recDesc = cardView.findViewById(R.id.recDesc);
-            ImageView starView = cardView.findViewById(R.id.starView); // Add this to your rec_card layout if you want to show favorite
+            ImageView starView = cardView.findViewById(R.id.starView);
 
             String titleText = card.getCustomTitle() != null && !card.getCustomTitle().isEmpty() ? card.getCustomTitle() : card.getTitle();
             if (isShared) titleText = "[Shared] " + titleText;
@@ -680,24 +691,39 @@ public class HomeFragment extends Fragment {
             recDesc.setText(card.getNotes() != null && !card.getNotes().isEmpty() ? card.getNotes() : card.getDescription());
 
             if (card.getImageUrl() != null && !card.getImageUrl().isEmpty()) {
-                Glide.with(requireContext()).load(card.getImageUrl()).into(recImage);
+                if (card.isFullImageBackground()) {
+                    recImage.setVisibility(View.GONE);
+                    Glide.with(requireContext())
+                            .load(card.getImageUrl())
+                            .into(new CustomTarget<Drawable>() {
+                                @Override
+                                public void onResourceReady(@NonNull Drawable resource, @Nullable Transition<? super Drawable> transition) {
+                                    cardView.setBackground(resource);
+                                }
+                                @Override
+                                public void onLoadCleared(@Nullable Drawable placeholder) {}
+                            });
+                } else {
+                    recImage.setVisibility(View.VISIBLE);
+                    Glide.with(requireContext()).load(card.getImageUrl()).into(recImage);
+                    cardView.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.card_background));
+                }
             } else {
+                recImage.setVisibility(View.VISIBLE);
                 recImage.setImageResource(R.drawable.uploadimg);
+                cardView.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.card_background));
             }
 
-            // Favorite/star
             if (starView != null) {
                 starView.setVisibility(card.getFavorite() ? View.VISIBLE : View.GONE);
             }
 
-            // Card color
             if (card.getColor() != null) {
                 cardView.setBackgroundColor(card.getColor());
             } else if (isShared) {
                 cardView.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.shared_card_bg));
             }
 
-            // Only the creator can update the image by clicking it
             if (card.getAuthorId() != null && card.getAuthorId().equals(userId)) {
                 recImage.setOnClickListener(v -> {
                     pendingCardImageUpdate = card;
@@ -713,7 +739,6 @@ public class HomeFragment extends Fragment {
                 recImage.setAlpha(1.0f);
             }
 
-            // Make archived cards faded in search mode
             if (card.getArchived()) {
                 cardView.setAlpha(0.4f);
             } else {
@@ -728,6 +753,7 @@ public class HomeFragment extends Fragment {
             Log.e("HomeFragment", "Error creating card view", e);
         }
     }
+
 
     private void openCardDetails(Card card, boolean isShared) {
         if (!isAdded()) return;
