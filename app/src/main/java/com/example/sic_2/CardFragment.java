@@ -2,24 +2,27 @@ package com.example.sic_2;
 
 import static android.app.Activity.RESULT_OK;
 
+import android.Manifest;
 import android.app.ProgressDialog;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
+import androidx.cardview.widget.CardView;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -51,7 +54,9 @@ public class CardFragment extends Fragment implements PublicationsAdapter.Public
     private static final int REQUEST_IMAGE_CAPTURE = 1;
     private static final int REQUEST_IMAGE_PICK = 2;
     private static final int REQUEST_EDIT_IMAGE = 3;
+    private static final int REQUEST_CODE_STORAGE = 1009;
     private static final String CLOUDINARY_FOLDER = "secure_uploads";
+    private int pendingAction = 0; // 1 = gallery, 2 = camera, 3 = editImage
 
     private RecyclerView publicationsRecyclerView;
     private PublicationsAdapter publicationsAdapter;
@@ -66,6 +71,10 @@ public class CardFragment extends Fragment implements PublicationsAdapter.Public
 
     private TextView emptyStateText;
     private Publication editTargetPublication;
+
+    // New: Input bar
+    private EditText publicationInput;
+    private ImageButton addPhotoButton, addPublicationButton;
 
     public static CardFragment newInstance(String cardId, String originalOwnerId) {
         CardFragment fragment = new CardFragment();
@@ -131,11 +140,12 @@ public class CardFragment extends Fragment implements PublicationsAdapter.Public
 
     private void initializeViews(View view) {
         publicationsRecyclerView = view.findViewById(R.id.publications_recycler_view);
-        Button addPublicationButton = view.findViewById(R.id.add_publication_button);
-        Button addPhotoButton = view.findViewById(R.id.add_photo_button);
         emptyStateText = view.findViewById(R.id.empty_state);
+        publicationInput = view.findViewById(R.id.publication_input);
+        addPhotoButton = view.findViewById(R.id.add_photo_button);
+        addPublicationButton = view.findViewById(R.id.add_publication_button);
         setupRecyclerView();
-        setupButtonListeners(addPublicationButton, addPhotoButton);
+        setupInputBarListeners();
         progressDialog = new ProgressDialog(requireContext());
         progressDialog.setCancelable(false);
     }
@@ -152,27 +162,21 @@ public class CardFragment extends Fragment implements PublicationsAdapter.Public
         publicationsRecyclerView.setAdapter(publicationsAdapter);
     }
 
-    private void setupButtonListeners(Button addPublicationButton, Button addPhotoButton) {
-        addPublicationButton.setOnClickListener(v -> showAddPublicationDialog());
-        addPhotoButton.setOnClickListener(v -> showImagePickerDialog());
-    }
-
-    private void showAddPublicationDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
-        builder.setTitle("Add New Post");
-        final EditText input = new EditText(requireContext());
-        input.setHint("What's on your mind?");
-        builder.setView(input);
-        builder.setPositiveButton("Post", (dialog, which) -> {
-            String content = input.getText().toString().trim();
+    private void setupInputBarListeners() {
+        addPublicationButton.setOnClickListener(v -> {
+            String content = publicationInput.getText().toString().trim();
             if (!content.isEmpty()) {
                 createPublication(content, null);
+                publicationInput.setText("");
             } else {
                 showToast("Post cannot be empty");
             }
         });
-        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
-        builder.show();
+        addPhotoButton.setOnClickListener(v -> showImagePickerDialog());
+    }
+
+    private void showAddPublicationDialog() {
+        // Not needed with new input bar (left for possible future use)
     }
 
     private void loadPublications() {
@@ -213,7 +217,6 @@ public class CardFragment extends Fragment implements PublicationsAdapter.Public
     private void updateEmptyState() {
         if (emptyStateText != null) {
             if (publicationsList.isEmpty()) {
-                emptyStateText.setText("No publications yet. Add the first!");
                 emptyStateText.setVisibility(View.VISIBLE);
                 publicationsRecyclerView.setVisibility(View.GONE);
             } else {
@@ -240,15 +243,58 @@ public class CardFragment extends Fragment implements PublicationsAdapter.Public
                 });
     }
 
+    // --- Storage Permission Support ---
     private void showImagePickerDialog() {
-        new AlertDialog.Builder(requireContext())
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
                 .setTitle("Add Photo")
                 .setItems(new String[]{"Gallery", "Camera"}, (dialog, which) -> {
-                    if (which == 0) openGallery();
-                    else openCamera();
+                    if (which == 0) {
+                        if (needStoragePermission()) {
+                            pendingAction = 1;
+                            requestStoragePermission();
+                        } else {
+                            openGallery();
+                        }
+                    } else {
+                        if (needStoragePermission()) {
+                            pendingAction = 2;
+                            requestStoragePermission();
+                        } else {
+                            openCamera();
+                        }
+                    }
                 })
                 .show();
     }
+
+    private boolean needStoragePermission() {
+        return android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q &&
+                ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                        != PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void requestStoragePermission() {
+        requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_CODE_STORAGE);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_CODE_STORAGE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                if (pendingAction == 1) openGallery();
+                else if (pendingAction == 2) openCamera();
+                else if (pendingAction == 3) {
+                    Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                    startActivityForResult(intent, REQUEST_EDIT_IMAGE);
+                }
+            } else {
+                Toast.makeText(requireContext(), "Storage permission denied. Cannot add/edit photo.", Toast.LENGTH_LONG).show();
+            }
+            pendingAction = 0;
+        }
+    }
+    // --- End Storage Permission Support ---
 
     private void openGallery() {
         Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
@@ -432,7 +478,12 @@ public class CardFragment extends Fragment implements PublicationsAdapter.Public
     @Override
     public void onEditImageRequest(Publication publication) {
         this.editTargetPublication = publication;
-        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-        startActivityForResult(intent, REQUEST_EDIT_IMAGE);
+        if (needStoragePermission()) {
+            pendingAction = 3;
+            requestStoragePermission();
+        } else {
+            Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+            startActivityForResult(intent, REQUEST_EDIT_IMAGE);
+        }
     }
 }

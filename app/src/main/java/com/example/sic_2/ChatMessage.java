@@ -16,6 +16,7 @@ public class ChatMessage {
     private long timestamp;
     private String senderName;
     private String profileImageUrl;
+    private String imageUrl;
 
     // Reaction field (single emoji per message; expand to Map<String, String> for per-user reactions)
     private String reaction;
@@ -146,4 +147,7 @@ public class ChatMessage {
             this.read.clear();
         }
     }
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+
 }

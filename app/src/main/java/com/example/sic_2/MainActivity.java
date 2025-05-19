@@ -44,6 +44,7 @@ import java.util.concurrent.TimeUnit;
 public class MainActivity extends AppCompatActivity {
 
     private static final int REQUEST_CODE_NOTIFICATIONS = 0;
+    private static final int REQUEST_CODE_STORAGE = 99; // NEW
 
     private BottomNavigationView bottomNavigationView;
     private FirebaseAuth auth;
@@ -90,6 +91,9 @@ public class MainActivity extends AppCompatActivity {
 
         // Request notification permissions for Android 13+
         requestNotificationPermission();
+
+        // Request storage permission if needed
+        requestStoragePermissionIfNeeded();
 
         // Handle deep link to open chat fragment
         if (intent != null && intent.getBooleanExtra("open_chat", false)) {
@@ -307,16 +311,16 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void scheduleNotificationWorker() {
-        PeriodicWorkRequest workRequest =
-                new PeriodicWorkRequest.Builder(HiWorker.class, 1, TimeUnit.HOURS)
-                        .setInitialDelay(10, TimeUnit.SECONDS)
-                        .build();
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-                "ChatNotificationWork",
-                ExistingPeriodicWorkPolicy.REPLACE,
-                workRequest
-        );
+    // --- Storage permission logic ---
+    private void requestStoragePermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) { // On Android 10+ (Q), storage is more restricted
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                        REQUEST_CODE_STORAGE);
+            }
+        }
     }
 
     @Override
@@ -329,8 +333,15 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 Toast.makeText(this, "Notifications permission denied.", Toast.LENGTH_LONG).show();
             }
+        } else if (requestCode == REQUEST_CODE_STORAGE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "Storage permission granted.", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "Storage permission denied. Some features may not work.", Toast.LENGTH_LONG).show();
+            }
         }
     }
+    // --- End storage permission logic ---
 
     public void updateUnreadCount(int count) {
         TextView badge = bottomNavigationView.findViewById(R.id.badge);
@@ -340,6 +351,18 @@ public class MainActivity extends AppCompatActivity {
         } else {
             badge.setVisibility(View.GONE);
         }
+    }
+
+    private void scheduleNotificationWorker() {
+        PeriodicWorkRequest workRequest =
+                new PeriodicWorkRequest.Builder(HiWorker.class, 1, TimeUnit.HOURS)
+                        .setInitialDelay(10, TimeUnit.SECONDS)
+                        .build();
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                "ChatNotificationWork",
+                ExistingPeriodicWorkPolicy.REPLACE,
+                workRequest
+        );
     }
 
     private void scheduleUnreadCheckWorker() {

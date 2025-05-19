@@ -30,6 +30,18 @@
                 android:textColor="#FFFFFF"
                 tools:text="Hello! I'm sending a message." />
 
+            <!-- Image sent by me -->
+            <ImageView
+                android:id="@+id/message_image_me"
+                android:layout_width="180dp"
+                android:layout_height="180dp"
+                android:scaleType="centerCrop"
+                android:layout_gravity="end"
+                android:visibility="gone"
+                android:layout_marginTop="4dp"
+                android:background="@drawable/image_message_bg"
+                tools:src="@drawable/image_placeholder"/>
+
             <!-- Reaction for my message -->
             <TextView
                 android:id="@+id/reaction_me"
@@ -118,6 +130,18 @@
                     android:layout_height="wrap_content"
                     android:textColor="#000"
                     tools:text="Hi there, how are you?" />
+
+                <!-- Image received from other -->
+                <ImageView
+                    android:id="@+id/message_image_other"
+                    android:layout_width="180dp"
+                    android:layout_height="180dp"
+                    android:scaleType="centerCrop"
+                    android:layout_gravity="start"
+                    android:visibility="gone"
+                    android:layout_marginTop="4dp"
+                    android:background="@drawable/image_message_bg"
+                    tools:src="@drawable/image_placeholder"/>
 
                 <!-- Reaction for received message -->
                 <TextView

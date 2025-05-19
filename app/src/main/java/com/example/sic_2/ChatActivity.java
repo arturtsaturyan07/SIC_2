@@ -1,11 +1,31 @@
 package com.example.sic_2;
 
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.Toast;
 import android.view.View;
+
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
+import android.provider.MediaStore;
+import android.widget.ImageButton;
+
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.request.target.CustomTarget;
+import com.bumptech.glide.request.transition.Transition;
+import com.cloudinary.android.MediaManager;
+import com.cloudinary.android.callback.ErrorInfo;
+import com.cloudinary.android.callback.UploadCallback;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
@@ -19,6 +39,7 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.database.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -43,11 +64,16 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
     private Map<String, String> userProfilePics = new HashMap<>();
     private ValueEventListener chatListener;
     private EditText messageInput; // For editing messages
+    private static final int PICK_IMAGE_REQUEST = 1421;
+    private Uri selectedImageUri;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
+
+        ImageButton attachButton = findViewById(R.id.attach_button);
+        attachButton.setOnClickListener(v -> pickImageFromGallery());
 
         currentUserId = FirebaseAuth.getInstance().getCurrentUser() != null
                 ? FirebaseAuth.getInstance().getCurrentUser().getUid()
@@ -272,41 +298,6 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
     }
 
     // Long-press message handler: show menu for edit, react, delete
-    @Override
-    public void onMessageLongClick(ChatMessage chatMessage, int position) {
-        boolean isOwnMessage = currentUserId.equals(chatMessage.getSenderId());
-
-        // Build menu options
-        ArrayList<String> options = new ArrayList<>();
-        if (isOwnMessage) {
-            options.add("Edit");
-        }
-        options.add("React");
-        if (isOwnMessage) {
-            options.add("Delete");
-        }
-
-        String[] actions = options.toArray(new String[0]);
-
-        new AlertDialog.Builder(this)
-                .setTitle("Select Action")
-                .setItems(actions, (dialog, which) -> {
-                    String selected = actions[which];
-                    switch (selected) {
-                        case "Edit":
-                            showEditMessageDialog(chatMessage);
-                            break;
-                        case "React":
-                            showReactionDialog(chatMessage);
-                            break;
-                        case "Delete":
-                            confirmAndDeleteMessage(chatMessage);
-                            break;
-                    }
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
-    }
 
     private void showEditMessageDialog(ChatMessage chatMessage) {
         if (!currentUserId.equals(chatMessage.getSenderId())) {
@@ -376,6 +367,133 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
                                         showToast("Failed to delete message");
                                     }
                                 });
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void pickImageFromGallery() {
+        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        startActivityForResult(intent, PICK_IMAGE_REQUEST);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            selectedImageUri = data.getData();
+            // Optionally show preview dialog
+            showImageSendDialog(selectedImageUri);
+        }
+    }
+
+    private void showImageSendDialog(Uri imageUri) {
+        ImageView preview = new ImageView(this);
+        Glide.with(this).load(imageUri).into(preview);
+        new AlertDialog.Builder(this)
+                .setTitle("Send Image?")
+                .setView(preview)
+                .setPositiveButton("Send", (d, w) -> uploadAndSendImageMessage(imageUri))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void uploadAndSendImageMessage(Uri imageUri) {
+        // Upload to Cloudinary or your provider, then send message with imageUrl
+        MediaManager.get().upload(imageUri)
+                .callback(new UploadCallback() {
+                    @Override public void onStart(String requestId) {}
+                    @Override public void onProgress(String requestId, long bytes, long totalBytes) {}
+                    @Override public void onSuccess(String requestId, Map resultData) {
+                        String imgUrl = (String) resultData.get("secure_url");
+                        sendImageMessage(imgUrl);
+                    }
+                    @Override public void onError(String requestId, ErrorInfo error) {
+                        showToast("Image upload failed: " + error.getDescription());
+                    }
+                    @Override public void onReschedule(String requestId, ErrorInfo error) {}
+                }).dispatch();
+    }
+
+    private void sendImageMessage(String imgUrl) {
+        String messageId = chatRef.push().getKey();
+        if (messageId == null) return;
+
+        String senderName = userNames.getOrDefault(currentUserId, "You");
+        String profileImageUrl = userProfilePics.get(currentUserId);
+
+        ChatMessage chatMessage = new ChatMessage(
+                currentUserId,
+                senderName,
+                "", // no text
+                System.currentTimeMillis(),
+                profileImageUrl
+        );
+        chatMessage.setImageUrl(imgUrl);
+
+        chatRef.child(messageId).setValue(chatMessage)
+                .addOnCompleteListener(task -> {
+                    if (!task.isSuccessful()) {
+                        showToast("Failed to send image");
+                    } else {
+                        setUnreadForRecipients("[Image]");
+                    }
+                });
+    }
+
+    // --- Download image to gallery ---
+    public void downloadImageToGallery(String url) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 2001);
+            Toast.makeText(this, "Permission required. Try again.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Glide.with(this)
+                .asBitmap()
+                .load(url)
+                .into(new CustomTarget<Bitmap>() {
+                    @Override public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {
+                        String saved = MediaStore.Images.Media.insertImage(
+                                getContentResolver(), resource, "ChatImage", "Downloaded from chat");
+                        if (saved != null) showToast("Image saved to gallery");
+                        else showToast("Failed to save image");
+                    }
+                    @Override public void onLoadCleared(@Nullable Drawable placeholder) {}
+                });
+    }
+
+    // --- Long-press menu improvement ---
+    @Override
+    public void onMessageLongClick(ChatMessage chatMessage, int position) {
+        boolean isOwnMessage = currentUserId.equals(chatMessage.getSenderId());
+        ArrayList<String> options = new ArrayList<>();
+        if (isOwnMessage) options.add("Edit");
+        options.add("React");
+        if (chatMessage.getReaction() != null && isOwnMessage) options.add("Remove Reaction");
+        if (isOwnMessage) options.add("Delete");
+        if (chatMessage.getImageUrl() != null && !chatMessage.getImageUrl().isEmpty()) options.add("Download Image");
+
+        String[] actions = options.toArray(new String[0]);
+        new AlertDialog.Builder(this)
+                .setTitle("Select Action")
+                .setItems(actions, (dialog, which) -> {
+                    String selected = actions[which];
+                    switch (selected) {
+                        case "Edit":
+                            showEditMessageDialog(chatMessage); break;
+                        case "React":
+                            showReactionDialog(chatMessage); break;
+                        case "Remove Reaction":
+                            chatRef.child(chatMessage.getId()).child("reaction").removeValue()
+                                    .addOnCompleteListener(task -> showToast(task.isSuccessful() ? "Reaction removed" : "Failed"));
+                            break;
+                        case "Delete":
+                            confirmAndDeleteMessage(chatMessage); break;
+                        case "Download Image":
+                            downloadImageToGallery(chatMessage.getImageUrl()); break;
                     }
                 })
                 .setNegativeButton("Cancel", null)
