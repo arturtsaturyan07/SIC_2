@@ -1,7 +1,9 @@
 package com.example.sic_2;
 
 import android.content.Context;
+import android.content.Intent;
 import android.media.MediaPlayer;
+import android.net.Uri;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -14,6 +16,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.google.android.material.imageview.ShapeableImageView;
 
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -23,7 +26,7 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * ChatAdapter for displaying chat messages, supporting text, image, audio messages, reactions, and long-press menu.
+ * ChatAdapter for displaying chat messages, supporting text, image, audio, circle video messages, reactions, and long-press menu.
  */
 public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder> {
 
@@ -71,7 +74,23 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             holder.containerMe.setVisibility(View.VISIBLE);
             holder.messageTextMe.setVisibility(View.GONE);
             holder.messageImageMe.setVisibility(View.GONE);
+            holder.circleVideoMe.setVisibility(View.GONE);
             holder.audioLayoutMe.setVisibility(View.GONE);
+
+            // Circle video message
+            if (chatMessage.getCircleVideoUrl() != null && !chatMessage.getCircleVideoUrl().isEmpty()) {
+                holder.circleVideoMe.setVisibility(View.VISIBLE);
+                Glide.with(context)
+                        .load(chatMessage.getCircleVideoUrl())
+                        .placeholder(R.drawable.video_placeholder)
+                        .thumbnail(0.1f)
+                        .into(holder.circleVideoMe);
+                holder.circleVideoMe.setOnClickListener(v -> {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(chatMessage.getCircleVideoUrl()));
+                    intent.setDataAndType(Uri.parse(chatMessage.getCircleVideoUrl()), "video/*");
+                    context.startActivity(intent);
+                });
+            }
 
             // Audio message
             if (chatMessage.getAudioUrl() != null && !chatMessage.getAudioUrl().isEmpty()) {
@@ -115,10 +134,26 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             holder.containerOther.setVisibility(View.VISIBLE);
             holder.messageTextOther.setVisibility(View.GONE);
             holder.messageImageOther.setVisibility(View.GONE);
+            holder.circleVideoOther.setVisibility(View.GONE);
             holder.audioLayoutOther.setVisibility(View.GONE);
 
             String name = userNames.getOrDefault(senderId, "User");
             holder.senderNameOther.setText(name);
+
+            // Circle video message
+            if (chatMessage.getCircleVideoUrl() != null && !chatMessage.getCircleVideoUrl().isEmpty()) {
+                holder.circleVideoOther.setVisibility(View.VISIBLE);
+                Glide.with(context)
+                        .load(chatMessage.getCircleVideoUrl())
+                        .placeholder(R.drawable.video_placeholder)
+                        .thumbnail(0.1f)
+                        .into(holder.circleVideoOther);
+                holder.circleVideoOther.setOnClickListener(v -> {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(chatMessage.getCircleVideoUrl()));
+                    intent.setDataAndType(Uri.parse(chatMessage.getCircleVideoUrl()), "video/*");
+                    context.startActivity(intent);
+                });
+            }
 
             // Audio message
             if (chatMessage.getAudioUrl() != null && !chatMessage.getAudioUrl().isEmpty()) {
@@ -201,6 +236,7 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
         LinearLayout containerMe;
         TextView messageTextMe;
         ImageView messageImageMe;
+        ShapeableImageView circleVideoMe;
         LinearLayout audioLayoutMe;
         ImageButton playAudioButtonMe;
         TextView audioDurationMe;
@@ -214,6 +250,7 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
         TextView senderNameOther;
         TextView messageTextOther;
         ImageView messageImageOther;
+        ShapeableImageView circleVideoOther;
         LinearLayout audioLayoutOther;
         ImageButton playAudioButtonOther;
         TextView audioDurationOther;
@@ -227,6 +264,7 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             containerMe = itemView.findViewById(R.id.message_container_me);
             messageTextMe = itemView.findViewById(R.id.message_text_me);
             messageImageMe = itemView.findViewById(R.id.message_image_me);
+            circleVideoMe = itemView.findViewById(R.id.circle_video_me);
             audioLayoutMe = itemView.findViewById(R.id.audio_layout_me);
             playAudioButtonMe = itemView.findViewById(R.id.play_audio_button_me);
             audioDurationMe = itemView.findViewById(R.id.audio_duration_me);
@@ -240,6 +278,7 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             senderNameOther = itemView.findViewById(R.id.sender_name_other);
             messageTextOther = itemView.findViewById(R.id.message_text_other);
             messageImageOther = itemView.findViewById(R.id.message_image_other);
+            circleVideoOther = itemView.findViewById(R.id.circle_video_other);
             audioLayoutOther = itemView.findViewById(R.id.audio_layout_other);
             playAudioButtonOther = itemView.findViewById(R.id.play_audio_button_other);
             audioDurationOther = itemView.findViewById(R.id.audio_duration_other);

@@ -20,6 +20,8 @@ public class ChatMessage {
     private Map<String, Boolean> delivered = new HashMap<>();
     private Map<String, Boolean> read = new HashMap<>();
     private String audioUrl;
+    // --- Add this for circle video support ---
+    private String circleVideoUrl;
 
     public ChatMessage() {}
 
@@ -121,4 +123,8 @@ public class ChatMessage {
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
     public String getAudioUrl() { return audioUrl; }
     public void setAudioUrl(String audioUrl) { this.audioUrl = audioUrl; }
+
+    // --- Circle video getters/setters ---
+    public String getCircleVideoUrl() { return circleVideoUrl; }
+    public void setCircleVideoUrl(String circleVideoUrl) { this.circleVideoUrl = circleVideoUrl; }
 }

@@ -62,6 +62,10 @@ interface OnMessageLongClickListener {
 
 public class ChatActivity extends AppCompatActivity implements OnMessageLongClickListener {
     private static final int REQUEST_RECORD_AUDIO_PERMISSION = 2002;
+    private static final int PICK_IMAGE_REQUEST = 1421;
+    private static final int REQUEST_CIRCLE_VIDEO_CAPTURE = 1999;
+    private static final int REQUEST_CAMERA_PERMISSION = 2003;
+
     private MediaRecorder mediaRecorder;
     private String audioFilePath;
     private boolean isRecording = false;
@@ -76,8 +80,8 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
     private Map<String, String> userProfilePics = new HashMap<>();
     private ValueEventListener chatListener;
     private EditText messageInput; // For editing messages
-    private static final int PICK_IMAGE_REQUEST = 1421;
     private Uri selectedImageUri;
+    private Uri capturedCircleVideoUri;
 
     // Animation-related fields
     private LinearLayout voiceRecordingLayout;
@@ -92,12 +96,10 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-        // Animation setup (add these views to your activity_chat.xml as described below!)
         voiceRecordingLayout = findViewById(R.id.voice_recording_layout);
         voiceMicIcon = findViewById(R.id.voice_mic_icon);
         voiceRecordingText = findViewById(R.id.voice_recording_text);
 
-        // Initially hide the animation UI
         voiceRecordingLayout.setVisibility(View.GONE);
 
         ImageButton attachButton = findViewById(R.id.attach_button);
@@ -116,10 +118,14 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
             return true;
         });
 
+        // --- Circle video button setup ---
+        ImageButton circleVideoButton = findViewById(R.id.circle_video_button);
+        circleVideoButton.setOnClickListener(v -> checkCameraPermissionAndStartVideo());
+
         currentUserId = FirebaseAuth.getInstance().getCurrentUser() != null
                 ? FirebaseAuth.getInstance().getCurrentUser().getUid()
                 : null;
-        chatId = getIntent().getStringExtra("cardId"); // still using cardId as chatId
+        chatId = getIntent().getStringExtra("cardId");
 
         if (chatId == null || chatId.isEmpty()) {
             showToast("Chat ID is missing");
@@ -139,7 +145,6 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
         }
 
         chatMessages = new ArrayList<>();
-        // Pass this as the OnMessageLongClickListener
         chatAdapter = new ChatAdapter(this, chatMessages, currentUserId, userNames, userProfilePics, this);
         chatRecyclerView = findViewById(R.id.chat_recycler_view);
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -423,12 +428,92 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
         startActivityForResult(intent, PICK_IMAGE_REQUEST);
     }
 
+    // --- CIRCLE VIDEO SUPPORT ---
+
+    private void checkCameraPermissionAndStartVideo() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA_PERMISSION);
+        } else {
+            startCircleVideoRecording();
+        }
+    }
+
+    private void startCircleVideoRecording() {
+        Intent takeVideoIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+        takeVideoIntent.putExtra(MediaStore.EXTRA_DURATION_LIMIT, 20); // Limit to 20s
+        takeVideoIntent.putExtra(MediaStore.EXTRA_VIDEO_QUALITY, 1);
+        if (takeVideoIntent.resolveActivity(getPackageManager()) != null) {
+            startActivityForResult(takeVideoIntent, REQUEST_CIRCLE_VIDEO_CAPTURE);
+        } else {
+            showToast("No camera app available.");
+        }
+    }
+
+    private void uploadAndSendCircleVideo(Uri videoUri) {
+        MediaManager.get().upload(videoUri)
+                .option("resource_type", "video")
+                .callback(new UploadCallback() {
+                    @Override public void onStart(String requestId) {}
+                    @Override public void onProgress(String requestId, long bytes, long totalBytes) {}
+                    @Override public void onSuccess(String requestId, Map resultData) {
+                        String videoUrl = (String) resultData.get("secure_url");
+                        sendCircleVideoMessage(videoUrl);
+                    }
+                    @Override public void onError(String requestId, ErrorInfo error) {
+                        showToast("Video upload failed: " + error.getDescription());
+                    }
+                    @Override public void onReschedule(String requestId, ErrorInfo error) {}
+                }).dispatch();
+    }
+
+    private void sendCircleVideoMessage(String videoUrl) {
+        String messageId = chatRef.push().getKey();
+        if (messageId == null) return;
+
+        String senderName = userNames.getOrDefault(currentUserId, "You");
+        String profileImageUrl = userProfilePics.get(currentUserId);
+
+        ChatMessage chatMessage = new ChatMessage(
+                currentUserId,
+                senderName,
+                "", // No text
+                System.currentTimeMillis(),
+                profileImageUrl
+        );
+        chatMessage.setCircleVideoUrl(videoUrl);
+
+        chatRef.child(messageId).setValue(chatMessage)
+                .addOnCompleteListener(task -> {
+                    if (!task.isSuccessful()) {
+                        showToast("Failed to send circle video");
+                    } else {
+                        setUnreadForRecipients("[Circle Video]");
+                    }
+                });
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_CAMERA_PERMISSION) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startCircleVideoRecording();
+            } else {
+                showToast("Camera permission is required to record video");
+            }
+        }
+        // ... handle other permissions if needed ...
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null && data.getData() != null) {
             selectedImageUri = data.getData();
             showImageSendDialog(selectedImageUri);
+        } else if (requestCode == REQUEST_CIRCLE_VIDEO_CAPTURE && resultCode == RESULT_OK && data != null) {
+            capturedCircleVideoUri = data.getData();
+            uploadAndSendCircleVideo(capturedCircleVideoUri);
         }
     }
 
@@ -624,7 +709,7 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
     private void uploadAndSendAudioMessage(String audioPath) {
         Uri audioUri = Uri.fromFile(new File(audioPath));
         MediaManager.get().upload(audioUri)
-                .option("resource_type", "video") // <-- This fixes the "Invalid image file" error
+                .option("resource_type", "video")
                 .callback(new UploadCallback() {
                     @Override public void onStart(String requestId) {}
                     @Override public void onProgress(String requestId, long bytes, long totalBytes) {}

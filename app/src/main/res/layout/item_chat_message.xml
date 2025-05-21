@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
     android:padding="8dp">
 
@@ -41,6 +42,18 @@
                 android:layout_marginTop="4dp"
                 android:background="@drawable/image_message_bg"
                 tools:src="@drawable/image_placeholder"/>
+
+            <!-- Circle video sent by me -->
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/circle_video_me"
+                android:layout_width="70dp"
+                android:layout_height="70dp"
+                android:visibility="gone"
+                android:layout_gravity="end"
+                android:layout_marginTop="4dp"
+                app:shapeAppearanceOverlay="@style/CircularImageView"
+                android:scaleType="centerCrop"
+                tools:src="@drawable/video_placeholder" />
 
             <!-- Audio sent by me -->
             <LinearLayout
@@ -170,6 +183,18 @@
                     android:layout_marginTop="4dp"
                     android:background="@drawable/image_message_bg"
                     tools:src="@drawable/image_placeholder"/>
+
+                <!-- Circle video received from other -->
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/circle_video_other"
+                    android:layout_width="70dp"
+                    android:layout_height="70dp"
+                    android:visibility="gone"
+                    android:layout_gravity="start"
+                    android:layout_marginTop="4dp"
+                    app:shapeAppearanceOverlay="@style/CircularImageView"
+                    android:scaleType="centerCrop"
+                    tools:src="@drawable/video_placeholder" />
 
                 <!-- Audio received from other -->
                 <LinearLayout

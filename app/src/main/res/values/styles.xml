@@ -9,6 +9,11 @@
             <item name="colorAccent">@color/colorAccent</item>
         </style>
 
+    <style name="CircularImageView">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+
         <style name="Theme_App_Dark" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
             <!-- Customize dark theme here -->
             <item name="colorPrimary">@color/primary_dark</item>
