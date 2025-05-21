@@ -45,6 +45,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import android.media.MediaPlayer;
+import android.media.MediaRecorder;
+import android.view.MotionEvent;
+
+import java.io.File;
 
 // Add this interface to handle long-press in the adapter
 interface OnMessageLongClickListener {
@@ -52,7 +57,10 @@ interface OnMessageLongClickListener {
 }
 
 public class ChatActivity extends AppCompatActivity implements OnMessageLongClickListener {
-
+    private static final int REQUEST_RECORD_AUDIO_PERMISSION = 2002;
+    private MediaRecorder mediaRecorder;
+    private String audioFilePath;
+    private boolean isRecording = false;
     private RecyclerView chatRecyclerView;
     private ChatAdapter chatAdapter;
     private List<ChatMessage> chatMessages;
@@ -75,6 +83,19 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
         ImageButton attachButton = findViewById(R.id.attach_button);
         attachButton.setOnClickListener(v -> pickImageFromGallery());
 
+        ImageButton voiceButton = findViewById(R.id.voice_button);
+        voiceButton.setOnTouchListener((v, event) -> {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    startRecording();
+                    break;
+                case MotionEvent.ACTION_UP:
+                    stopRecordingAndSend();
+                    break;
+            }
+            return true;
+        });
+
         currentUserId = FirebaseAuth.getInstance().getCurrentUser() != null
                 ? FirebaseAuth.getInstance().getCurrentUser().getUid()
                 : null;
@@ -84,6 +105,11 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
             showToast("Chat ID is missing");
             finish();
             return;
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.RECORD_AUDIO}, REQUEST_RECORD_AUDIO_PERMISSION);
         }
 
         if (currentUserId == null) {
@@ -329,13 +355,11 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
     }
 
     private void showReactionDialog(ChatMessage chatMessage) {
-        // Example reactions; you can expand this
         String[] reactions = {"👍", "❤️", "😂", "😮", "😢", "😡"};
         new AlertDialog.Builder(this)
                 .setTitle("React to Message")
                 .setItems(reactions, (dialog, which) -> {
                     String selectedReaction = reactions[which];
-                    // Save reaction in Firebase (example: as a simple field, for advanced, store per user)
                     chatRef.child(chatMessage.getId()).child("reaction").setValue(selectedReaction)
                             .addOnCompleteListener(task -> {
                                 if (task.isSuccessful()) {
@@ -383,7 +407,6 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == PICK_IMAGE_REQUEST && resultCode == RESULT_OK && data != null && data.getData() != null) {
             selectedImageUri = data.getData();
-            // Optionally show preview dialog
             showImageSendDialog(selectedImageUri);
         }
     }
@@ -400,7 +423,6 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
     }
 
     private void uploadAndSendImageMessage(Uri imageUri) {
-        // Upload to Cloudinary or your provider, then send message with imageUrl
         MediaManager.get().upload(imageUri)
                 .callback(new UploadCallback() {
                     @Override public void onStart(String requestId) {}
@@ -465,7 +487,6 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
                 });
     }
 
-    // --- Long-press menu improvement ---
     @Override
     public void onMessageLongClick(ChatMessage chatMessage, int position) {
         boolean isOwnMessage = currentUserId.equals(chatMessage.getSenderId());
@@ -498,5 +519,82 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
+    }
+
+    private void startRecording() {
+        try {
+            audioFilePath = getExternalCacheDir().getAbsolutePath() + "/voice_message_" + System.currentTimeMillis() + ".3gp";
+            mediaRecorder = new MediaRecorder();
+            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
+            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
+            mediaRecorder.setOutputFile(audioFilePath);
+            mediaRecorder.prepare();
+            mediaRecorder.start();
+            showToast("Recording...");
+            isRecording = true;
+        } catch (Exception e) {
+            showToast("Recording failed: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void stopRecordingAndSend() {
+        if (isRecording && mediaRecorder != null) {
+            try {
+                mediaRecorder.stop();
+                mediaRecorder.release();
+                mediaRecorder = null;
+                isRecording = false;
+                showToast("Recording finished");
+                uploadAndSendAudioMessage(audioFilePath);
+            } catch (Exception e) {
+                showToast("Error stopping recording: " + e.getMessage());
+            }
+        }
+    }
+
+    private void uploadAndSendAudioMessage(String audioPath) {
+        Uri audioUri = Uri.fromFile(new File(audioPath));
+        MediaManager.get().upload(audioUri)
+                .option("resource_type", "video") // <-- This fixes the "Invalid image file" error
+                .callback(new UploadCallback() {
+                    @Override public void onStart(String requestId) {}
+                    @Override public void onProgress(String requestId, long bytes, long totalBytes) {}
+                    @Override public void onSuccess(String requestId, Map resultData) {
+                        String audioUrl = (String) resultData.get("secure_url");
+                        sendAudioMessage(audioUrl);
+                    }
+                    @Override public void onError(String requestId, ErrorInfo error) {
+                        showToast("Audio upload failed: " + error.getDescription());
+                    }
+                    @Override public void onReschedule(String requestId, ErrorInfo error) {}
+                }).dispatch();
+    }
+
+    private void sendAudioMessage(String audioUrl) {
+        String messageId = chatRef.push().getKey();
+        if (messageId == null) return;
+
+        String senderName = userNames.getOrDefault(currentUserId, "You");
+        String profileImageUrl = userProfilePics.get(currentUserId);
+
+        ChatMessage chatMessage = new ChatMessage(
+                currentUserId,
+                senderName,
+                "", // no text
+                System.currentTimeMillis(),
+                profileImageUrl
+        );
+        chatMessage.setAudioUrl(audioUrl);
+
+        chatRef.child(messageId).setValue(chatMessage)
+                .addOnCompleteListener(task -> {
+                    if (!task.isSuccessful()) {
+                        showToast("Failed to send audio");
+                    } else {
+                        setUnreadForRecipients("[Voice Message]");
+                    }
+                });
     }
 }

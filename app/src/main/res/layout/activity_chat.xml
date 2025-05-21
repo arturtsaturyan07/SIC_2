@@ -27,6 +27,15 @@
             android:contentDescription="Attach"
             android:tint="@color/lavender" />
 
+        <ImageButton
+            android:id="@+id/voice_button"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_mic"
+            android:contentDescription="Voice"
+            android:tint="@color/lavender" />
+
         <EditText
             android:id="@+id/message_input"
             android:layout_width="0dp"

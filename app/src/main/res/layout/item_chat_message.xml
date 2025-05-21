@@ -42,6 +42,34 @@
                 android:background="@drawable/image_message_bg"
                 tools:src="@drawable/image_placeholder"/>
 
+            <!-- Audio sent by me -->
+            <LinearLayout
+                android:id="@+id/audio_layout_me"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:visibility="gone"
+                android:layout_marginTop="4dp">
+
+                <ImageButton
+                    android:id="@+id/play_audio_button_me"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@drawable/ic_play"
+                    android:contentDescription="Play audio" />
+
+                <TextView
+                    android:id="@+id/audio_duration_me"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0:00"
+                    android:textColor="#FFFFFF"
+                    android:paddingLeft="8dp"
+                    android:textSize="14sp" />
+            </LinearLayout>
+
             <!-- Reaction for my message -->
             <TextView
                 android:id="@+id/reaction_me"
@@ -142,6 +170,34 @@
                     android:layout_marginTop="4dp"
                     android:background="@drawable/image_message_bg"
                     tools:src="@drawable/image_placeholder"/>
+
+                <!-- Audio received from other -->
+                <LinearLayout
+                    android:id="@+id/audio_layout_other"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:visibility="gone"
+                    android:layout_marginTop="4dp">
+
+                    <ImageButton
+                        android:id="@+id/play_audio_button_other"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@drawable/ic_play"
+                        android:contentDescription="Play audio" />
+
+                    <TextView
+                        android:id="@+id/audio_duration_other"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0:00"
+                        android:textColor="#000"
+                        android:paddingLeft="8dp"
+                        android:textSize="14sp" />
+                </LinearLayout>
 
                 <!-- Reaction for received message -->
                 <TextView

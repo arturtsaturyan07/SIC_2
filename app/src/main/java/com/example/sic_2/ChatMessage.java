@@ -1,7 +1,6 @@
 package com.example.sic_2;
 
 import android.util.Log;
-
 import com.google.firebase.database.Exclude;
 import com.google.firebase.database.GenericTypeIndicator;
 
@@ -17,13 +16,10 @@ public class ChatMessage {
     private String senderName;
     private String profileImageUrl;
     private String imageUrl;
-
-    // Reaction field (single emoji per message; expand to Map<String, String> for per-user reactions)
     private String reaction;
-
-    // Status fields as Map for Firebase compatibility
     private Map<String, Boolean> delivered = new HashMap<>();
     private Map<String, Boolean> read = new HashMap<>();
+    private String audioUrl;
 
     public ChatMessage() {}
 
@@ -33,12 +29,9 @@ public class ChatMessage {
         this.message = message;
         this.timestamp = timestamp;
         this.profileImageUrl = profileImageUrl;
-
         this.read.put(senderId, false); // Not read by sender yet
         this.delivered.put(senderId, true); // Delivered by sender
     }
-
-    // Getters and Setters used by Firebase
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -58,25 +51,16 @@ public class ChatMessage {
     public String getProfileImageUrl() { return profileImageUrl; }
     public void setProfileImageUrl(String profileImageUrl) { this.profileImageUrl = profileImageUrl; }
 
-    public Map<String, Boolean> getDelivered() {
-        return delivered;
-    }
-
-    // Defensive setter: Accepts Map or Boolean for legacy Firebase compatibility
+    public Map<String, Boolean> getDelivered() { return delivered; }
     public void setDelivered(Object delivered) {
         if (delivered instanceof Map) {
             this.delivered = (Map<String, Boolean>) delivered;
         } else {
-            // If it's a Boolean (legacy/incorrect data), clear and ignore
             this.delivered = new HashMap<>();
         }
     }
 
-    public Map<String, Boolean> getRead() {
-        return read;
-    }
-
-    // Defensive setter: Accepts Map or Boolean for legacy Firebase compatibility
+    public Map<String, Boolean> getRead() { return read; }
     public void setRead(Object read) {
         if (read instanceof Map) {
             this.read = (Map<String, Boolean>) read;
@@ -85,46 +69,32 @@ public class ChatMessage {
         }
     }
 
-    // Reaction getter/setter
     public String getReaction() { return reaction; }
     public void setReaction(String reaction) { this.reaction = reaction; }
 
-    // Helper Methods - Exclude from Firebase
-
     @Exclude
-    public boolean isDelivered() {
-        return !delivered.isEmpty();
-    }
-
+    public boolean isDelivered() { return !delivered.isEmpty(); }
     @Exclude
-    public boolean isRead() {
-        return !read.isEmpty();
-    }
-
+    public boolean isRead() { return !read.isEmpty(); }
     @Exclude
     public boolean isDeliveredByUser(String userId) {
         return Boolean.TRUE.equals(delivered.get(userId));
     }
-
     @Exclude
     public boolean isReadByUser(String userId) {
         return Boolean.TRUE.equals(read.get(userId));
     }
-
     @Exclude
     public void markDeliveredForUser(String userId) {
         delivered.put(userId, true);
     }
-
     @Exclude
     public void markReadForUser(String userId) {
         read.put(userId, true);
     }
 
-    // For safe deserialization in case data is corrupted
     public static final GenericTypeIndicator<Map<String, Boolean>> deliveredTypeIndicator =
             new GenericTypeIndicator<Map<String, Boolean>>() {};
-
     public static final GenericTypeIndicator<Map<String, Boolean>> readTypeIndicator =
             new GenericTypeIndicator<Map<String, Boolean>>() {};
 
@@ -137,7 +107,6 @@ public class ChatMessage {
             this.delivered.clear();
         }
     }
-
     @Exclude
     public void parseRead(Object readObj) {
         if (readObj instanceof Map) {
@@ -147,7 +116,9 @@ public class ChatMessage {
             this.read.clear();
         }
     }
+
     public String getImageUrl() { return imageUrl; }
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
-
+    public String getAudioUrl() { return audioUrl; }
+    public void setAudioUrl(String audioUrl) { this.audioUrl = audioUrl; }
 }
