@@ -9,13 +9,17 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Toast;
 import android.view.View;
-
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.provider.MediaStore;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
+import android.view.animation.LinearInterpolator;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -75,10 +79,26 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
     private static final int PICK_IMAGE_REQUEST = 1421;
     private Uri selectedImageUri;
 
+    // Animation-related fields
+    private LinearLayout voiceRecordingLayout;
+    private ImageView voiceMicIcon;
+    private TextView voiceRecordingText;
+    private ObjectAnimator micAnimator;
+    private ValueAnimator dotsAnimator;
+    private boolean isMicAnimating = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
+
+        // Animation setup (add these views to your activity_chat.xml as described below!)
+        voiceRecordingLayout = findViewById(R.id.voice_recording_layout);
+        voiceMicIcon = findViewById(R.id.voice_mic_icon);
+        voiceRecordingText = findViewById(R.id.voice_recording_text);
+
+        // Initially hide the animation UI
+        voiceRecordingLayout.setVisibility(View.GONE);
 
         ImageButton attachButton = findViewById(R.id.attach_button);
         attachButton.setOnClickListener(v -> pickImageFromGallery());
@@ -321,6 +341,7 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
         if (chatRef != null && chatListener != null) {
             chatRef.removeEventListener(chatListener);
         }
+        stopMicAnimation();
     }
 
     // Long-press message handler: show menu for edit, react, delete
@@ -521,6 +542,46 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
                 .show();
     }
 
+    // --- Animation methods ---
+
+    private void startMicAnimation() {
+        if (isMicAnimating) return;
+        isMicAnimating = true;
+        // Show the overlay
+        voiceRecordingLayout.setVisibility(View.VISIBLE);
+
+        // Pulse the mic icon
+        micAnimator = ObjectAnimator.ofFloat(voiceMicIcon, "scaleX", 1f, 1.4f, 1f);
+        micAnimator.setDuration(900);
+        micAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        micAnimator.setRepeatMode(ValueAnimator.RESTART);
+        micAnimator.setInterpolator(new LinearInterpolator());
+        micAnimator.setPropertyName("scaleY");
+        micAnimator.start();
+
+        // Animate "Recording" text with dots
+        dotsAnimator = ValueAnimator.ofInt(0, 3);
+        dotsAnimator.setDuration(900);
+        dotsAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        dotsAnimator.addUpdateListener(animation -> {
+            int dots = (int) animation.getAnimatedValue();
+            StringBuilder sb = new StringBuilder("Recording");
+            for (int i = 0; i < dots; i++) sb.append(".");
+            voiceRecordingText.setText(sb.toString());
+        });
+        dotsAnimator.start();
+    }
+
+    private void stopMicAnimation() {
+        isMicAnimating = false;
+        if (micAnimator != null) micAnimator.cancel();
+        if (dotsAnimator != null) dotsAnimator.cancel();
+        if (voiceRecordingLayout != null)
+            voiceRecordingLayout.setVisibility(View.GONE);
+    }
+
+    // --- Voice recording with animation ---
+
     private void startRecording() {
         try {
             audioFilePath = getExternalCacheDir().getAbsolutePath() + "/voice_message_" + System.currentTimeMillis() + ".3gp";
@@ -533,9 +594,11 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
             mediaRecorder.start();
             showToast("Recording...");
             isRecording = true;
+            startMicAnimation(); // Start animation
         } catch (Exception e) {
             showToast("Recording failed: " + e.getMessage());
             e.printStackTrace();
+            stopMicAnimation();
         }
     }
 
@@ -546,11 +609,15 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
                 mediaRecorder.release();
                 mediaRecorder = null;
                 isRecording = false;
+                stopMicAnimation(); // Stop animation
                 showToast("Recording finished");
                 uploadAndSendAudioMessage(audioFilePath);
             } catch (Exception e) {
                 showToast("Error stopping recording: " + e.getMessage());
+                stopMicAnimation();
             }
+        } else {
+            stopMicAnimation();
         }
     }
 
