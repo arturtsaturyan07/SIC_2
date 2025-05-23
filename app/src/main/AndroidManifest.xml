@@ -6,25 +6,19 @@
         android:name="android.hardware.camera"
         android:required="false" />
 
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" /> <!-- Optional: Improve location accuracy for photos -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.CAMERA"/>
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.INTERNET" /> <!-- For reading/writing files (images) -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="32"
         tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" /> <!-- Only needed for Android 9 and below -->
-    <uses-permission android:name="android.permission.CAMERA" />
+        android:maxSdkVersion="32" />
 
     <application
         android:allowBackup="true"
@@ -36,70 +30,44 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApp"
         tools:targetApi="31">
-        <activity
-            android:name=".CommentsActivity"
-            android:exported="false" />
-        <activity
-            android:name=".ProfileActivity"
-            android:exported="false" />
-        <activity
-            android:name=".CampRequest"
+
+        <!-- FileProvider declaration -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
             android:exported="false"
-            tools:ignore="Instantiatable" />
-        <activity
-            android:name=".FullScreenImageActivity"
-            android:exported="false" />
-        <activity
-            android:name=".ImageData"
-            android:exported="false"
-            tools:ignore="Instantiatable" />
-        <activity
-            android:name=".SplashActivity"
-            android:exported="true">
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <activity android:name=".CommentsActivity" android:exported="false" />
+        <activity android:name=".ProfileActivity" android:exported="false" />
+        <activity android:name=".CampRequest" android:exported="false" tools:ignore="Instantiatable" />
+        <activity android:name=".FullScreenImageActivity" android:exported="false" />
+        <activity android:name=".ImageData" android:exported="false" tools:ignore="Instantiatable" />
+        <activity android:name=".SplashActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".LoginActivity"
-            android:exported="true" />
-        <activity
-            android:name=".RegisterActivity"
-            android:exported="false" />
-        <activity
-            android:name=".MainActivity"
-            android:exported="false" />
-        <activity
-            android:name=".UserSearchActivity"
-            android:exported="true" />
-        <activity
-            android:name=".CardActivity"
-            android:exported="false" />
-        <activity
-            android:name=".ParametersActivity"
-            android:exported="false" />
-        <activity
-            android:name=".ChatActivity"
-            android:exported="false" />
-        <activity
-            android:name=".VerifyEmailActivity"
-            android:exported="false" />
-        <activity
-            android:name=".CampConfigActivity"
-            android:exported="false" />
-        <activity
-            android:name=".UserAddActivity"
-            android:exported="false" /> <!-- Services -->
-        <service
-            android:name=".MyFirebaseMessagingService"
-            android:exported="false">
+        <activity android:name=".LoginActivity" android:exported="true" />
+        <activity android:name=".RegisterActivity" android:exported="false" />
+        <activity android:name=".MainActivity" android:exported="false" />
+        <activity android:name=".UserSearchActivity" android:exported="true" />
+        <activity android:name=".CardActivity" android:exported="false" />
+        <activity android:name=".ParametersActivity" android:exported="false" />
+        <activity android:name=".ChatActivity" android:exported="false" />
+        <activity android:name=".VerifyEmailActivity" android:exported="false" />
+        <activity android:name=".CampConfigActivity" android:exported="false" />
+        <activity android:name=".UserAddActivity" android:exported="false" />
+        <service android:name=".MyFirebaseMessagingService" android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
         <service android:name=".AppRunningService" />
     </application>
-
 </manifest>

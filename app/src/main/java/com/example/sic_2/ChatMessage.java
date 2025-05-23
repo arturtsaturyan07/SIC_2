@@ -5,7 +5,9 @@ import com.google.firebase.database.Exclude;
 import com.google.firebase.database.GenericTypeIndicator;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 public class ChatMessage {
 
@@ -16,12 +18,14 @@ public class ChatMessage {
     private String senderName;
     private String profileImageUrl;
     private String imageUrl;
-    private String reaction;
     private Map<String, Boolean> delivered = new HashMap<>();
     private Map<String, Boolean> read = new HashMap<>();
     private String audioUrl;
-    // --- Add this for circle video support ---
     private String circleVideoUrl;
+
+    // --- New: Per-emoji, per-user reactions ---
+    // reactions: emoji -> <uid, true>
+    private Map<String, Map<String, Boolean>> reactions = new HashMap<>();
 
     public ChatMessage() {}
 
@@ -70,9 +74,6 @@ public class ChatMessage {
             this.read = new HashMap<>();
         }
     }
-
-    public String getReaction() { return reaction; }
-    public void setReaction(String reaction) { this.reaction = reaction; }
 
     @Exclude
     public boolean isDelivered() { return !delivered.isEmpty(); }
@@ -123,8 +124,13 @@ public class ChatMessage {
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
     public String getAudioUrl() { return audioUrl; }
     public void setAudioUrl(String audioUrl) { this.audioUrl = audioUrl; }
-
-    // --- Circle video getters/setters ---
     public String getCircleVideoUrl() { return circleVideoUrl; }
     public void setCircleVideoUrl(String circleVideoUrl) { this.circleVideoUrl = circleVideoUrl; }
+
+    // --- Reactions (per-emoji, per-user) ---
+    public Map<String, Map<String, Boolean>> getReactions() { return reactions; }
+    public void setReactions(Map<String, Map<String, Boolean>> reactions) { this.reactions = reactions; }
+    public Set<String> getReaction() {
+        return reactions != null ? reactions.keySet() : new HashSet<>();
+    }
 }

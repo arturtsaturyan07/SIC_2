@@ -23,6 +23,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.cardview.widget.CardView;
 import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -306,8 +307,14 @@ public class CardFragment extends Fragment implements PublicationsAdapter.Public
         if (intent.resolveActivity(requireActivity().getPackageManager()) != null) {
             File photoFile = createImageFile();
             if (photoFile != null) {
-                imageUri = Uri.fromFile(photoFile);
+                // Use FileProvider for Android 7.0+ (API 24+)
+                imageUri = FileProvider.getUriForFile(
+                        requireContext(),
+                        requireContext().getPackageName() + ".fileprovider",
+                        photoFile
+                );
                 intent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
+                intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 startActivityForResult(intent, REQUEST_IMAGE_CAPTURE);
             }
         }

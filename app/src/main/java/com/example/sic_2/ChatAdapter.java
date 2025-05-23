@@ -4,9 +4,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.media.MediaPlayer;
 import android.net.Uri;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.OvershootInterpolator;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -27,6 +29,7 @@ import java.util.Map;
 
 /**
  * ChatAdapter for displaying chat messages, supporting text, image, audio, circle video messages, reactions, and long-press menu.
+ * Now supports advanced message reactions per user, with animated popup.
  */
 public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder> {
 
@@ -36,6 +39,14 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
     private final Map<String, String> userProfilePics;
     private final Context context;
     private final OnMessageLongClickListener longClickListener;
+
+    public interface OnReactionClickListener {
+        void onReactionClicked(ChatMessage msg, String emoji, int position);
+        void onReactionLongClicked(ChatMessage msg, String emoji, int position);
+        void onAddReaction(ChatMessage msg, int position, View anchor);
+    }
+    private OnReactionClickListener reactionClickListener;
+    public void setOnReactionClickListener(OnReactionClickListener l) { this.reactionClickListener = l; }
 
     public ChatAdapter(Context context, List<ChatMessage> chatMessages, String currentUserId,
                        Map<String, String> userNames, Map<String, String> userProfilePics,
@@ -120,13 +131,8 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             }
             holder.timeTextMe.setText(formattedTime);
 
-            // Reaction
-            if (chatMessage.getReaction() != null && !chatMessage.getReaction().isEmpty()) {
-                holder.reactionMe.setVisibility(View.VISIBLE);
-                holder.reactionMe.setText(chatMessage.getReaction());
-            } else {
-                holder.reactionMe.setVisibility(View.GONE);
-            }
+            // Advanced reactions (dynamic, Telegram-style)
+            renderReactions(holder.reactionsLayoutMe, chatMessage, position, true);
 
             holder.statusIndicator.setText("");
         } else {
@@ -183,13 +189,8 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             }
             holder.timeTextOther.setText(formattedTime);
 
-            // Reaction
-            if (chatMessage.getReaction() != null && !chatMessage.getReaction().isEmpty()) {
-                holder.reactionOther.setVisibility(View.VISIBLE);
-                holder.reactionOther.setText(chatMessage.getReaction());
-            } else {
-                holder.reactionOther.setVisibility(View.GONE);
-            }
+            // Advanced reactions (dynamic, Telegram-style)
+            renderReactions(holder.reactionsLayoutOther, chatMessage, position, false);
 
             String profileUrl = userProfilePics.get(senderId);
             if (profileUrl != null && !profileUrl.isEmpty()) {
@@ -212,6 +213,70 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
         });
     }
 
+    private void renderReactions(LinearLayout reactionsLayout, ChatMessage chatMessage, int position, boolean isMe) {
+        reactionsLayout.removeAllViews();
+        Map<String, Map<String, Boolean>> reactions = chatMessage.getReactions();
+        boolean userHasReaction = false;
+
+        // Render each emoji with count
+        if (reactions != null && !reactions.isEmpty()) {
+            for (Map.Entry<String, Map<String, Boolean>> entry : reactions.entrySet()) {
+                String emoji = entry.getKey();
+                Map<String, Boolean> users = entry.getValue();
+                int count = users != null ? users.size() : 0;
+                boolean highlighted = users != null && users.containsKey(currentUserId);
+                if (highlighted) userHasReaction = true;
+
+                TextView emojiView = new TextView(context);
+                emojiView.setText(emoji + (count > 1 ? " " + count : ""));
+                emojiView.setTextSize(18f);
+                emojiView.setBackgroundResource(
+                        highlighted
+                                ? R.drawable.bg_reaction_highlighted
+                                : R.drawable.bg_reaction_neutral
+                );
+                emojiView.setPadding(22, 6, 22, 6);
+                emojiView.setGravity(Gravity.CENTER);
+                emojiView.setClickable(true);
+                emojiView.setFocusable(true);
+
+                emojiView.setOnClickListener(v -> {
+                    if (reactionClickListener != null)
+                        reactionClickListener.onReactionClicked(chatMessage, emoji, position);
+                });
+                emojiView.setOnLongClickListener(v -> {
+                    if (reactionClickListener != null) {
+                        reactionClickListener.onReactionLongClicked(chatMessage, emoji, position);
+                        return true;
+                    }
+                    return false;
+                });
+
+                // Animate pop-in
+                emojiView.setScaleX(0.7f);
+                emojiView.setScaleY(0.7f);
+                emojiView.animate().scaleX(1f).scaleY(1f).setDuration(220)
+                        .setInterpolator(new OvershootInterpolator()).start();
+
+                reactionsLayout.addView(emojiView);
+            }
+        }
+        // Add a "+" button for adding new reaction
+        TextView addView = new TextView(context);
+        addView.setText("+");
+        addView.setTextSize(18f);
+        addView.setBackgroundResource(R.drawable.bg_reaction_add);
+        addView.setPadding(22, 6, 22, 6);
+        addView.setGravity(Gravity.CENTER);
+        addView.setClickable(true);
+        addView.setFocusable(true);
+        addView.setOnClickListener(v -> {
+            if (reactionClickListener != null)
+                reactionClickListener.onAddReaction(chatMessage, position, addView);
+        });
+        reactionsLayout.addView(addView);
+    }
+
     @Override
     public int getItemCount() {
         return chatMessages != null ? chatMessages.size() : 0;
@@ -231,7 +296,6 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
     }
 
     static class ChatViewHolder extends RecyclerView.ViewHolder {
-
         // Sent by me
         LinearLayout containerMe;
         TextView messageTextMe;
@@ -242,7 +306,7 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
         TextView audioDurationMe;
         TextView timeTextMe;
         TextView statusIndicator;
-        TextView reactionMe;
+        LinearLayout reactionsLayoutMe;
 
         // Received from others
         LinearLayout containerOther;
@@ -255,7 +319,7 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
         ImageButton playAudioButtonOther;
         TextView audioDurationOther;
         TextView timeTextOther;
-        TextView reactionOther;
+        LinearLayout reactionsLayoutOther;
 
         public ChatViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -270,7 +334,7 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             audioDurationMe = itemView.findViewById(R.id.audio_duration_me);
             timeTextMe = itemView.findViewById(R.id.time_text_me);
             statusIndicator = itemView.findViewById(R.id.status_indicator_me);
-            reactionMe = itemView.findViewById(R.id.reaction_me);
+            reactionsLayoutMe = itemView.findViewById(R.id.reactions_layout_me);
 
             // Received from other
             containerOther = itemView.findViewById(R.id.message_container_other);
@@ -283,7 +347,7 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             playAudioButtonOther = itemView.findViewById(R.id.play_audio_button_other);
             audioDurationOther = itemView.findViewById(R.id.audio_duration_other);
             timeTextOther = itemView.findViewById(R.id.time_text_other);
-            reactionOther = itemView.findViewById(R.id.reaction_other);
+            reactionsLayoutOther = itemView.findViewById(R.id.reactions_layout_other);
         }
     }
 }

@@ -146,6 +146,22 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
 
         chatMessages = new ArrayList<>();
         chatAdapter = new ChatAdapter(this, chatMessages, currentUserId, userNames, userProfilePics, this);
+
+        chatAdapter.setOnReactionClickListener(new ChatAdapter.OnReactionClickListener() {
+            @Override
+            public void onReactionClicked(ChatMessage msg, String emoji, int position) {
+                toggleReaction(msg, emoji);
+            }
+            @Override
+            public void onReactionLongClicked(ChatMessage msg, String emoji, int position) {
+                showReactionUsersDialog(msg, emoji);
+            }
+            @Override
+            public void onAddReaction(ChatMessage msg, int position, View anchor) {
+                showReactionPopup(msg, position, anchor);
+            }
+        });
+
         chatRecyclerView = findViewById(R.id.chat_recycler_view);
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         chatRecyclerView.setAdapter(chatAdapter);
@@ -378,6 +394,47 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
+    }
+
+    // --- Reaction System ---
+
+    private void toggleReaction(ChatMessage chatMessage, String emoji) {
+        String uid = currentUserId;
+        DatabaseReference msgRef = chatRef.child(chatMessage.getId()).child("reactions").child(emoji);
+
+        Map<String, Map<String, Boolean>> reactions = chatMessage.getReactions();
+        boolean alreadyReacted = reactions != null
+                && reactions.containsKey(emoji)
+                && reactions.get(emoji) != null
+                && reactions.get(emoji).containsKey(uid);
+
+        if (alreadyReacted) {
+            msgRef.child(uid).removeValue();
+        } else {
+            msgRef.child(uid).setValue(true);
+        }
+    }
+
+    private void showReactionUsersDialog(ChatMessage msg, String emoji) {
+        Map<String, Map<String, Boolean>> reactions = msg.getReactions();
+        if (reactions == null || !reactions.containsKey(emoji)) return;
+        Map<String, Boolean> users = reactions.get(emoji);
+
+        String[] names = users.keySet().stream()
+                .map(uid -> userNames.getOrDefault(uid, uid))
+                .toArray(String[]::new);
+
+        new AlertDialog.Builder(this)
+                .setTitle("Users reacted with " + emoji)
+                .setItems(names, null)
+                .setNegativeButton("Close", null)
+                .show();
+    }
+
+    private void showReactionPopup(ChatMessage msg, int position, View anchor) {
+        ReactionPopupFragment popup = new ReactionPopupFragment();
+        popup.setReactionSelectListener(emoji -> toggleReaction(msg, emoji));
+        popup.show(getSupportFragmentManager(), "reactions_popup");
     }
 
     private void showReactionDialog(ChatMessage chatMessage) {

@@ -32,6 +32,7 @@ import java.util.Objects;
 
 /**
  * ChatFragment: Chat UI for a card, with long-press menu for edit, react, and delete actions.
+ * Updated: Advanced Telegram-style reactions per user, per emoji.
  */
 public class ChatFragment extends Fragment implements OnMessageLongClickListener {
 
@@ -107,8 +108,22 @@ public class ChatFragment extends Fragment implements OnMessageLongClickListener
     private void setupViews(View view) {
         chatRecyclerView = view.findViewById(R.id.chat_recycler_view);
         chatMessages = new ArrayList<>();
-        // Pass this as long-click listener
         chatAdapter = new ChatAdapter(requireContext(), chatMessages, currentUserId, userNames, userProfilePics, this);
+
+        chatAdapter.setOnReactionClickListener(new ChatAdapter.OnReactionClickListener() {
+            @Override
+            public void onReactionClicked(ChatMessage msg, String emoji, int position) {
+                toggleReaction(msg, emoji);
+            }
+            @Override
+            public void onReactionLongClicked(ChatMessage msg, String emoji, int position) {
+                showReactionUsersDialog(msg, emoji);
+            }
+            @Override
+            public void onAddReaction(ChatMessage msg, int position, View anchor) {
+                showReactionPopup(msg, position, anchor);
+            }
+        });
 
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         chatRecyclerView.setAdapter(chatAdapter);
@@ -146,39 +161,9 @@ public class ChatFragment extends Fragment implements OnMessageLongClickListener
         chatListener = new ChildEventListener() {
             @Override
             public void onChildAdded(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {
-                Object rawValue = snapshot.getValue();
-
-                if (!(rawValue instanceof Map)) {
-                    Log.e(TAG, "Unexpected data type: " + rawValue.getClass());
-                    return;
-                }
-
-                Map<String, Object> messageMap = (Map<String, Object>) rawValue;
-
-                ChatMessage chatMessage = new ChatMessage();
+                ChatMessage chatMessage = snapshot.getValue(ChatMessage.class);
+                if (chatMessage == null) return;
                 chatMessage.setId(snapshot.getKey());
-
-                chatMessage.setSenderId((String) messageMap.get("senderId"));
-                chatMessage.setMessage((String) messageMap.get("message"));
-
-                Object timestampObj = messageMap.get("timestamp");
-                if (timestampObj instanceof Long) {
-                    chatMessage.setTimestamp((Long) timestampObj);
-                } else {
-                    chatMessage.setTimestamp(System.currentTimeMillis()); // fallback
-                }
-
-                chatMessage.setSenderName((String) messageMap.get("senderName"));
-                chatMessage.setProfileImageUrl((String) messageMap.get("profileImageUrl"));
-                chatMessage.parseDelivered(messageMap.get("delivered"));
-                chatMessage.parseRead(messageMap.get("read"));
-
-                // Parse reaction if present
-                Object reactionObj = messageMap.get("reaction");
-                if (reactionObj instanceof String) {
-                    chatMessage.setReaction((String) reactionObj);
-                }
-
                 chatMessages.add(chatMessage);
                 chatAdapter.notifyItemInserted(chatMessages.size() - 1);
                 chatRecyclerView.smoothScrollToPosition(chatMessages.size() - 1);
@@ -196,14 +181,12 @@ public class ChatFragment extends Fragment implements OnMessageLongClickListener
 
             @Override
             public void onChildChanged(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {
-                // Update the message if edited or reaction changed
                 String changedId = snapshot.getKey();
                 ChatMessage updatedMessage = snapshot.getValue(ChatMessage.class);
                 if (changedId != null && updatedMessage != null) {
                     for (int i = 0; i < chatMessages.size(); i++) {
                         ChatMessage msg = chatMessages.get(i);
                         if (msg.getId() != null && msg.getId().equals(changedId)) {
-                            // Preserve the ID
                             updatedMessage.setId(changedId);
                             chatMessages.set(i, updatedMessage);
                             chatAdapter.notifyItemChanged(i);
@@ -215,7 +198,6 @@ public class ChatFragment extends Fragment implements OnMessageLongClickListener
 
             @Override
             public void onChildRemoved(@NonNull DataSnapshot snapshot) {
-                // Remove the deleted message from the list and update UI
                 String deletedId = snapshot.getKey();
                 for (int i = 0; i < chatMessages.size(); i++) {
                     ChatMessage msg = chatMessages.get(i);
@@ -347,8 +329,8 @@ public class ChatFragment extends Fragment implements OnMessageLongClickListener
                     Map<String, String> data = new HashMap<>();
                     data.put("title", title);
                     data.put("body", body);
-                    data.put("cardId", cardId); // Important: pass card ID
-                    data.put("click_action", "OPEN_CHAT_ACTIVITY"); // Optional custom action
+                    data.put("cardId", cardId);
+                    data.put("click_action", "OPEN_CHAT_ACTIVITY");
 
                     FCMNotificationSender.sendNotification(token, data);
                 }
@@ -365,32 +347,6 @@ public class ChatFragment extends Fragment implements OnMessageLongClickListener
         if (cardId == null || currentUserId == null) return;
         DatabaseReference chatRef = userChatsRef.child(currentUserId).child(cardId);
         chatRef.child("read").setValue(true);
-    }
-
-    private void markMessageAsRead(String cardId, String messageId, String userId) {
-        DatabaseReference ref = FirebaseDatabase.getInstance()
-                .getReference("cards")
-                .child(cardId)
-                .child("chats")
-                .child("messages")
-                .child(messageId);
-
-        Map<String, Object> update = new HashMap<>();
-        update.put("read." + userId, true); // Update only one user's read status
-        ref.updateChildren(update);
-    }
-
-    private void updateMessageStatus(String cardId, String messageId, String userId, String statusType, boolean value) {
-        DatabaseReference msgRef = FirebaseDatabase.getInstance()
-                .getReference("cards")
-                .child(cardId)
-                .child("chats")
-                .child("messages")
-                .child(messageId);
-
-        Map<String, Object> update = new HashMap<>();
-        update.put(statusType + "." + userId, value);
-        msgRef.updateChildren(update);
     }
 
     private void showUnreadNotification(String message, String senderId) {
@@ -411,12 +367,6 @@ public class ChatFragment extends Fragment implements OnMessageLongClickListener
         });
     }
 
-    private void setupFirebaseForUserChatTracking() {
-        if (currentUserId == null || cardId == null) return;
-        DatabaseReference userChatRef = userChatsRef.child(currentUserId).child(cardId);
-        userChatRef.child("read").onDisconnect().removeValue(); // Optional cleanup
-    }
-
     private void showToast(String message) {
         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
     }
@@ -429,12 +379,52 @@ public class ChatFragment extends Fragment implements OnMessageLongClickListener
         }
     }
 
+    // ---- REACTIONS: Telegram-style, per-user, per-emoji ----
+
+    private void toggleReaction(ChatMessage chatMessage, String emoji) {
+        String uid = currentUserId;
+        DatabaseReference msgRef = chatRef.child(chatMessage.getId()).child("reactions").child(emoji);
+
+        Map<String, Map<String, Boolean>> reactions = chatMessage.getReactions();
+        boolean alreadyReacted = reactions != null
+                && reactions.containsKey(emoji)
+                && reactions.get(emoji) != null
+                && reactions.get(emoji).containsKey(uid);
+
+        if (alreadyReacted) {
+            msgRef.child(uid).removeValue();
+        } else {
+            msgRef.child(uid).setValue(true);
+        }
+    }
+
+    private void showReactionUsersDialog(ChatMessage msg, String emoji) {
+        Map<String, Map<String, Boolean>> reactions = msg.getReactions();
+        if (reactions == null || !reactions.containsKey(emoji)) return;
+        Map<String, Boolean> users = reactions.get(emoji);
+
+        String[] names = users.keySet().stream()
+                .map(uid -> userNames.getOrDefault(uid, uid))
+                .toArray(String[]::new);
+
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Users reacted with " + emoji)
+                .setItems(names, null)
+                .setNegativeButton("Close", null)
+                .show();
+    }
+
+    private void showReactionPopup(ChatMessage msg, int position, View anchor) {
+        ReactionPopupFragment popup = new ReactionPopupFragment();
+        popup.setReactionSelectListener(emoji -> toggleReaction(msg, emoji));
+        popup.show(getParentFragmentManager(), "reactions_popup");
+    }
+
     // ---- Long-press support for message actions: Edit, React, Delete ----
     @Override
     public void onMessageLongClick(ChatMessage chatMessage, int position) {
         boolean isOwnMessage = currentUserId.equals(chatMessage.getSenderId());
 
-        // Build menu options
         ArrayList<String> options = new ArrayList<>();
         if (isOwnMessage) options.add("Edit");
         options.add("React");
@@ -448,14 +438,11 @@ public class ChatFragment extends Fragment implements OnMessageLongClickListener
                     String selected = actions[which];
                     switch (selected) {
                         case "Edit":
-                            showEditMessageDialog(chatMessage);
-                            break;
+                            showEditMessageDialog(chatMessage); break;
                         case "React":
-                            showReactionDialog(chatMessage);
-                            break;
+                            showReactionPopup(chatMessage, position, null); break;
                         case "Delete":
-                            confirmAndDeleteMessage(chatMessage);
-                            break;
+                            confirmAndDeleteMessage(chatMessage); break;
                     }
                 })
                 .setNegativeButton("Cancel", null)
@@ -486,27 +473,6 @@ public class ChatFragment extends Fragment implements OnMessageLongClickListener
                                     }
                                 });
                     }
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
-    }
-
-    private void showReactionDialog(ChatMessage chatMessage) {
-        // Example reactions; you can expand this
-        String[] reactions = {"👍", "❤️", "😂", "😮", "😢", "😡"};
-        new AlertDialog.Builder(requireContext())
-                .setTitle("React to Message")
-                .setItems(reactions, (dialog, which) -> {
-                    String selectedReaction = reactions[which];
-                    // Save reaction in Firebase (as a simple field, for advanced usage store per user)
-                    chatRef.child(chatMessage.getId()).child("reaction").setValue(selectedReaction)
-                            .addOnCompleteListener(task -> {
-                                if (task.isSuccessful()) {
-                                    showToast("Reacted with " + selectedReaction);
-                                } else {
-                                    showToast("Failed to react");
-                                }
-                            });
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
