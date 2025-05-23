@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.media.MediaPlayer;
 import android.net.Uri;
+import android.os.Handler;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -106,7 +107,10 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             // Audio message
             if (chatMessage.getAudioUrl() != null && !chatMessage.getAudioUrl().isEmpty()) {
                 holder.audioLayoutMe.setVisibility(View.VISIBLE);
-                holder.playAudioButtonMe.setOnClickListener(v -> playAudio(chatMessage.getAudioUrl(), holder.playAudioButtonMe));
+                setAudioDuration(chatMessage.getAudioUrl(), holder.audioDurationMe);
+                holder.playAudioButtonMe.setOnClickListener(v ->
+                        ((ChatActivity) context).playAudio(chatMessage.getAudioUrl(), holder.playAudioButtonMe, position, holder.audioDurationMe)
+                );
             }
 
             // Image message
@@ -164,7 +168,10 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
             // Audio message
             if (chatMessage.getAudioUrl() != null && !chatMessage.getAudioUrl().isEmpty()) {
                 holder.audioLayoutOther.setVisibility(View.VISIBLE);
-                holder.playAudioButtonOther.setOnClickListener(v -> playAudio(chatMessage.getAudioUrl(), holder.playAudioButtonOther));
+                setAudioDuration(chatMessage.getAudioUrl(), holder.audioDurationOther);
+                holder.playAudioButtonOther.setOnClickListener(v ->
+                        ((ChatActivity) context).playAudio(chatMessage.getAudioUrl(), holder.playAudioButtonOther, position, holder.audioDurationOther)
+                );
             }
 
             // Text message
@@ -213,7 +220,25 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
         });
     }
 
-    // --- UPDATED: Removed "+" button! ---
+    // Shows the audio duration in the provided TextView
+    private void setAudioDuration(String url, TextView durationView) {
+        // Run on a background thread to avoid blocking the UI
+        new Thread(() -> {
+            MediaPlayer player = new MediaPlayer();
+            try {
+                player.setDataSource(url);
+                player.prepare();
+                int duration = player.getDuration() / 1000;
+                String durationText = String.format(Locale.getDefault(), "%d:%02d", duration / 60, duration % 60);
+                new Handler(context.getMainLooper()).post(() -> durationView.setText(durationText));
+            } catch (Exception e) {
+                new Handler(context.getMainLooper()).post(() -> durationView.setText("0:00"));
+            } finally {
+                player.release();
+            }
+        }).start();
+    }
+
     private void renderReactions(LinearLayout reactionsLayout, ChatMessage chatMessage, int position, boolean isMe) {
         reactionsLayout.removeAllViews();
         Map<String, Map<String, Boolean>> reactions = chatMessage.getReactions();
@@ -260,25 +285,11 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
                 reactionsLayout.addView(emojiView);
             }
         }
-        // NO plus button here!
     }
 
     @Override
     public int getItemCount() {
         return chatMessages != null ? chatMessages.size() : 0;
-    }
-
-    private void playAudio(String url, ImageButton playButton) {
-        MediaPlayer player = new MediaPlayer();
-        try {
-            player.setDataSource(url);
-            player.prepare();
-            player.start();
-            playButton.setImageResource(R.drawable.ic_pause); // Change icon to pause (optional)
-            player.setOnCompletionListener(mp -> playButton.setImageResource(R.drawable.ic_play));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
     static class ChatViewHolder extends RecyclerView.ViewHolder {
