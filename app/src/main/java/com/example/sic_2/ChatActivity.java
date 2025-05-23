@@ -1,28 +1,36 @@
 package com.example.sic_2;
 
-import android.content.Intent;
-import android.net.Uri;
-import android.os.Bundle;
-import android.util.Log;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.ImageView;
-import android.widget.Toast;
-import android.view.View;
 import android.Manifest;
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
+import android.media.MediaPlayer;
+import android.media.MediaRecorder;
+import android.net.Uri;
+import android.os.Bundle;
 import android.provider.MediaStore;
+import android.util.Log;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.animation.LinearInterpolator;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.animation.ObjectAnimator;
-import android.animation.ValueAnimator;
-import android.view.animation.LinearInterpolator;
+import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.target.CustomTarget;
@@ -30,13 +38,6 @@ import com.bumptech.glide.request.transition.Transition;
 import com.cloudinary.android.MediaManager;
 import com.cloudinary.android.callback.ErrorInfo;
 import com.cloudinary.android.callback.UploadCallback;
-
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
-
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -45,17 +46,14 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.database.annotations.Nullable;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import android.media.MediaPlayer;
-import android.media.MediaRecorder;
-import android.view.MotionEvent;
 
-import java.io.File;
-
-// Add this interface to handle long-press in the adapter
 interface OnMessageLongClickListener {
     void onMessageLongClick(ChatMessage chatMessage, int position);
 }
@@ -79,17 +77,21 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
     private Map<String, String> userNames = new HashMap<>();
     private Map<String, String> userProfilePics = new HashMap<>();
     private ValueEventListener chatListener;
-    private EditText messageInput; // For editing messages
+    private EditText messageInput;
     private Uri selectedImageUri;
     private Uri capturedCircleVideoUri;
 
-    // Animation-related fields
+    // Animation
     private LinearLayout voiceRecordingLayout;
     private ImageView voiceMicIcon;
     private TextView voiceRecordingText;
     private ObjectAnimator micAnimator;
     private ValueAnimator dotsAnimator;
     private boolean isMicAnimating = false;
+
+    // Audio playback
+    private MediaPlayer mediaPlayer = null;
+    private int currentlyPlayingPosition = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -118,7 +120,6 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
             return true;
         });
 
-        // --- Circle video button setup ---
         ImageButton circleVideoButton = findViewById(R.id.circle_video_button);
         circleVideoButton.setOnClickListener(v -> checkCameraPermissionAndStartVideo());
 
@@ -292,7 +293,6 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
                 .getReference("chats")
                 .child(chatId)
                 .child("participants");
-
         long timestamp = System.currentTimeMillis();
 
         participantsRef.addListenerForSingleValueEvent(new ValueEventListener() {
@@ -363,6 +363,10 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
             chatRef.removeEventListener(chatListener);
         }
         stopMicAnimation();
+        if (mediaPlayer != null) {
+            mediaPlayer.release();
+            mediaPlayer = null;
+        }
     }
 
     // Long-press message handler: show menu for edit, react, delete
@@ -395,8 +399,6 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
                 .setNegativeButton("Cancel", null)
                 .show();
     }
-
-    // --- Reaction System ---
 
     private void toggleReaction(ChatMessage chatMessage, String emoji) {
         String uid = currentUserId;
@@ -437,55 +439,10 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
         popup.show(getSupportFragmentManager(), "reactions_popup");
     }
 
-    private void showReactionDialog(ChatMessage chatMessage) {
-        String[] reactions = {"👍", "❤️", "😂", "😮", "😢", "😡"};
-        new AlertDialog.Builder(this)
-                .setTitle("React to Message")
-                .setItems(reactions, (dialog, which) -> {
-                    String selectedReaction = reactions[which];
-                    chatRef.child(chatMessage.getId()).child("reaction").setValue(selectedReaction)
-                            .addOnCompleteListener(task -> {
-                                if (task.isSuccessful()) {
-                                    showToast("Reacted with " + selectedReaction);
-                                } else {
-                                    showToast("Failed to react");
-                                }
-                            });
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
-    }
-
-    private void confirmAndDeleteMessage(ChatMessage chatMessage) {
-        if (!currentUserId.equals(chatMessage.getSenderId())) {
-            showToast("You can only delete your own messages");
-            return;
-        }
-        new AlertDialog.Builder(this)
-                .setTitle("Delete message?")
-                .setMessage("Are you sure you want to delete this message?")
-                .setPositiveButton("Delete", (dialog, which) -> {
-                    if (chatMessage.getId() != null) {
-                        chatRef.child(chatMessage.getId()).removeValue()
-                                .addOnCompleteListener(task -> {
-                                    if (task.isSuccessful()) {
-                                        showToast("Message deleted");
-                                    } else {
-                                        showToast("Failed to delete message");
-                                    }
-                                });
-                    }
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
-    }
-
     private void pickImageFromGallery() {
         Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
         startActivityForResult(intent, PICK_IMAGE_REQUEST);
     }
-
-    // --- CIRCLE VIDEO SUPPORT ---
 
     private void checkCameraPermissionAndStartVideo() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
@@ -559,7 +516,6 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
                 showToast("Camera permission is required to record video");
             }
         }
-        // ... handle other permissions if needed ...
     }
 
     @Override
@@ -627,7 +583,6 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
                 });
     }
 
-    // --- Download image to gallery ---
     public void downloadImageToGallery(String url) {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -656,7 +611,6 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
         ArrayList<String> options = new ArrayList<>();
         if (isOwnMessage) options.add("Edit");
         options.add("React");
-        if (chatMessage.getReaction() != null && isOwnMessage) options.add("Remove Reaction");
         if (isOwnMessage) options.add("Delete");
         if (chatMessage.getImageUrl() != null && !chatMessage.getImageUrl().isEmpty()) options.add("Download Image");
 
@@ -669,11 +623,7 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
                         case "Edit":
                             showEditMessageDialog(chatMessage); break;
                         case "React":
-                            showReactionDialog(chatMessage); break;
-                        case "Remove Reaction":
-                            chatRef.child(chatMessage.getId()).child("reaction").removeValue()
-                                    .addOnCompleteListener(task -> showToast(task.isSuccessful() ? "Reaction removed" : "Failed"));
-                            break;
+                            showReactionPopup(chatMessage, position, null); break;
                         case "Delete":
                             confirmAndDeleteMessage(chatMessage); break;
                         case "Download Image":
@@ -684,15 +634,35 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
                 .show();
     }
 
-    // --- Animation methods ---
+    private void confirmAndDeleteMessage(ChatMessage chatMessage) {
+        if (!currentUserId.equals(chatMessage.getSenderId())) {
+            showToast("You can only delete your own messages");
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("Delete message?")
+                .setMessage("Are you sure you want to delete this message?")
+                .setPositiveButton("Delete", (dialog, which) -> {
+                    if (chatMessage.getId() != null) {
+                        chatRef.child(chatMessage.getId()).removeValue()
+                                .addOnCompleteListener(task -> {
+                                    if (task.isSuccessful()) {
+                                        showToast("Message deleted");
+                                    } else {
+                                        showToast("Failed to delete message");
+                                    }
+                                });
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
 
     private void startMicAnimation() {
         if (isMicAnimating) return;
         isMicAnimating = true;
-        // Show the overlay
         voiceRecordingLayout.setVisibility(View.VISIBLE);
 
-        // Pulse the mic icon
         micAnimator = ObjectAnimator.ofFloat(voiceMicIcon, "scaleX", 1f, 1.4f, 1f);
         micAnimator.setDuration(900);
         micAnimator.setRepeatCount(ValueAnimator.INFINITE);
@@ -701,7 +671,6 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
         micAnimator.setPropertyName("scaleY");
         micAnimator.start();
 
-        // Animate "Recording" text with dots
         dotsAnimator = ValueAnimator.ofInt(0, 3);
         dotsAnimator.setDuration(900);
         dotsAnimator.setRepeatCount(ValueAnimator.INFINITE);
@@ -722,8 +691,6 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
             voiceRecordingLayout.setVisibility(View.GONE);
     }
 
-    // --- Voice recording with animation ---
-
     private void startRecording() {
         try {
             audioFilePath = getExternalCacheDir().getAbsolutePath() + "/voice_message_" + System.currentTimeMillis() + ".3gp";
@@ -736,7 +703,7 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
             mediaRecorder.start();
             showToast("Recording...");
             isRecording = true;
-            startMicAnimation(); // Start animation
+            startMicAnimation();
         } catch (Exception e) {
             showToast("Recording failed: " + e.getMessage());
             e.printStackTrace();
@@ -751,9 +718,13 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
                 mediaRecorder.release();
                 mediaRecorder = null;
                 isRecording = false;
-                stopMicAnimation(); // Stop animation
-                showToast("Recording finished");
-                uploadAndSendAudioMessage(audioFilePath);
+                stopMicAnimation();
+                File audioFile = new File(audioFilePath);
+                if (audioFile.exists() && audioFile.length() > 0) {
+                    uploadAndSendAudioMessage(audioFilePath);
+                } else {
+                    showToast("Recording was too short or failed.");
+                }
             } catch (Exception e) {
                 showToast("Error stopping recording: " + e.getMessage());
                 stopMicAnimation();
@@ -764,9 +735,14 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
     }
 
     private void uploadAndSendAudioMessage(String audioPath) {
-        Uri audioUri = Uri.fromFile(new File(audioPath));
+        File audioFile = new File(audioPath);
+        if (!audioFile.exists() || audioFile.length() == 0) {
+            showToast("Audio file missing or empty.");
+            return;
+        }
+        Uri audioUri = Uri.fromFile(audioFile);
         MediaManager.get().upload(audioUri)
-                .option("resource_type", "video")
+                .option("resource_type", "auto")
                 .callback(new UploadCallback() {
                     @Override public void onStart(String requestId) {}
                     @Override public void onProgress(String requestId, long bytes, long totalBytes) {}
@@ -776,6 +752,7 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
                     }
                     @Override public void onError(String requestId, ErrorInfo error) {
                         showToast("Audio upload failed: " + error.getDescription());
+                        Log.e("Cloudinary", "Audio upload error: " + error.getDescription());
                     }
                     @Override public void onReschedule(String requestId, ErrorInfo error) {}
                 }).dispatch();
@@ -805,5 +782,35 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
                         setUnreadForRecipients("[Voice Message]");
                     }
                 });
+    }
+
+    public void playAudio(String url, ImageButton playButton, int position, TextView durationText) {
+        try {
+            if (mediaPlayer != null) {
+                mediaPlayer.stop();
+                mediaPlayer.release();
+                mediaPlayer = null;
+                currentlyPlayingPosition = -1;
+            }
+            mediaPlayer = new MediaPlayer();
+            mediaPlayer.setDataSource(url);
+            mediaPlayer.setOnPreparedListener(mp -> {
+                mp.start();
+                playButton.setImageResource(R.drawable.ic_pause);
+                int duration = mp.getDuration() / 1000;
+                durationText.setText(String.format(Locale.getDefault(), "%d:%02d", duration / 60, duration % 60));
+            });
+            mediaPlayer.setOnCompletionListener(mp -> {
+                playButton.setImageResource(R.drawable.ic_play);
+                currentlyPlayingPosition = -1;
+                mediaPlayer.release();
+                mediaPlayer = null;
+            });
+            mediaPlayer.prepareAsync();
+            currentlyPlayingPosition = position;
+        } catch (IOException e) {
+            showToast("Audio playback error");
+            e.printStackTrace();
+        }
     }
 }

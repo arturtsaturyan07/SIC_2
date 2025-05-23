@@ -213,10 +213,10 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
         });
     }
 
+    // --- UPDATED: Removed "+" button! ---
     private void renderReactions(LinearLayout reactionsLayout, ChatMessage chatMessage, int position, boolean isMe) {
         reactionsLayout.removeAllViews();
         Map<String, Map<String, Boolean>> reactions = chatMessage.getReactions();
-        boolean userHasReaction = false;
 
         // Render each emoji with count
         if (reactions != null && !reactions.isEmpty()) {
@@ -225,7 +225,6 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
                 Map<String, Boolean> users = entry.getValue();
                 int count = users != null ? users.size() : 0;
                 boolean highlighted = users != null && users.containsKey(currentUserId);
-                if (highlighted) userHasReaction = true;
 
                 TextView emojiView = new TextView(context);
                 emojiView.setText(emoji + (count > 1 ? " " + count : ""));
@@ -261,20 +260,7 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
                 reactionsLayout.addView(emojiView);
             }
         }
-        // Add a "+" button for adding new reaction
-        TextView addView = new TextView(context);
-        addView.setText("+");
-        addView.setTextSize(18f);
-        addView.setBackgroundResource(R.drawable.bg_reaction_add);
-        addView.setPadding(22, 6, 22, 6);
-        addView.setGravity(Gravity.CENTER);
-        addView.setClickable(true);
-        addView.setFocusable(true);
-        addView.setOnClickListener(v -> {
-            if (reactionClickListener != null)
-                reactionClickListener.onAddReaction(chatMessage, position, addView);
-        });
-        reactionsLayout.addView(addView);
+        // NO plus button here!
     }
 
     @Override

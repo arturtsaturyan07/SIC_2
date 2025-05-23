@@ -5,9 +5,7 @@ import com.google.firebase.database.Exclude;
 import com.google.firebase.database.GenericTypeIndicator;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
 public class ChatMessage {
 
@@ -23,8 +21,7 @@ public class ChatMessage {
     private String audioUrl;
     private String circleVideoUrl;
 
-    // --- New: Per-emoji, per-user reactions ---
-    // reactions: emoji -> <uid, true>
+    // Reactions: emoji -> <uid, true>
     private Map<String, Map<String, Boolean>> reactions = new HashMap<>();
 
     public ChatMessage() {}
@@ -127,10 +124,7 @@ public class ChatMessage {
     public String getCircleVideoUrl() { return circleVideoUrl; }
     public void setCircleVideoUrl(String circleVideoUrl) { this.circleVideoUrl = circleVideoUrl; }
 
-    // --- Reactions (per-emoji, per-user) ---
+    // Reactions (per-emoji, per-user)
     public Map<String, Map<String, Boolean>> getReactions() { return reactions; }
     public void setReactions(Map<String, Map<String, Boolean>> reactions) { this.reactions = reactions; }
-    public Set<String> getReaction() {
-        return reactions != null ? reactions.keySet() : new HashSet<>();
-    }
 }

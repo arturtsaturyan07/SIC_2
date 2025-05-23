@@ -83,7 +83,7 @@
                     android:textSize="14sp" />
             </LinearLayout>
 
-            <!-- Dynamic reactions for my message (new, horizontal layout for emoji and counts) -->
+            <!-- Dynamic reactions for my message (no plus button) -->
             <LinearLayout
                 android:id="@+id/reactions_layout_me"
                 android:layout_width="wrap_content"
@@ -223,7 +223,7 @@
                         android:textSize="14sp" />
                 </LinearLayout>
 
-                <!-- Dynamic reactions for received message (new, horizontal layout for emoji and counts) -->
+                <!-- Dynamic reactions for received message (no plus button) -->
                 <LinearLayout
                     android:id="@+id/reactions_layout_other"
                     android:layout_width="wrap_content"
