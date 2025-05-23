@@ -52,6 +52,15 @@ public class DirectChatAdapter extends RecyclerView.Adapter<DirectChatAdapter.Vi
             holder.imageView.setImageResource(R.drawable.default_profile);
         }
 
+        // Show unread count badge if there are unread messages
+        int unreadCount = user.getUnreadCount();
+        if (unreadCount > 0) {
+            holder.unreadBadge.setVisibility(View.VISIBLE);
+            holder.unreadBadge.setText(String.valueOf(unreadCount));
+        } else {
+            holder.unreadBadge.setVisibility(View.GONE);
+        }
+
         holder.itemView.setOnClickListener(v -> listener.onItemClick(user));
     }
 
@@ -63,11 +72,13 @@ public class DirectChatAdapter extends RecyclerView.Adapter<DirectChatAdapter.Vi
     public static class ViewHolder extends RecyclerView.ViewHolder {
         ImageView imageView;
         TextView name;
+        TextView unreadBadge;
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
-            imageView = itemView.findViewById(R.id.chat_user_image); // FIXED ID
+            imageView = itemView.findViewById(R.id.chat_user_image);
             name = itemView.findViewById(R.id.chat_user_name);
+            unreadBadge = itemView.findViewById(R.id.chat_unread_badge);
         }
     }
 }

@@ -15,6 +15,9 @@ public class User {
     private String status; // "online", "offline", "typing"
     private long lastSeen;
 
+    // 🔹 Add unreadCount for chat badge
+    private int unreadCount = 0;
+
     // 🔹 Required empty constructor for Firebase
     public User() {}
 
@@ -28,6 +31,7 @@ public class User {
         this.bio = null;
         this.status = "offline";
         this.lastSeen = 0;
+        this.unreadCount = 0;
     }
 
     // 🔹 Constructor used in MainActivity (for new user creation)
@@ -40,6 +44,7 @@ public class User {
         this.bio = null;
         this.status = "offline";
         this.lastSeen = 0;
+        this.unreadCount = 0;
     }
 
     // 🔹 Constructor used in DirectChatsFragment
@@ -53,6 +58,7 @@ public class User {
         this.bio = bio;
         this.status = isOnline ? "online" : "offline";
         this.lastSeen = System.currentTimeMillis();
+        this.unreadCount = 0;
     }
 
     // 🔹 Full constructor
@@ -66,6 +72,7 @@ public class User {
         this.bio = bio;
         this.status = status;
         this.lastSeen = lastSeen;
+        this.unreadCount = 0;
     }
 
     // 🔹 Getters
@@ -77,6 +84,7 @@ public class User {
     public String getBio() { return bio; }
     public String getStatus() { return status; }
     public long getLastSeen() { return lastSeen; }
+    public int getUnreadCount() { return unreadCount; }
 
     // 🔹 Setters
     public void setUserId(String userId) { this.userId = userId; }
@@ -87,6 +95,7 @@ public class User {
     public void setBio(String bio) { this.bio = bio; }
     public void setStatus(String status) { this.status = status; }
     public void setLastSeen(long lastSeen) { this.lastSeen = lastSeen; }
+    public void setUnreadCount(int unreadCount) { this.unreadCount = unreadCount; }
 
     // 🔹 Helper methods
     public String getFullName() {
@@ -104,6 +113,7 @@ public class User {
         result.put("bio", bio);
         result.put("status", status);
         result.put("lastSeen", lastSeen);
+        result.put("unreadCount", unreadCount);
         return result;
     }
 }
