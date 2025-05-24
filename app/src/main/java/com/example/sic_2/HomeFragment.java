@@ -671,10 +671,13 @@ public class HomeFragment extends Fragment {
     private void sendRefreshSignal(String userId) {
         // Implement notification or UI refresh if needed for userId
     }
+    private void openCardStories(Card card) {
+        CardStoryViewerDialog dialog = CardStoryViewerDialog.newInstance(card.getId(), userId);
+        dialog.show(getChildFragmentManager(), "card_stories");
+    }
 
     private void createAndAddCardView(Card card, boolean isShared) {
         if (!isAdded() || getContext() == null) return;
-
         try {
             View cardView = LayoutInflater.from(requireContext()).inflate(R.layout.rec_card, cardContainer, false);
             ShapeableImageView recImage = cardView.findViewById(R.id.recImage);
@@ -682,6 +685,20 @@ public class HomeFragment extends Fragment {
             TextView recPriority = cardView.findViewById(R.id.recPriority);
             TextView recDesc = cardView.findViewById(R.id.recDesc);
             ImageView starView = cardView.findViewById(R.id.starView);
+
+            // Optional: Story badge indicator
+            ImageView storyBadge = cardView.findViewById(R.id.storyBadge);
+            if (storyBadge != null) {
+                DatabaseReference storiesRef = FirebaseDatabase.getInstance().getReference("stories").child(card.getId());
+                storiesRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        storyBadge.setVisibility(snapshot.exists() ? View.VISIBLE : View.GONE);
+                    }
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {}
+                });
+            }
 
             String titleText = card.getCustomTitle() != null && !card.getCustomTitle().isEmpty() ? card.getCustomTitle() : card.getTitle();
             if (isShared) titleText = "[Shared] " + titleText;
@@ -724,19 +741,23 @@ public class HomeFragment extends Fragment {
                 cardView.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.shared_card_bg));
             }
 
+            // Stories: Always tap to open story dialog
+            recImage.setOnClickListener(v -> openCardStories(card));
+            recImage.setAlpha(0.8f);
+            recImage.setFocusable(true);
+            recImage.setContentDescription("Tap to view/add stories");
+
+            // Author: Long-press to update card image
             if (card.getAuthorId() != null && card.getAuthorId().equals(userId)) {
-                recImage.setOnClickListener(v -> {
+                recImage.setOnLongClickListener(v -> {
                     pendingCardImageUpdate = card;
                     pendingUpdateImageView = recImage;
                     Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
                     startActivityForResult(intent, PICK_IMAGE_UPDATE_REQUEST);
+                    return true;
                 });
-                recImage.setAlpha(0.8f);
-                recImage.setFocusable(true);
-                recImage.setContentDescription("Tap to update card image");
             } else {
-                recImage.setOnClickListener(null);
-                recImage.setAlpha(1.0f);
+                recImage.setOnLongClickListener(null);
             }
 
             if (card.getArchived()) {

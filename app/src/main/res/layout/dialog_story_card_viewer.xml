@@ -1,0 +1,20 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:padding="16dp" android:gravity="center">
+
+    <ImageView android:id="@+id/storyImageView"
+        android:layout_width="250dp" android:layout_height="250dp"
+        android:scaleType="fitCenter"/>
+
+    <ProgressBar android:id="@+id/storyLoading"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:visibility="gone"/>
+
+    <LinearLayout android:orientation="horizontal" android:layout_width="wrap_content" android:layout_height="wrap_content">
+        <Button android:id="@+id/prevStoryButton" android:text="Prev" android:layout_height="wrap_content" android:layout_width="wrap_content"/>
+        <Button android:id="@+id/nextStoryButton" android:text="Next" android:layout_height="wrap_content" android:layout_width="wrap_content"/>
+    </LinearLayout>
+
+    <Button android:id="@+id/addStoryButton" android:text="Add Story" android:layout_height="wrap_content" android:layout_width="wrap_content"/>
+</LinearLayout>
