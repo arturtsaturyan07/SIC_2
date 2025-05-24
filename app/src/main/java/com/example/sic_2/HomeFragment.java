@@ -686,18 +686,26 @@ public class HomeFragment extends Fragment {
             TextView recDesc = cardView.findViewById(R.id.recDesc);
             ImageView starView = cardView.findViewById(R.id.starView);
 
-            // Optional: Story badge indicator
+            // Story ring logic
+            View storyRing = cardView.findViewById(R.id.storyRing);
+            if (storyRing != null) {
+                DatabaseReference storiesRef = FirebaseDatabase.getInstance().getReference("stories").child(card.getId());
+                long twentyFourHoursAgo = System.currentTimeMillis() - 24 * 60 * 60 * 1000;
+                storiesRef.orderByChild("timestamp").startAt(twentyFourHoursAgo)
+                        .addListenerForSingleValueEvent(new ValueEventListener() {
+                            @Override
+                            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                                storyRing.setVisibility(snapshot.exists() ? View.VISIBLE : View.GONE);
+                            }
+                            @Override
+                            public void onCancelled(@NonNull DatabaseError error) {}
+                        });
+            }
+
+            // Optional: Story badge indicator (add story)
             ImageView storyBadge = cardView.findViewById(R.id.storyBadge);
             if (storyBadge != null) {
-                DatabaseReference storiesRef = FirebaseDatabase.getInstance().getReference("stories").child(card.getId());
-                storiesRef.addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(@NonNull DataSnapshot snapshot) {
-                        storyBadge.setVisibility(snapshot.exists() ? View.VISIBLE : View.GONE);
-                    }
-                    @Override
-                    public void onCancelled(@NonNull DatabaseError error) {}
-                });
+                storyBadge.setVisibility(View.GONE); // Only show if you want an "add" button
             }
 
             String titleText = card.getCustomTitle() != null && !card.getCustomTitle().isEmpty() ? card.getCustomTitle() : card.getTitle();

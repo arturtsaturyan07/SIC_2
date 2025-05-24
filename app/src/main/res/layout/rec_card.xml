@@ -16,36 +16,54 @@
         android:layout_height="wrap_content"
         android:padding="12dp">
 
-        <!-- Card Image -->
-        <com.google.android.material.imageview.ShapeableImageView
-            android:id="@+id/recImage"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
+        <!-- Story Ring + Card Image -->
+        <FrameLayout
+            android:id="@+id/storyFrame"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
             android:layout_marginStart="10dp"
             android:layout_marginBottom="10dp"
-            android:layout_marginTop="10dp"
-            android:scaleType="centerCrop"
-            android:src="@drawable/uploadimg"
-            app:shapeAppearanceOverlay="@style/roundedImageViewRounded"/>
+            android:layout_marginTop="10dp">
+
+            <!-- The colorful ring, initially invisible -->
+            <View
+                android:id="@+id/storyRing"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/story_ring"
+                android:visibility="gone"/>
+
+            <!-- The card image -->
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/recImage"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:layout_gravity="center"
+                android:scaleType="centerCrop"
+                android:src="@drawable/uploadimg"
+                app:shapeAppearanceOverlay="@style/roundedImageViewRounded"/>
+        </FrameLayout>
 
         <!-- Favorite Star -->
         <ImageView
             android:id="@+id/starView"
             android:layout_width="22dp"
             android:layout_height="22dp"
-            android:layout_alignTop="@id/recImage"
-            android:layout_toEndOf="@id/recImage"
+            android:layout_alignTop="@id/storyFrame"
+            android:layout_toEndOf="@id/storyFrame"
             android:layout_marginStart="8dp"
             android:layout_marginTop="2dp"
             android:src="@android:drawable/btn_star_big_on"
             android:visibility="gone"
             app:tint="@color/star_yellow" />
+
+        <!-- Story badge (optional, for "add story" icon) -->
         <ImageView
             android:id="@+id/storyBadge"
             android:layout_width="20dp"
             android:layout_height="20dp"
-            android:layout_alignBottom="@id/recImage"
-            android:layout_alignEnd="@id/recImage"
+            android:layout_alignBottom="@id/storyFrame"
+            android:layout_alignEnd="@id/storyFrame"
             android:src="@drawable/ic_add_story"
             android:background="@drawable/circle_bg"
             android:visibility="gone"/>
@@ -57,7 +75,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="20dp"
             android:layout_marginTop="20dp"
-            android:layout_toEndOf="@id/recImage"
+            android:layout_toEndOf="@id/storyFrame"
             android:text="Title"
             android:textColor="@color/lavender"
             android:textSize="20sp"
@@ -89,7 +107,7 @@
             android:layout_marginTop="8dp"
             android:layout_marginEnd="16dp"
             android:layout_marginBottom="12dp"
-            android:layout_toEndOf="@id/recImage"
+            android:layout_toEndOf="@id/storyFrame"
             android:ellipsize="end"
             android:maxLines="2"
             android:text="Description"
