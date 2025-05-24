@@ -28,10 +28,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * ChatAdapter for displaying chat messages, supporting text, image, audio, circle video messages, reactions, and long-press menu.
- * Now supports advanced message reactions per user, with animated popup.
- */
 public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder> {
 
     private final List<ChatMessage> chatMessages;
@@ -80,6 +76,32 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
 
         SimpleDateFormat sdf = new SimpleDateFormat("HH:mm", Locale.getDefault());
         String formattedTime = sdf.format(new Date(chatMessage.getTimestamp()));
+
+        // --- Show reply layout if present (ME) ---
+        if (isSentByCurrentUser) {
+            if (chatMessage.getReplyToMessageId() != null) {
+                holder.replyContainerMe.setVisibility(View.VISIBLE);
+                holder.replySenderNameMe.setText(chatMessage.getReplyToSenderName());
+                holder.replyMessageTextMe.setText(chatMessage.getReplyToMessageText() == null || chatMessage.getReplyToMessageText().isEmpty()
+                        ? "[Media]"
+                        : chatMessage.getReplyToMessageText());
+            } else {
+                holder.replyContainerMe.setVisibility(View.GONE);
+            }
+        }
+
+        // --- Show reply layout if present (OTHER) ---
+        if (!isSentByCurrentUser) {
+            if (chatMessage.getReplyToMessageId() != null) {
+                holder.replyContainerOther.setVisibility(View.VISIBLE);
+                holder.replySenderNameOther.setText(chatMessage.getReplyToSenderName());
+                holder.replyMessageTextOther.setText(chatMessage.getReplyToMessageText() == null || chatMessage.getReplyToMessageText().isEmpty()
+                        ? "[Media]"
+                        : chatMessage.getReplyToMessageText());
+            } else {
+                holder.replyContainerOther.setVisibility(View.GONE);
+            }
+        }
 
         // Sent by me
         if (isSentByCurrentUser) {
@@ -295,6 +317,9 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
     static class ChatViewHolder extends RecyclerView.ViewHolder {
         // Sent by me
         LinearLayout containerMe;
+        LinearLayout replyContainerMe;
+        TextView replySenderNameMe;
+        TextView replyMessageTextMe;
         TextView messageTextMe;
         ImageView messageImageMe;
         ShapeableImageView circleVideoMe;
@@ -307,6 +332,9 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
 
         // Received from others
         LinearLayout containerOther;
+        LinearLayout replyContainerOther;
+        TextView replySenderNameOther;
+        TextView replyMessageTextOther;
         ImageView profileImageOther;
         TextView senderNameOther;
         TextView messageTextOther;
@@ -323,6 +351,9 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
 
             // Sent by me
             containerMe = itemView.findViewById(R.id.message_container_me);
+            replyContainerMe = itemView.findViewById(R.id.reply_container_me);
+            replySenderNameMe = itemView.findViewById(R.id.reply_sender_name_me);
+            replyMessageTextMe = itemView.findViewById(R.id.reply_message_text_me);
             messageTextMe = itemView.findViewById(R.id.message_text_me);
             messageImageMe = itemView.findViewById(R.id.message_image_me);
             circleVideoMe = itemView.findViewById(R.id.circle_video_me);
@@ -335,6 +366,9 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ChatViewHolder
 
             // Received from other
             containerOther = itemView.findViewById(R.id.message_container_other);
+            replyContainerOther = itemView.findViewById(R.id.reply_container_other);
+            replySenderNameOther = itemView.findViewById(R.id.reply_sender_name_other);
+            replyMessageTextOther = itemView.findViewById(R.id.reply_message_text_other);
             profileImageOther = itemView.findViewById(R.id.profile_image_other);
             senderNameOther = itemView.findViewById(R.id.sender_name_other);
             messageTextOther = itemView.findViewById(R.id.message_text_other);

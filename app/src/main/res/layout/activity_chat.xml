@@ -1,5 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -41,6 +43,47 @@
             android:textColor="@android:color/white"
             android:textSize="18sp"
             android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Reply Layout (above message input) -->
+    <LinearLayout
+        android:id="@+id/reply_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="#E3E6FC"
+        android:padding="8dp"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_weight="1">
+
+            <TextView
+                android:id="@+id/reply_sender"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textStyle="bold"
+                android:textColor="#1A237E"
+                android:textSize="13sp"
+                tools:text="User Name"/>
+
+            <TextView
+                android:id="@+id/reply_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                tools:text="Message preview"/>
+        </LinearLayout>
+        <ImageButton
+            android:id="@+id/cancel_reply"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Cancel reply"/>
     </LinearLayout>
 
     <LinearLayout

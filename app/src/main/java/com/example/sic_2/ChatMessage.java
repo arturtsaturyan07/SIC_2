@@ -24,6 +24,11 @@ public class ChatMessage {
     // Reactions: emoji -> <uid, true>
     private Map<String, Map<String, Boolean>> reactions = new HashMap<>();
 
+    // --- SWIPE REPLY FIELDS ---
+    private String replyToMessageId;
+    private String replyToMessageText;
+    private String replyToSenderName;
+
     public ChatMessage() {}
 
     public ChatMessage(String senderId, String name, String message, long timestamp, String profileImageUrl) {
@@ -127,4 +132,12 @@ public class ChatMessage {
     // Reactions (per-emoji, per-user)
     public Map<String, Map<String, Boolean>> getReactions() { return reactions; }
     public void setReactions(Map<String, Map<String, Boolean>> reactions) { this.reactions = reactions; }
+
+    // --- SWIPE REPLY GETTERS/SETTERS ---
+    public String getReplyToMessageId() { return replyToMessageId; }
+    public void setReplyToMessageId(String replyToMessageId) { this.replyToMessageId = replyToMessageId; }
+    public String getReplyToMessageText() { return replyToMessageText; }
+    public void setReplyToMessageText(String replyToMessageText) { this.replyToMessageText = replyToMessageText; }
+    public String getReplyToSenderName() { return replyToSenderName; }
+    public void setReplyToSenderName(String replyToSenderName) { this.replyToSenderName = replyToSenderName; }
 }

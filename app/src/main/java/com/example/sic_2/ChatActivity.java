@@ -29,6 +29,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -93,6 +94,13 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
     private MediaPlayer mediaPlayer = null;
     private int currentlyPlayingPosition = -1;
 
+    // Reply
+    private ChatMessage replyToMessage = null;
+    private LinearLayout replyLayout;
+    private TextView replySender;
+    private TextView replyText;
+    private ImageButton cancelReplyButton;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -101,6 +109,14 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
         voiceRecordingLayout = findViewById(R.id.voice_recording_layout);
         voiceMicIcon = findViewById(R.id.voice_mic_icon);
         voiceRecordingText = findViewById(R.id.voice_recording_text);
+
+        replyLayout = findViewById(R.id.reply_layout);
+        replySender = findViewById(R.id.reply_sender);
+        replyText = findViewById(R.id.reply_text);
+        cancelReplyButton = findViewById(R.id.cancel_reply);
+
+        replyLayout.setVisibility(View.GONE);
+        cancelReplyButton.setOnClickListener(v -> clearReply());
 
         voiceRecordingLayout.setVisibility(View.GONE);
 
@@ -166,6 +182,27 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
         chatRecyclerView = findViewById(R.id.chat_recycler_view);
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         chatRecyclerView.setAdapter(chatAdapter);
+
+        // --- SWIPE TO REPLY ---
+        ItemTouchHelper.SimpleCallback simpleCallback = new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.RIGHT) {
+            @Override
+            public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, @NonNull RecyclerView.ViewHolder target) {
+                return false;
+            }
+            @Override
+            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+                int position = viewHolder.getAdapterPosition();
+                ChatMessage message = chatMessages.get(position);
+                showReply(message);
+                chatAdapter.notifyItemChanged(position); // Reset swipe state
+            }
+            @Override
+            public float getSwipeThreshold(@NonNull RecyclerView.ViewHolder viewHolder) {
+                return 0.3f;
+            }
+        };
+        ItemTouchHelper itemTouchHelper = new ItemTouchHelper(simpleCallback);
+        itemTouchHelper.attachToRecyclerView(chatRecyclerView);
 
         chatRef = FirebaseDatabase.getInstance()
                 .getReference("chats")
@@ -277,6 +314,14 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
                 profileImageUrl
         );
 
+        // Add reply info if replying
+        if (replyToMessage != null) {
+            chatMessage.setReplyToMessageId(replyToMessage.getId());
+            chatMessage.setReplyToMessageText(replyToMessage.getMessage());
+            chatMessage.setReplyToSenderName(replyToMessage.getSenderName());
+            clearReply();
+        }
+
         chatRef.child(messageId).setValue(chatMessage)
                 .addOnCompleteListener(task -> {
                     if (!task.isSuccessful()) {
@@ -367,6 +412,19 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
             mediaPlayer.release();
             mediaPlayer = null;
         }
+    }
+
+    // ---- SWIPE REPLY UI ----
+    private void showReply(ChatMessage message) {
+        replyToMessage = message;
+        replySender.setText(message.getSenderName());
+        replyText.setText(message.getMessage().isEmpty() ? "[Media]" : message.getMessage());
+        replyLayout.setVisibility(View.VISIBLE);
+    }
+
+    private void clearReply() {
+        replyToMessage = null;
+        replyLayout.setVisibility(View.GONE);
     }
 
     // Long-press message handler: show menu for edit, react, delete

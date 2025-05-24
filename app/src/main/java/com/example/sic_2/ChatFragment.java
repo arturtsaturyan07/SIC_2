@@ -7,12 +7,16 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -31,8 +35,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * ChatFragment: Chat UI for a card, with long-press menu for edit, react, and delete actions.
- * Updated: Advanced Telegram-style reactions per user, per emoji.
+ * ChatFragment: Chat UI for a card, with swipe-to-reply, long-press menu for edit, react, and delete actions.
  */
 public class ChatFragment extends Fragment implements OnMessageLongClickListener {
 
@@ -56,6 +59,13 @@ public class ChatFragment extends Fragment implements OnMessageLongClickListener
 
     private boolean isCurrentCardActive = false;
     private boolean isInForeground = false; // Tracks if user is in this chat
+
+    // --- Swipe-to-reply state & UI ---
+    private ChatMessage replyToMessage = null;
+    private LinearLayout replyLayout;
+    private TextView replySender;
+    private TextView replyText;
+    private ImageButton cancelReplyButton;
 
     public static ChatFragment newInstance(String cardId, String originalOwnerId) {
         Bundle args = new Bundle();
@@ -127,6 +137,36 @@ public class ChatFragment extends Fragment implements OnMessageLongClickListener
 
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         chatRecyclerView.setAdapter(chatAdapter);
+
+        // --- Swipe to reply ---
+        ItemTouchHelper.SimpleCallback simpleCallback = new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.RIGHT) {
+            @Override
+            public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, @NonNull RecyclerView.ViewHolder target) {
+                return false;
+            }
+            @Override
+            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+                int position = viewHolder.getAdapterPosition();
+                ChatMessage message = chatMessages.get(position);
+                showReply(message);
+                chatAdapter.notifyItemChanged(position); // Reset swipe state
+            }
+            @Override
+            public float getSwipeThreshold(@NonNull RecyclerView.ViewHolder viewHolder) {
+                return 0.3f;
+            }
+        };
+        ItemTouchHelper itemTouchHelper = new ItemTouchHelper(simpleCallback);
+        itemTouchHelper.attachToRecyclerView(chatRecyclerView);
+
+        // --- Reply Preview UI ---
+        replyLayout = view.findViewById(R.id.reply_layout);
+        replySender = view.findViewById(R.id.reply_sender);
+        replyText = view.findViewById(R.id.reply_text);
+        cancelReplyButton = view.findViewById(R.id.cancel_reply);
+
+        replyLayout.setVisibility(View.GONE);
+        cancelReplyButton.setOnClickListener(v -> clearReply());
 
         EditText messageInput = view.findViewById(R.id.message_input);
         Button sendButton = view.findViewById(R.id.send_button);
@@ -265,6 +305,14 @@ public class ChatFragment extends Fragment implements OnMessageLongClickListener
                 System.currentTimeMillis(),
                 profileImageUrl
         );
+
+        // Add reply info if replying
+        if (replyToMessage != null) {
+            chatMessage.setReplyToMessageId(replyToMessage.getId());
+            chatMessage.setReplyToMessageText(replyToMessage.getMessage());
+            chatMessage.setReplyToSenderName(replyToMessage.getSenderName());
+            clearReply();
+        }
 
         chatRef.child(messageId).setValue(chatMessage)
                 .addOnSuccessListener(aVoid -> {
@@ -500,5 +548,18 @@ public class ChatFragment extends Fragment implements OnMessageLongClickListener
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
+    }
+
+    // --- Swipe-to-reply helpers ---
+    private void showReply(ChatMessage message) {
+        replyToMessage = message;
+        replySender.setText(message.getSenderName());
+        replyText.setText(message.getMessage().isEmpty() ? "[Media]" : message.getMessage());
+        replyLayout.setVisibility(View.VISIBLE);
+    }
+
+    private void clearReply() {
+        replyToMessage = null;
+        replyLayout.setVisibility(View.GONE);
     }
 }
