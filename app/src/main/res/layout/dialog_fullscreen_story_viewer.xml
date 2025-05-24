@@ -39,4 +39,31 @@
             android:layout_height="match_parent"
             android:layout_weight="1" />
     </LinearLayout>
+
+    <!-- Add story button and "no stories" text for empty state -->
+    <LinearLayout
+        android:orientation="vertical"
+        android:gravity="center"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="center">
+
+        <TextView
+            android:id="@+id/noStoriesText"
+            android:text="No stories yet. Add one!"
+            android:textColor="#FFF"
+            android:textSize="18sp"
+            android:gravity="center"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp"  android:layout_height="wrap_content" android:layout_width="wrap_content"/>
+
+        <Button
+            android:id="@+id/addStoryButton"
+            android:text="Add Story"
+            android:backgroundTint="@color/colorAccent"
+            android:textColor="#FFF"
+            android:visibility="gone"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="32dp"  android:layout_height="wrap_content" android:layout_width="wrap_content"/>
+    </LinearLayout>
 </FrameLayout>
