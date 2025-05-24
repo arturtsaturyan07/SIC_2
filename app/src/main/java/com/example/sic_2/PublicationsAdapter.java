@@ -37,6 +37,7 @@ public class PublicationsAdapter extends RecyclerView.Adapter<PublicationsAdapte
 
     public interface PublicationActionListener {
         void onEditImageRequest(Publication publication);
+        void onDeletePublicationRequest(Publication publication); // ADDED
     }
 
     public PublicationsAdapter(List<Publication> publicationsList, Context context, String cardId, PublicationActionListener actionListener) {
@@ -186,8 +187,14 @@ public class PublicationsAdapter extends RecyclerView.Adapter<PublicationsAdapte
         if (currentUserId != null && currentUserId.equals(publication.getUserId())) {
             holder.btnEdit.setVisibility(View.VISIBLE);
             holder.btnEdit.setOnClickListener(v -> showEditDialog(publication));
+            // DELETE button: show & handle for owner
+            holder.btnDelete.setVisibility(View.VISIBLE);
+            holder.btnDelete.setOnClickListener(v -> {
+                if (actionListener != null) actionListener.onDeletePublicationRequest(publication);
+            });
         } else {
             holder.btnEdit.setVisibility(View.GONE);
+            holder.btnDelete.setVisibility(View.GONE);
         }
     }
 
@@ -241,7 +248,7 @@ public class PublicationsAdapter extends RecyclerView.Adapter<PublicationsAdapte
 
     public static class PublicationViewHolder extends RecyclerView.ViewHolder {
         TextView authorTextView, contentTextView, timestampTextView, tvReactionSummary;
-        ImageView imageView, btnLike, btnDislike, btnComment, btnEdit;
+        ImageView imageView, btnLike, btnDislike, btnComment, btnEdit, btnDelete; // btnDelete added here!
         CircleImageView profileImageView;
 
         public PublicationViewHolder(@NonNull View itemView) {
@@ -255,6 +262,7 @@ public class PublicationsAdapter extends RecyclerView.Adapter<PublicationsAdapte
             btnDislike = itemView.findViewById(R.id.btn_dislike);
             btnComment = itemView.findViewById(R.id.btn_comment);
             btnEdit = itemView.findViewById(R.id.btn_edit);
+            btnDelete = itemView.findViewById(R.id.btn_delete); // <-- Make sure this exists in your layout!
             tvReactionSummary = itemView.findViewById(R.id.tv_reaction_summary);
         }
     }

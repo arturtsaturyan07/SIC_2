@@ -18,10 +18,8 @@ import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.cardview.widget.CardView;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
@@ -32,21 +30,12 @@ import com.cloudinary.android.MediaManager;
 import com.cloudinary.android.callback.ErrorInfo;
 import com.cloudinary.android.callback.UploadCallback;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.*;
 
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 public class CardFragment extends Fragment implements PublicationsAdapter.PublicationActionListener {
 
@@ -176,10 +165,6 @@ public class CardFragment extends Fragment implements PublicationsAdapter.Public
         addPhotoButton.setOnClickListener(v -> showImagePickerDialog());
     }
 
-    private void showAddPublicationDialog() {
-        // Not needed with new input bar (left for possible future use)
-    }
-
     private void loadPublications() {
         if (postsRef != null && publicationsListener != null) {
             postsRef.removeEventListener(publicationsListener);
@@ -307,7 +292,6 @@ public class CardFragment extends Fragment implements PublicationsAdapter.Public
         if (intent.resolveActivity(requireActivity().getPackageManager()) != null) {
             File photoFile = createImageFile();
             if (photoFile != null) {
-                // Use FileProvider for Android 7.0+ (API 24+)
                 imageUri = FileProvider.getUriForFile(
                         requireContext(),
                         requireContext().getPackageName() + ".fileprovider",
@@ -412,10 +396,8 @@ public class CardFragment extends Fragment implements PublicationsAdapter.Public
             MediaManager.get().upload(editImageUri)
                     .option("folder", CLOUDINARY_FOLDER)
                     .callback(new UploadCallback() {
-                        @Override
-                        public void onStart(String requestId) {}
-                        @Override
-                        public void onProgress(String requestId, long bytes, long totalBytes) {}
+                        @Override public void onStart(String requestId) {}
+                        @Override public void onProgress(String requestId, long bytes, long totalBytes) {}
                         @Override
                         public void onSuccess(String requestId, Map resultData) {
                             requireActivity().runOnUiThread(() -> {
@@ -492,5 +474,23 @@ public class CardFragment extends Fragment implements PublicationsAdapter.Public
             Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
             startActivityForResult(intent, REQUEST_EDIT_IMAGE);
         }
+    }
+
+    @Override
+    public void onDeletePublicationRequest(Publication publication) {
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("Delete Publication")
+                .setMessage("Are you sure you want to delete this publication?")
+                .setPositiveButton("Delete", (dialog, which) -> {
+                    FirebaseDatabase.getInstance()
+                            .getReference("posts")
+                            .child(cardId)
+                            .child(publication.getId())
+                            .removeValue()
+                            .addOnSuccessListener(aVoid -> showToast("Publication deleted"))
+                            .addOnFailureListener(e -> showToast("Failed to delete publication"));
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 }

@@ -113,6 +113,15 @@
                     android:contentDescription="@string/edit"
                     android:visibility="gone"
                     android:layout_marginEnd="4dp"/>
+                <!-- Delete Button: Only visible for owner -->
+                <ImageView
+                    android:id="@+id/btn_delete"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:src="@android:drawable/ic_menu_delete"
+                    android:contentDescription="delete"
+                    android:visibility="gone"
+                    android:layout_marginEnd="4dp"/>
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>
