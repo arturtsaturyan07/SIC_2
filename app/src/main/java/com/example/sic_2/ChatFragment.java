@@ -36,6 +36,7 @@ import java.util.Objects;
 
 /**
  * ChatFragment: Chat UI for a card, with swipe-to-reply, long-press menu for edit, react, and delete actions.
+ * This version hides the top bar from activity_chat.xml when used as a fragment.
  */
 public class ChatFragment extends Fragment implements OnMessageLongClickListener {
 
@@ -94,7 +95,15 @@ public class ChatFragment extends Fragment implements OnMessageLongClickListener
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        // Inflate the activity_chat.xml layout (which includes the top bar)
         View view = inflater.inflate(R.layout.activity_chat, container, false);
+
+        // Option 1: Hide the top bar if present (when used as a fragment)
+        View topBar = view.findViewById(R.id.top_bar);
+        if (topBar != null) {
+            topBar.setVisibility(View.GONE);
+        }
+
         setupViews(view);
         setupFirebase();
         return view;
@@ -117,6 +126,9 @@ public class ChatFragment extends Fragment implements OnMessageLongClickListener
 
     private void setupViews(View view) {
         chatRecyclerView = view.findViewById(R.id.chat_recycler_view);
+        if (chatRecyclerView == null) {
+            throw new RuntimeException("activity_chat.xml must have a RecyclerView with id 'chat_recycler_view'");
+        }
         chatMessages = new ArrayList<>();
         chatAdapter = new ChatAdapter(requireContext(), chatMessages, currentUserId, userNames, userProfilePics, this);
 
