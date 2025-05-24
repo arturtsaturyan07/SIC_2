@@ -101,10 +101,56 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
     private TextView replyText;
     private ImageButton cancelReplyButton;
 
+    // Top bar UI
+    private ImageButton btnBack;
+    private ImageView chatPartnerImage;
+    private TextView chatPartnerName;
+    private TextView chatPartnerStatus;
+
+    private String partnerUserId = null;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
+
+        // --- Top bar wiring ---
+        btnBack = findViewById(R.id.btn_back);
+        chatPartnerImage = findViewById(R.id.chat_partner_image);
+        chatPartnerName = findViewById(R.id.chat_partner_name);
+        chatPartnerStatus = findViewById(R.id.chat_partner_status);
+
+        btnBack.setOnClickListener(v -> finish());
+
+        partnerUserId = getIntent().getStringExtra("partnerUserId");
+        currentUserId = FirebaseAuth.getInstance().getCurrentUser() != null
+                ? FirebaseAuth.getInstance().getCurrentUser().getUid()
+                : null;
+        chatId = getIntent().getStringExtra("cardId");
+
+        // --- Open profile details when clicking profile image or name ---
+        View.OnClickListener openUserDetails = v -> {
+            String uid = partnerUserId;
+            if (uid == null || uid.isEmpty()) {
+                uid = extractPartnerIdFromChatId(); // fallback if not set
+            }
+            if (uid != null && !uid.isEmpty()) {
+                Intent intent = new Intent(ChatActivity.this, ProfileActivity.class);
+                intent.putExtra("userId", uid);
+                startActivity(intent);
+            }
+        };
+        chatPartnerImage.setOnClickListener(openUserDetails);
+        chatPartnerName.setOnClickListener(openUserDetails);
+
+        if (partnerUserId != null && !partnerUserId.isEmpty()) {
+            loadPartnerInfo(partnerUserId);
+        } else {
+            String extractedPartnerId = extractPartnerIdFromChatId();
+            if (extractedPartnerId != null && !extractedPartnerId.equals(currentUserId)) {
+                loadPartnerInfo(extractedPartnerId);
+            }
+        }
 
         voiceRecordingLayout = findViewById(R.id.voice_recording_layout);
         voiceMicIcon = findViewById(R.id.voice_mic_icon);
@@ -138,11 +184,6 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
 
         ImageButton circleVideoButton = findViewById(R.id.circle_video_button);
         circleVideoButton.setOnClickListener(v -> checkCameraPermissionAndStartVideo());
-
-        currentUserId = FirebaseAuth.getInstance().getCurrentUser() != null
-                ? FirebaseAuth.getInstance().getCurrentUser().getUid()
-                : null;
-        chatId = getIntent().getStringExtra("cardId");
 
         if (chatId == null || chatId.isEmpty()) {
             showToast("Chat ID is missing");
@@ -214,6 +255,52 @@ public class ChatActivity extends AppCompatActivity implements OnMessageLongClic
 
         loadChatMessages();
         setupUI();
+    }
+
+    private String extractPartnerIdFromChatId() {
+        // Fallback: For chatId like "direct_chat_uid1_uid2", find the one that is not me
+        if (chatId != null && chatId.startsWith("direct_chat_")) {
+            String ids = chatId.replace("direct_chat_", "");
+            String[] parts = ids.split("_");
+            if (parts.length == 2) {
+                if (currentUserId != null) {
+                    if (parts[0].equals(currentUserId)) return parts[1];
+                    if (parts[1].equals(currentUserId)) return parts[0];
+                }
+            }
+        }
+        return null;
+    }
+
+    private void loadPartnerInfo(String userId) {
+        DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("users").child(userId);
+        userRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                String name = snapshot.child("name").getValue(String.class);
+                String surname = snapshot.child("surname").getValue(String.class);
+                String profileUrl = snapshot.child("profileImageUrl").getValue(String.class);
+                String fullName = (name != null && surname != null && !surname.isEmpty())
+                        ? name + " " + surname
+                        : (name != null ? name : "Unknown");
+                chatPartnerName.setText(fullName);
+                if (profileUrl != null && !profileUrl.isEmpty()) {
+                    Glide.with(ChatActivity.this)
+                            .load(profileUrl)
+                            .placeholder(R.drawable.default_profile)
+                            .error(R.drawable.default_profile)
+                            .into(chatPartnerImage);
+                } else {
+                    chatPartnerImage.setImageResource(R.drawable.default_profile);
+                }
+                // Optionally set status here if you have online/offline
+            }
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                chatPartnerName.setText("Unknown");
+                chatPartnerImage.setImageResource(R.drawable.default_profile);
+            }
+        });
     }
 
     private void setupUI() {
