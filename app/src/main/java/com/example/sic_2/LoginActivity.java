@@ -1,10 +1,12 @@
 package com.example.sic_2;
 
 import android.app.ProgressDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -19,7 +21,6 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -28,7 +29,8 @@ public class LoginActivity extends AppCompatActivity {
 
     TextInputEditText etLoginEmail;
     TextInputEditText etLoginPassword;
-    TextView tvRegisterHere;  // Changed from tvLoginHere to match XML
+    TextView tvRegisterHere;
+    TextView tvForgotPassword;
     Button btnLogin;
     Button btnGuestMode;
     FirebaseAuth mAuth;
@@ -39,10 +41,10 @@ public class LoginActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        // Initialize views - IDs now match your XML
         etLoginEmail = findViewById(R.id.etLoginEmail);
         etLoginPassword = findViewById(R.id.etLoginPass);
-        tvRegisterHere = findViewById(R.id.tvRegisterHere); // Correct ID
+        tvRegisterHere = findViewById(R.id.tvRegisterHere);
+        tvForgotPassword = findViewById(R.id.tvForgotPassword);
         btnLogin = findViewById(R.id.btnLogin);
         btnGuestMode = findViewById(R.id.btnGuestMode);
 
@@ -52,6 +54,7 @@ public class LoginActivity extends AppCompatActivity {
         btnLogin.setOnClickListener(view -> loginUser());
         tvRegisterHere.setOnClickListener(view -> startActivity(new Intent(LoginActivity.this, RegisterActivity.class)));
         btnGuestMode.setOnClickListener(view -> enterGuestMode());
+        tvForgotPassword.setOnClickListener(view -> showForgotPasswordDialog());
     }
 
     private void loginUser() {
@@ -112,16 +115,13 @@ public class LoginActivity extends AppCompatActivity {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (!snapshot.exists()) {
-                    // Create basic profile if missing
                     Map<String, Object> userProfile = new HashMap<>();
                     userProfile.put("name", user.getDisplayName() != null ? user.getDisplayName() : "User");
                     userProfile.put("email", user.getEmail());
                     userProfile.put("timestamp", System.currentTimeMillis());
-
                     usersRef.child(user.getUid()).setValue(userProfile);
                 }
             }
-
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
                 Log.e("LoginActivity", "Error verifying user profile", error.toException());
@@ -146,6 +146,40 @@ public class LoginActivity extends AppCompatActivity {
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
+    }
+
+    private void showForgotPasswordDialog() {
+        final TextInputEditText input = new TextInputEditText(this);
+        input.setHint("Enter your email");
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
+                .setTitle("Forgot Password?")
+                .setMessage("Enter your email to receive password reset instructions.")
+                .setView(input)
+                .setPositiveButton("Send", null)
+                .setNegativeButton("Cancel", null);
+
+        AlertDialog dialog = builder.create();
+        dialog.setOnShowListener(dialogInterface -> {
+            Button button = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            button.setOnClickListener(view -> {
+                String email = input.getText() != null ? input.getText().toString().trim() : "";
+                if (!isEmailValid(email)) {
+                    input.setError("Please enter a valid email");
+                    input.requestFocus();
+                } else {
+                    mAuth.sendPasswordResetEmail(email)
+                            .addOnCompleteListener(task -> {
+                                if (task.isSuccessful()) {
+                                    Toast.makeText(LoginActivity.this, "Reset link sent to your email.", Toast.LENGTH_LONG).show();
+                                    dialog.dismiss();
+                                } else {
+                                    Toast.makeText(LoginActivity.this, "Failed to send reset link: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
+                                }
+                            });
+                }
+            });
+        });
+        dialog.show();
     }
 
     @Override
