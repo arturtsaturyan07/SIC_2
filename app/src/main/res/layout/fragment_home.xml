@@ -1,26 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background_color">
 
-    <!-- Search Bar -->
+    <!-- Main Card List Area -->
     <androidx.appcompat.widget.SearchView
         android:id="@+id/search"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="8dp"
+        android:layout_margin="14dp"
+        android:background="@drawable/searchview_rounded_bg"
         app:iconifiedByDefault="false"
-        app:queryHint="Search cards..."/>
+        app:queryHint="Search cards..." />
 
-    <!-- Scroll View for Cards -->
     <ScrollView
         android:id="@+id/scroll_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_below="@id/search"
-        android:layout_above="@id/fab">
+        android:layout_above="@+id/fab"
+        android:paddingTop="6dp"
+        android:paddingBottom="90dp"
+        tools:ignore="NotSibling">
 
         <LinearLayout
             android:id="@+id/card_container"
@@ -29,20 +33,6 @@
             android:orientation="vertical"
             android:padding="8dp"/>
     </ScrollView>
-
-    <!-- Add Card Button (FAB) placed just above the bottom navigation bar -->
-    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-        android:id="@+id/fab"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentEnd="true"
-        android:layout_marginBottom="16dp"
-        android:layout_marginEnd="16dp"
-        android:text="Add Card"
-        app:icon="@drawable/ic_add"
-        app:iconTint="@android:color/white"
-        app:backgroundTint="@color/lavender"/>
 
     <!-- Empty State View -->
     <LinearLayout
@@ -86,4 +76,32 @@
         android:layout_height="wrap_content"
         android:layout_centerInParent="true"
         android:visibility="gone"/>
+
+    <!-- Gaussian bump (curve) at the bottom -->
+    <ImageView
+        android:id="@+id/gauss_bump"
+        android:layout_width="match_parent"
+        android:layout_height="80dp"
+        android:layout_alignParentBottom="true"
+        android:src="@drawable/gauss_curve_shadow"
+        android:scaleType="fitXY"
+        android:contentDescription="Gaussian bump curve background"
+        android:importantForAccessibility="no" />
+
+    <!-- FAB above the bump, overlapping (use negative margin) -->
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/fab"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginBottom="36dp"
+        android:text="Add Card"
+        android:textColor="@android:color/white"
+        app:icon="@drawable/ic_add"
+        app:iconTint="@android:color/white"
+        app:backgroundTint="@color/lavender"
+        android:elevation="10dp"
+        android:stateListAnimator="@animator/fab_elevation_animator"/>
+
 </RelativeLayout>
