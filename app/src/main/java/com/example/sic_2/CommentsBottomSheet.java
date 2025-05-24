@@ -42,7 +42,7 @@ public class CommentsBottomSheet extends BottomSheetDialogFragment {
         sendButton = view.findViewById(R.id.send_comment_button);
 
         commentList = new ArrayList<>();
-        commentsAdapter = new CommentsAdapter(commentList, requireContext());
+        commentsAdapter = new CommentsAdapter(commentList, requireContext(), publicationId);
         commentsRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         commentsRecyclerView.setAdapter(commentsAdapter);
 

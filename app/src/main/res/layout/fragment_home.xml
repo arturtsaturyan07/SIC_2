@@ -23,7 +23,7 @@
         android:layout_below="@id/search"
         android:layout_above="@+id/fab"
         android:paddingTop="6dp"
-        android:paddingBottom="90dp"
+        android:paddingBottom="16dp"
         tools:ignore="NotSibling">
 
         <LinearLayout
@@ -77,25 +77,14 @@
         android:layout_centerInParent="true"
         android:visibility="gone"/>
 
-    <!-- Gaussian bump (curve) at the bottom -->
-    <ImageView
-        android:id="@+id/gauss_bump"
-        android:layout_width="match_parent"
-        android:layout_height="80dp"
-        android:layout_alignParentBottom="true"
-        android:src="@drawable/gauss_curve_shadow"
-        android:scaleType="fitXY"
-        android:contentDescription="Gaussian bump curve background"
-        android:importantForAccessibility="no" />
-
-    <!-- FAB above the bump, overlapping (use negative margin) -->
+    <!-- FAB even closer to the bottom -->
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
         android:id="@+id/fab"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerHorizontal="true"
         android:layout_alignParentBottom="true"
-        android:layout_marginBottom="36dp"
+        android:layout_marginBottom="4dp"
         android:text="Add Card"
         android:textColor="@android:color/white"
         app:icon="@drawable/ic_add"
