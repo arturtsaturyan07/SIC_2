@@ -69,5 +69,6 @@
             </intent-filter>
         </service>
         <service android:name=".AppRunningService" />
+        <receiver android:name=".CampRequestActionReceiver"/>
     </application>
 </manifest>

@@ -480,12 +480,14 @@ public class HomeFragment extends Fragment {
                             CampRequest request = requestSnapshot.getValue(CampRequest.class);
                             if (request != null && request.getStatus().equals("pending")) {
                                 if (request.getOwnerId().equals(userId)) {
+                                    // Show in-app dialog
                                     showCampRequestDialog(request);
+                                    // Show notification in the bar
+                                    NotificationUtils.showCampRequestNotification(requireContext(), request);
                                 }
                             }
                         }
                     }
-
                     @Override
                     public void onCancelled(@NonNull DatabaseError error) {
                         Log.e("HomeFragment", "Error loading camp requests", error.toException());
