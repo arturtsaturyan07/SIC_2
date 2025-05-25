@@ -28,6 +28,18 @@
         android:paddingBottom="8dp"
         android:clipToPadding="false" />
 
+    <!-- Optional: Selected Image Preview (visible when an image is chosen for posting) -->
+    <ImageView
+        android:id="@+id/selected_image_preview"
+        android:layout_width="90dp"
+        android:layout_height="90dp"
+        android:layout_gravity="start"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="4dp"
+        android:scaleType="centerCrop"
+        android:visibility="gone"
+        android:background="@drawable/lavender_border"/>
+
     <!-- Input Bar -->
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"

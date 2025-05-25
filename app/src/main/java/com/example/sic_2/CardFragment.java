@@ -15,6 +15,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -54,7 +55,8 @@ public class CardFragment extends Fragment implements PublicationsAdapter.Public
     private DatabaseReference postsRef;
     private String cardId;
     private String currentUserId;
-    private Uri imageUri;
+    // Use pendingImageUri to store the image for the next publication
+    private Uri pendingImageUri;
     private Uri editImageUri;
     private ProgressDialog progressDialog;
     private ValueEventListener publicationsListener;
@@ -62,9 +64,11 @@ public class CardFragment extends Fragment implements PublicationsAdapter.Public
     private TextView emptyStateText;
     private Publication editTargetPublication;
 
-    // New: Input bar
+    // Input bar
     private EditText publicationInput;
     private ImageButton addPhotoButton, addPublicationButton;
+    // Optional: image preview
+    private ImageView selectedImagePreview;
 
     public static CardFragment newInstance(String cardId, String originalOwnerId) {
         CardFragment fragment = new CardFragment();
@@ -134,6 +138,8 @@ public class CardFragment extends Fragment implements PublicationsAdapter.Public
         publicationInput = view.findViewById(R.id.publication_input);
         addPhotoButton = view.findViewById(R.id.add_photo_button);
         addPublicationButton = view.findViewById(R.id.add_publication_button);
+        // Optional: add an ImageView for previewing the selected image before posting
+        selectedImagePreview = view.findViewById(R.id.selected_image_preview); // Only if you add this to your layout!
         setupRecyclerView();
         setupInputBarListeners();
         progressDialog = new ProgressDialog(requireContext());
@@ -155,14 +161,60 @@ public class CardFragment extends Fragment implements PublicationsAdapter.Public
     private void setupInputBarListeners() {
         addPublicationButton.setOnClickListener(v -> {
             String content = publicationInput.getText().toString().trim();
-            if (!content.isEmpty()) {
+            // If neither text nor image, don't post
+            if ((content == null || content.isEmpty()) && pendingImageUri == null) {
+                showToast("Post cannot be empty");
+                return;
+            }
+            // If image is selected, upload it, then publish with text (possibly empty)
+            if (pendingImageUri != null) {
+                uploadImageAndCreatePublication(content, pendingImageUri);
+            } else {
+                // Only text
                 createPublication(content, null);
                 publicationInput.setText("");
-            } else {
-                showToast("Post cannot be empty");
             }
         });
+
         addPhotoButton.setOnClickListener(v -> showImagePickerDialog());
+    }
+
+    // Handles uploading image and creating publication with text+image
+    private void uploadImageAndCreatePublication(String content, Uri imageUri) {
+        progressDialog.setMessage("Uploading image...");
+        progressDialog.show();
+        try {
+            MediaManager.get().upload(imageUri)
+                    .option("folder", CLOUDINARY_FOLDER)
+                    .callback(new UploadCallback() {
+                        @Override public void onStart(String requestId) {}
+                        @Override public void onProgress(String requestId, long bytes, long totalBytes) {}
+                        @Override
+                        public void onSuccess(String requestId, Map resultData) {
+                            requireActivity().runOnUiThread(() -> {
+                                progressDialog.dismiss();
+                                String imageUrl = (String) resultData.get("secure_url");
+                                createPublication(content, imageUrl);
+                                publicationInput.setText("");
+                                pendingImageUri = null; // Clear after successful post
+                                if (selectedImagePreview != null) selectedImagePreview.setImageDrawable(null);
+                                showToast("Post published!");
+                            });
+                        }
+                        @Override
+                        public void onError(String requestId, ErrorInfo error) {
+                            requireActivity().runOnUiThread(() -> {
+                                progressDialog.dismiss();
+                                showToast("Upload failed: " + error.getDescription());
+                            });
+                        }
+                        @Override public void onReschedule(String requestId, ErrorInfo error) {}
+                    })
+                    .dispatch();
+        } catch (Exception e) {
+            progressDialog.dismiss();
+            showToast("Upload failed");
+        }
     }
 
     private void loadPublications() {
@@ -292,12 +344,12 @@ public class CardFragment extends Fragment implements PublicationsAdapter.Public
         if (intent.resolveActivity(requireActivity().getPackageManager()) != null) {
             File photoFile = createImageFile();
             if (photoFile != null) {
-                imageUri = FileProvider.getUriForFile(
+                pendingImageUri = FileProvider.getUriForFile(
                         requireContext(),
                         requireContext().getPackageName() + ".fileprovider",
                         photoFile
                 );
-                intent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
+                intent.putExtra(MediaStore.EXTRA_OUTPUT, pendingImageUri);
                 intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 startActivityForResult(intent, REQUEST_IMAGE_CAPTURE);
             }
@@ -321,10 +373,13 @@ public class CardFragment extends Fragment implements PublicationsAdapter.Public
         super.onActivityResult(requestCode, resultCode, data);
         if (resultCode == RESULT_OK) {
             if (requestCode == REQUEST_IMAGE_PICK && data != null) {
-                imageUri = data.getData();
+                pendingImageUri = data.getData();
+                if (selectedImagePreview != null) selectedImagePreview.setImageURI(pendingImageUri);
+                showToast("Image selected. You can add text and press Post.");
             }
-            if (requestCode == REQUEST_IMAGE_CAPTURE && imageUri == null && data != null) {
-                imageUri = data.getData();
+            if (requestCode == REQUEST_IMAGE_CAPTURE && pendingImageUri != null) {
+                if (selectedImagePreview != null) selectedImagePreview.setImageURI(pendingImageUri);
+                showToast("Photo captured. You can add text and press Post.");
             }
             if (requestCode == REQUEST_EDIT_IMAGE && data != null) {
                 editImageUri = data.getData();
@@ -332,59 +387,6 @@ public class CardFragment extends Fragment implements PublicationsAdapter.Public
                     uploadEditImageToCloudinary();
                 }
             }
-            if (imageUri != null && requestCode != REQUEST_EDIT_IMAGE) {
-                uploadImageToCloudinary();
-            }
-        }
-    }
-
-    private void uploadImageToCloudinary() {
-        if (imageUri == null) {
-            showToast("No image selected");
-            return;
-        }
-        progressDialog.setMessage("Uploading image...");
-        progressDialog.show();
-        try {
-            MediaManager.get().upload(imageUri)
-                    .option("folder", CLOUDINARY_FOLDER)
-                    .callback(new UploadCallback() {
-                        @Override
-                        public void onStart(String requestId) {
-                            requireActivity().runOnUiThread(() -> progressDialog.setMessage("Uploading..."));
-                        }
-                        @Override
-                        public void onProgress(String requestId, long bytes, long totalBytes) {
-                            int progress = (int) ((100 * bytes) / totalBytes);
-                            requireActivity().runOnUiThread(() -> progressDialog.setMessage("Uploading: " + progress + "%"));
-                        }
-                        @Override
-                        public void onSuccess(String requestId, Map resultData) {
-                            requireActivity().runOnUiThread(() -> {
-                                progressDialog.dismiss();
-                                String imageUrl = (String) resultData.get("secure_url");
-                                if (imageUrl != null) {
-                                    createPublication("", imageUrl);
-                                    imageUri = null;
-                                } else {
-                                    showToast("Upload failed");
-                                }
-                            });
-                        }
-                        @Override
-                        public void onError(String requestId, ErrorInfo error) {
-                            requireActivity().runOnUiThread(() -> {
-                                progressDialog.dismiss();
-                                showToast("Upload failed: " + error.getDescription());
-                            });
-                        }
-                        @Override
-                        public void onReschedule(String requestId, ErrorInfo error) {}
-                    })
-                    .dispatch();
-        } catch (Exception e) {
-            progressDialog.dismiss();
-            showToast("Upload failed");
         }
     }
 
