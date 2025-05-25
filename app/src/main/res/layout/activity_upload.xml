@@ -1,17 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    tools:context=".UploadActivity">
+    android:layout_height="wrap_content"
+    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical">
 
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="50dp"
+        android:layout_marginTop="30dp"
         android:layout_marginEnd="20dp"
         android:layout_marginStart="20dp"
         app:cardCornerRadius="30dp"
@@ -26,6 +24,7 @@
             android:background="@drawable/lavender_border">
 
             <TextView
+                android:id="@+id/createCardTitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Upload Data"
@@ -34,18 +33,19 @@
                 android:textColor="@color/lavender"
                 tools:ignore="HardcodedText" />
 
-            <ImageView
+            <!-- Use ShapeableImageView for rounded image support if you want -->
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/uploadImage"
                 android:layout_width="match_parent"
                 android:layout_height="200dp"
                 android:src="@drawable/uploadimg"
-                android:id="@+id/uploadImage"
                 android:layout_marginTop="10dp"
                 android:scaleType="fitXY"/>
 
             <EditText
+                android:id="@+id/uploadTopic"
                 android:layout_width="match_parent"
                 android:layout_height="60dp"
-                android:id="@+id/uploadTopic"
                 android:background="@drawable/lavender_border"
                 android:layout_marginTop="20dp"
                 android:padding="16dp"
@@ -55,9 +55,9 @@
                 tools:ignore="HardcodedText" />
 
             <EditText
+                android:id="@+id/uploadDesc"
                 android:layout_width="match_parent"
                 android:layout_height="80dp"
-                android:id="@+id/uploadDesc"
                 android:background="@drawable/lavender_border"
                 android:layout_marginTop="20dp"
                 android:padding="16dp"
@@ -66,29 +66,98 @@
                 android:textColor="@color/lavender"
                 tools:ignore="HardcodedText" />
 
-            <EditText
-                android:layout_width="match_parent"
-                android:layout_height="60dp"
-                android:id="@+id/uploadLang"
-                android:background="@drawable/lavender_border"
-                android:layout_marginTop="20dp"
-                android:padding="16dp"
-                android:hint="Enter language"
-                android:gravity="start|center_vertical"
-                android:textColor="@color/lavender"/>
+<!--            <EditText-->
+<!--                android:id="@+id/uploadLang"-->
+<!--                android:layout_width="match_parent"-->
+<!--                android:layout_height="60dp"-->
+<!--                android:background="@drawable/lavender_border"-->
+<!--                android:layout_marginTop="20dp"-->
+<!--                android:padding="16dp"-->
+<!--                android:hint="Enter language"-->
+<!--                android:gravity="start|center_vertical"-->
+<!--                android:textColor="@color/lavender"/>-->
+
+<!--            &lt;!&ndash; Shareable Checkbox &ndash;&gt;-->
+<!--            <CheckBox-->
+<!--                android:id="@+id/shareableCheckbox"-->
+<!--                android:layout_width="wrap_content"-->
+<!--                android:layout_height="wrap_content"-->
+<!--                android:text="Make card shareable (camp card)"-->
+<!--                android:layout_marginTop="14dp"-->
+<!--                android:textColor="@color/lavender"/>-->
+
+<!--            &lt;!&ndash; Full Image Checkbox &ndash;&gt;-->
+<!--            <CheckBox-->
+<!--                android:id="@+id/fullImageCheckbox"-->
+<!--                android:layout_width="wrap_content"-->
+<!--                android:layout_height="wrap_content"-->
+<!--                android:text="Image covers entire card"-->
+<!--                android:textColor="@color/lavender"/>-->
+
+<!--            &lt;!&ndash; Start Date Picker &ndash;&gt;-->
+<!--            <LinearLayout-->
+<!--                android:layout_width="match_parent"-->
+<!--                android:layout_height="wrap_content"-->
+<!--                android:orientation="horizontal"-->
+<!--                android:layout_marginTop="14dp"-->
+<!--                android:gravity="center_vertical">-->
+
+<!--                <TextView-->
+<!--                    android:id="@+id/startDateLabel"-->
+<!--                    android:layout_width="0dp"-->
+<!--                    android:layout_weight="1"-->
+<!--                    android:layout_height="wrap_content"-->
+<!--                    android:text="Start Date: Not set"-->
+<!--                    android:textColor="@color/lavender"/>-->
+<!--                <Button-->
+<!--                    android:id="@+id/pickStartDateBtn"-->
+<!--                    android:layout_width="wrap_content"-->
+<!--                    android:layout_height="wrap_content"-->
+<!--                    android:text="Pick"-->
+<!--                    android:textColor="@color/lavender"-->
+<!--                    android:backgroundTint="@android:color/transparent"-->
+<!--                    android:minWidth="0dp"-->
+<!--                    android:minHeight="0dp"-->
+<!--                    android:padding="4dp"/>-->
+<!--            </LinearLayout>-->
+
+            <!-- End Date Picker -->
+<!--            <LinearLayout-->
+<!--                android:layout_width="match_parent"-->
+<!--                android:layout_height="wrap_content"-->
+<!--                android:orientation="horizontal"-->
+<!--                android:layout_marginTop="8dp"-->
+<!--                android:gravity="center_vertical">-->
+
+<!--                <TextView-->
+<!--                    android:id="@+id/endDateLabel"-->
+<!--                    android:layout_width="0dp"-->
+<!--                    android:layout_weight="1"-->
+<!--                    android:layout_height="wrap_content"-->
+<!--                    android:text="End Date: Not set"-->
+<!--                    android:textColor="@color/lavender"/>-->
+<!--                <Button-->
+<!--                    android:id="@+id/pickEndDateBtn"-->
+<!--                    android:layout_width="wrap_content"-->
+<!--                    android:layout_height="wrap_content"-->
+<!--                    android:text="Pick"-->
+<!--                    android:textColor="@color/lavender"-->
+<!--                    android:backgroundTint="@android:color/transparent"-->
+<!--                    android:minWidth="0dp"-->
+<!--                    android:minHeight="0dp"-->
+<!--                    android:padding="4dp"/>-->
+<!--            </LinearLayout>-->
 
             <Button
+                android:id="@+id/saveButton"
                 android:layout_width="match_parent"
                 android:layout_height="60dp"
                 android:text="Save"
-                android:id="@+id/saveButton"
                 android:textSize="18sp"
                 android:layout_marginTop="20dp"
-                app:cornerRadius = "20dp"
+                app:cornerRadius="20dp"
                 tools:ignore="HardcodedText" />
 
         </LinearLayout>
-
     </androidx.cardview.widget.CardView>
-
 </ScrollView>

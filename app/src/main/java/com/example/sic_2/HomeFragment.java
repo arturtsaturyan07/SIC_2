@@ -15,6 +15,7 @@ import android.widget.*;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.cardview.widget.CardView;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.appcompat.widget.SearchView;
@@ -149,126 +150,121 @@ public class HomeFragment extends Fragment {
         void onUploaded(String imageUrl);
     }
 
+    // Inside your HomeFragment
+
     private void showCardCreationDialog() {
         if (!isAdded() || getContext() == null) return;
 
-        try {
-            AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
-            builder.setTitle("Create New Card");
+        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
+        LayoutInflater inflater = LayoutInflater.from(requireContext());
+        View dialogView = inflater.inflate(R.layout.activity_upload, null, false);
 
-            final EditText titleInput = new EditText(requireContext());
-            titleInput.setHint("Title");
-            titleInput.setSingleLine();
+        final ImageView uploadImage = dialogView.findViewById(R.id.uploadImage);
+        final EditText uploadTopic = dialogView.findViewById(R.id.uploadTopic);
+        final EditText uploadDesc = dialogView.findViewById(R.id.uploadDesc);
+        // final EditText uploadLang = dialogView.findViewById(R.id.uploadLang);
+        final Button saveButton = dialogView.findViewById(R.id.saveButton);
 
-            final EditText descInput = new EditText(requireContext());
-            descInput.setHint("Description (Optional)");
+        // === Additional UI for your rich features ===
+        final CheckBox shareableCheckbox = new CheckBox(requireContext());
+        shareableCheckbox.setText("Make card shareable (camp card)");
+        final CheckBox fullImageCheckbox = new CheckBox(requireContext());
+        fullImageCheckbox.setText("Image covers entire card");
 
-            final CheckBox shareableCheckbox = new CheckBox(requireContext());
-            shareableCheckbox.setText("Make card shareable (camp card)");
+        final TextView startDateLabel = new TextView(requireContext());
+        startDateLabel.setText("Start Date: Not set");
+        final TextView endDateLabel = new TextView(requireContext());
+        endDateLabel.setText("End Date: Not set");
+        final Button pickStartDateBtn = new Button(requireContext());
+        pickStartDateBtn.setText("Pick Start Date");
+        final Button pickEndDateBtn = new Button(requireContext());
+        pickEndDateBtn.setText("Pick End Date");
 
-            // New checkbox for image display mode
-            final CheckBox fullImageCheckbox = new CheckBox(requireContext());
-            fullImageCheckbox.setText("Image covers entire card");
+        final long[] startDateMillis = {0};
+        final long[] endDateMillis = {0};
 
-            dialogImageView = new ShapeableImageView(requireContext());
-            dialogImageView.setLayoutParams(new LinearLayout.LayoutParams(200, 200));
-            dialogImageView.setImageResource(R.drawable.uploadimg);
-            dialogImageView.setPadding(0, 24, 0, 24);
-            dialogImageView.setOnClickListener(v -> {
-                Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-                startActivityForResult(intent, PICK_IMAGE_REQUEST);
-            });
+        pickStartDateBtn.setOnClickListener(v -> {
+            Calendar cal = Calendar.getInstance();
+            DatePickerDialog dialog = new DatePickerDialog(requireContext(), (view, year, month, dayOfMonth) -> {
+                Calendar chosen = Calendar.getInstance();
+                chosen.set(year, month, dayOfMonth, 0, 0, 0);
+                startDateMillis[0] = chosen.getTimeInMillis();
+                startDateLabel.setText("Start Date: " + (month + 1) + "/" + dayOfMonth + "/" + year);
+            }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH));
+            dialog.show();
+        });
 
-            final TextView startDateLabel = new TextView(requireContext());
-            startDateLabel.setText("Start Date: Not set");
+        pickEndDateBtn.setOnClickListener(v -> {
+            Calendar cal = Calendar.getInstance();
+            DatePickerDialog dialog = new DatePickerDialog(requireContext(), (view, year, month, dayOfMonth) -> {
+                Calendar chosen = Calendar.getInstance();
+                chosen.set(year, month, dayOfMonth, 0, 0, 0);
+                endDateMillis[0] = chosen.getTimeInMillis();
+                endDateLabel.setText("End Date: " + (month + 1) + "/" + dayOfMonth + "/" + year);
+            }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH));
+            dialog.show();
+        });
 
-            final TextView endDateLabel = new TextView(requireContext());
-            endDateLabel.setText("End Date: Not set");
+        LinearLayout layout = (LinearLayout) ((CardView) ((ScrollView) dialogView).getChildAt(0)).getChildAt(0);
+        layout.addView(shareableCheckbox, layout.indexOfChild(saveButton));
+        layout.addView(fullImageCheckbox, layout.indexOfChild(saveButton));
+        layout.addView(startDateLabel, layout.indexOfChild(saveButton));
+        layout.addView(pickStartDateBtn, layout.indexOfChild(saveButton));
+        layout.addView(endDateLabel, layout.indexOfChild(saveButton));
+        layout.addView(pickEndDateBtn, layout.indexOfChild(saveButton));
 
-            final Button pickStartDateBtn = new Button(requireContext());
-            pickStartDateBtn.setText("Pick Start Date");
+        // === End additional UI ===
 
-            final Button pickEndDateBtn = new Button(requireContext());
-            pickEndDateBtn.setText("Pick End Date");
+        // Handle image picker
+        uploadImage.setOnClickListener(v -> {
+            dialogImageView = (ShapeableImageView) uploadImage; // NO CAST!!
+            imageUri = null;
+            Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+            startActivityForResult(intent, PICK_IMAGE_REQUEST);
+        });
 
-            final long[] startDateMillis = {0};
-            final long[] endDateMillis = {0};
+        builder.setView(dialogView);
+        AlertDialog dialog = builder.create();
+        dialog.show();
 
-            pickStartDateBtn.setOnClickListener(v -> {
-                Calendar cal = Calendar.getInstance();
-                DatePickerDialog dialog = new DatePickerDialog(requireContext(), (view, year, month, dayOfMonth) -> {
-                    Calendar chosen = Calendar.getInstance();
-                    chosen.set(year, month, dayOfMonth, 0, 0, 0);
-                    startDateMillis[0] = chosen.getTimeInMillis();
-                    startDateLabel.setText("Start Date: " + (month + 1) + "/" + dayOfMonth + "/" + year);
-                }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH));
-                dialog.show();
-            });
+        saveButton.setOnClickListener(v -> {
+            String topic = uploadTopic.getText().toString().trim();
+            String description = uploadDesc.getText().toString().trim();
+            //String language = uploadLang.getText().toString().trim();
+            boolean isShareable = shareableCheckbox.isChecked();
+            boolean isFullImage = fullImageCheckbox.isChecked();
+            long startDate = startDateMillis[0];
+            long endDate = endDateMillis[0];
 
-            pickEndDateBtn.setOnClickListener(v -> {
-                Calendar cal = Calendar.getInstance();
-                DatePickerDialog dialog = new DatePickerDialog(requireContext(), (view, year, month, dayOfMonth) -> {
-                    Calendar chosen = Calendar.getInstance();
-                    chosen.set(year, month, dayOfMonth, 0, 0, 0);
-                    endDateMillis[0] = chosen.getTimeInMillis();
-                    endDateLabel.setText("End Date: " + (month + 1) + "/" + dayOfMonth + "/" + year);
-                }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH));
-                dialog.show();
-            });
+            if (topic.isEmpty()) {
+                showToast("Topic is required");
+                return;
+            }
+            if (startDate == 0 || endDate == 0) {
+                showToast("Please select start and end dates");
+                return;
+            }
+            if (endDate < startDate) {
+                showToast("End date cannot be before start date");
+                return;
+            }
 
-            LinearLayout layout = new LinearLayout(requireContext());
-            layout.setOrientation(LinearLayout.VERTICAL);
-            layout.setPadding(32, 16, 32, 16);
-            layout.addView(titleInput);
-            layout.addView(descInput);
-            layout.addView(shareableCheckbox);
-            layout.addView(fullImageCheckbox); // <-- Add the new checkbox here!
-            layout.addView(dialogImageView);
-            layout.addView(startDateLabel);
-            layout.addView(pickStartDateBtn);
-            layout.addView(endDateLabel);
-            layout.addView(pickEndDateBtn);
+            saveButton.setEnabled(false);
 
-            builder.setView(layout);
-            builder.setPositiveButton("Create", (dialog, which) -> {
-                String title = titleInput.getText().toString().trim();
-                String description = descInput.getText().toString().trim();
-                boolean isShareable = shareableCheckbox.isChecked();
-                boolean isFullImage = fullImageCheckbox.isChecked(); // <-- get value
-
-                long startDate = startDateMillis[0];
-                long endDate = endDateMillis[0];
-
-                if (title.isEmpty()) {
-                    showToast("Title cannot be empty");
-                    return;
-                }
-                if (startDate == 0 || endDate == 0) {
-                    showToast("Please select start and end dates");
-                    return;
-                }
-                if (endDate < startDate) {
-                    showToast("End date cannot be before start date");
-                    return;
-                }
-
-                if (imageUri != null) {
-                    uploadImageToCloudinary(imageUri, imageUrl -> {
-                        if (imageUrl != null) {
-                            createNewCard(title, description, isShareable, startDate, endDate, imageUrl, isFullImage);
-                        } else {
-                            showToast("Card not created due to image upload error.");
-                        }
-                    });
-                } else {
-                    createNewCard(title, description, isShareable, startDate, endDate, null, isFullImage);
-                }
-            });
-            builder.setNegativeButton("Cancel", null);
-            builder.show();
-        } catch (IllegalStateException e) {
-            Log.e("HomeFragment", "Error showing card creation dialog", e);
-        }
+            if (imageUri != null) {
+                uploadImageToCloudinary(imageUri, imageUrl -> {
+                    if (imageUrl != null) {
+                        createNewCard(topic, description, isShareable, startDate, endDate, imageUrl, isFullImage);
+                    } else {
+                        showToast("Image upload failed.");
+                    }
+                    dialog.dismiss();
+                });
+            } else {
+                createNewCard(topic, description, isShareable, startDate, endDate, null, isFullImage);
+                dialog.dismiss();
+            }
+        });
     }
 
 
